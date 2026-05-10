@@ -1,4 +1,4 @@
-import {useState, useCallback} from 'react';
+import {useState} from 'react';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
@@ -8,8 +8,7 @@ import {    RotateLeftOutlined, RotateRightOutlined,
 import Icon from '@ant-design/icons';
 
 import { Handle, NodeProps, NodeToolbar, Position,
-    useReactFlow, useUpdateNodeInternals, NodeResizer, type Edge,
-    useOnSelectionChange, OnSelectionChangeParams } from '@xyflow/react';
+    useReactFlow, useUpdateNodeInternals, NodeResizer, type Edge } from '@xyflow/react';
 
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +16,8 @@ import { ComponentDataType, edgePoint, type GeneralComponent, ImageDataType } fr
 import { colorNameToRGBString, stripCheckAndDivideIfMiddleConnection} from '../utils/utils_functions';
 import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_functions.ts';
 import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
+import { useUndoRedo } from '../utils/undoRedo.tsx';
+import { useSelectedElementsCount } from '../utils/useSelectedElementsCount.ts';
 
 import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, message, Button as AntButton, Table} from 'antd';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
@@ -42,6 +43,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     const compData = data;
 
     const reactFlowInstance = useReactFlow();
+    const { takeSnapshot } = useUndoRedo();
     //const { x, y, zoom } = useViewport();
     //const nodeRect = reactFlowInstance.getNodesBounds([id]);
 
@@ -71,20 +73,8 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     const resizableX=compData.resizableX || false;
     const backgroundImageURL=(compData.noBackgroundImage?"":( compData.image?.url || ""));
 
-    const [multipleSelect, setMultipleSelect]=useState(false);
-
-    // the passed handler has to be memoized, otherwise the hook will not work correctly
-    const onChange = useCallback(({ nodes, edges } : OnSelectionChangeParams) => {
-    if(nodes.length + edges.length >1) {
-        setMultipleSelect(true);
-    } else {
-        setMultipleSelect(false);
-    }
-    }, []);
-    
-    useOnSelectionChange({
-    onChange,
-    });
+    const selectedElementsCount = useSelectedElementsCount();
+    const multipleSelect = selectedElementsCount > 1;
 
     const borderWidth = compData.borderWidth || 2;
     const repeatedHandleArray = compData.repeatedHandleArray || [];
@@ -242,6 +232,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     const applyComponentUpdates = () => {
         if(!componentTemplateData) return;
 
+        takeSnapshot('update component template');
         const updatedComponentData = buildUpdatedComponentData(compData, componentTemplateData);
         reactFlowInstance.updateNodeData(id, updatedComponentData);
         updateNodeInternals(id);
@@ -447,6 +438,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     sourceHandle: startNodeHid as string,
                     targetHandle: value as string,
                 } as Edge;
+                takeSnapshot('connect wire from pin menu');
                 reactFlowInstance.addEdges(edge);
 
                 // check if middle handle of a led strip is used and therefore it must be phyically divided
@@ -473,7 +465,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
       <>
         {messageContextHolder}
         <NodeToolbar
-            isVisible={undefined}
+            isVisible={selected && !multipleSelect}
             position={Position.Top}
             align={"center"}
         >
@@ -484,6 +476,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 >
                     <button
                         onClick={()=>{
+                            takeSnapshot('rotate component');
                             reactFlowInstance.updateNodeData(id, {rotation: ( ((rotation) +90+180) % 360)});
                             updateNodeInternals(id);
                         }}
@@ -497,6 +490,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 >
                     <button
                         onClick={()=>{
+                            takeSnapshot('rotate component');
                             reactFlowInstance.updateNodeData(id, {rotation: ( ((rotation) +90) % 360)});
                             updateNodeInternals(id);
                         }}
@@ -522,6 +516,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     onClick={()=>{
                         const newNode = structuredClone(reactFlowInstance.getNode(id));
                         if(newNode!=undefined) {
+                            takeSnapshot('copy component');
                             newNode.id = String(Math.random());
                             newNode.position = {x:newNode.position.x+20, y: newNode.position.y+20};
                             if(compData.physLengths != undefined) {
@@ -590,6 +585,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('resize component');
                         reactFlowInstance.updateNodeData(id, {nodeLength: (compData.nodeLength || 1)+1});
                     }}
                 ><ArrowsAltOutlined rotate={45+rotation}/></button>
@@ -602,6 +598,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('resize component');
                         reactFlowInstance.updateNodeData(id, {nodeLength: (compData.nodeLength || 1)-1});
                     }}
                 ><ShrinkOutlined rotate={45+rotation}/></button>
@@ -615,6 +612,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('resize component');
                         const newnodeLength=nodeLength+1;
                         let newrepeatedHandleArray=structuredClone(compData.repeatedHandleArray);
                         compData.handles.map((handleData)=> {
@@ -645,6 +643,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('resize component');
                         const newrepeatedHandleArray=structuredClone(compData.repeatedHandleArray);
                         const newnodeLength=(nodeLength==1)?1:nodeLength-1;
                         //console.log("repeatedHandleArray=", newrepeatedHandleArray);
@@ -693,7 +692,10 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                   size={"small"}
                   //disabledAlpha={true}
                   open={openColorPicker}
-                  onOpenChange={(open) => setOpenColorPicker(open)}
+                  onOpenChange={(open) => {
+                    if(open) takeSnapshot('update component color');
+                    setOpenColorPicker(open);
+                  }}
                   //format={"rgb"}
                   onChange={(_,color)=>{
                     const newHandles=structuredClone(compData.handles);
@@ -721,7 +723,10 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     defaultValue={colorNameToRGBString(compData.color || "black")}
                     size={"small"}
                     //disabledAlpha={true}
-                    onOpenChange={(open) => setOpenColorPicker(open)}
+                    onOpenChange={(open) => {
+                        if(open) takeSnapshot('update component color');
+                        setOpenColorPicker(open);
+                    }}
                     //format={"rgb"}
                     onChange={(_,color)=>{
                         reactFlowInstance.updateNodeData(id, {color: color});
@@ -739,7 +744,10 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     defaultValue={colorNameToRGBString(compData.textColor || "black")}
                     size={"small"}
                     //disabledAlpha={true}
-                    onOpenChange={(open) => setOpenColorPicker(open)}
+                    onOpenChange={(open) => {
+                        if(open) takeSnapshot('update text color');
+                        setOpenColorPicker(open);
+                    }}
                     //format={"rgb"}
                     onChange={(_,color)=>{
                         reactFlowInstance.updateNodeData(id, {textColor: color});
@@ -756,6 +764,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 >
                     <button
                     onClick={()=>{
+                        takeSnapshot('update component fill');
                         reactFlowInstance.updateNodeData(id, {onlyBorder: false});
                         updateNodeInternals(id);
                     }}
@@ -769,6 +778,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 >
                         <button
                         onClick={()=>{
+                            takeSnapshot('update component fill');
                             reactFlowInstance.updateNodeData(id, {onlyBorder: true});
                             updateNodeInternals(id);
                         }}
@@ -782,6 +792,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('update text size');
                         reactFlowInstance.updateNodeData(id, {infoTextSize: (compData.infoTextSize || 12)+2});
                     }}
                 ><CaretUpOutlined /></button>
@@ -794,6 +805,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             >
                 <button
                     onClick={()=>{
+                        takeSnapshot('update text size');
                         reactFlowInstance.updateNodeData(id, {infoTextSize: (compData.infoTextSize || 12)-2});
                     }}
                 ><CaretDownOutlined /></button>
@@ -803,9 +815,12 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
         {
             compData.applyNodeResizer && <NodeResizer
                 color="#ff0071"
-                isVisible={selected}
+                isVisible={selected && !multipleSelect}
                 minWidth={5}
                 minHeight={5}
+                onResizeStart={() => {
+                    takeSnapshot('resize component');
+                }}
                 onResize={(_, { width, height }) => {
                     const img=structuredClone(compData.image) as ImageDataType;
                     img.height=height;
@@ -910,6 +925,9 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     defaultValue={compData.InfoText}
                     className='nopan nodrag'
                     variant='borderless'
+                    onFocus={() => {
+                        takeSnapshot('update info text');
+                    }}
                     onChange={(e)=>{
                         reactFlowInstance.updateNodeData(id, {InfoText: e.target.value});
                     }}
@@ -1013,6 +1031,9 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                         suffix="m"
                         defaultValue={(length || 0) as number}
                         min={0} max={100}
+                        onFocus={() => {
+                            takeSnapshot('update physical length');
+                        }}
                         onChange={(value)=>{
                             const physLengths=(compData.physLengths || [{startIndex: 0, length:undefined}]);
                             physLengths[index].length=(value || 0);
@@ -1128,6 +1149,9 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                                 min={inputFieldData.min}
                                 max={inputFieldData.max}
                                 step={0.1}
+                                onFocus={() => {
+                                    takeSnapshot('update component input');
+                                }}
                                 onChange={(value)=>{
                                     const inputFields=structuredClone(compData.inputFields);
                                     if(inputFields!=undefined) {
@@ -1195,6 +1219,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                                     width: `${selectFieldData.fieldWidth}px`,
                                 }}
                                 onChange={(value, _)=> {
+                                    takeSnapshot('update component option');
                                     const selectFields=structuredClone(compData.selectFields);
                                     if(selectFields!=undefined) {
                                         const index=selectFields?.findIndex(e=>(e.technicalID==selectFieldData.technicalID));

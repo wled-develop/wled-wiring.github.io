@@ -19,12 +19,17 @@ import {
   createOrthogonalWireDragSnapshot,
   type OrthogonalWireDragSnapshot,
 } from './utils/orthogonalWireRouting.ts';
+import {
+  UndoRedoProvider,
+  useUndoRedoController,
+  type DiagramSnapshot,
+} from './utils/undoRedo.tsx';
 
 import {postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
 
 import { SolderJoint } from './components/ComponentTypes/SolderJoint.ts';
 
-import {SelectOutlined, DeleteOutlined} from '@ant-design/icons';
+import {SelectOutlined, DeleteOutlined, RedoOutlined, UndoOutlined} from '@ant-design/icons';
 import ConnectionIcon from './icons/connection.svg?react';
 import ConnectionPFIcon from './icons/connectionPF.svg?react';
 
@@ -55,6 +60,7 @@ import {
   type Node,
   type Connection,
   type OnNodeDrag,
+  type OnBeforeDelete,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -108,6 +114,25 @@ const FlowApp = () => {
   const reactFlow = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
 
+  const getDiagramSnapshot = useCallback((): DiagramSnapshot => ({
+    nodes: reactFlow.getNodes(),
+    edges: reactFlow.getEdges(),
+  }), [reactFlow]);
+
+  const restoreDiagramSnapshot = useCallback((snapshot: DiagramSnapshot) => {
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+    setTimeout(() => {
+      snapshot.nodes.forEach((node) => updateNodeInternals(node.id));
+    }, 0);
+    SetTriggerState((value) => value + 1);
+  }, [setEdges, setNodes, updateNodeInternals]);
+
+  const undoRedo = useUndoRedoController({
+    getSnapshot: getDiagramSnapshot,
+    restoreSnapshot: restoreDiagramSnapshot,
+  });
+
   const url_params_object = new URLSearchParams( window.location.search );
   const link=url_params_object.get("link");
 
@@ -122,6 +147,7 @@ const FlowApp = () => {
       cancelText: t('message.componentUpdatesSkip'),
       onOk: () => {
         let updatedNodeIds: string[] = [];
+        undoRedo.takeSnapshot('component template update');
         setNodes((currentNodes) => {
           const result = applyComponentTemplateUpdatesToNodes(currentNodes);
           updatedNodeIds = result.updatedNodeIds;
@@ -136,7 +162,7 @@ const FlowApp = () => {
         });
       },
     });
-  }, [modalApi, notificationApi, setNodes, t, updateNodeInternals]);
+  }, [modalApi, notificationApi, setNodes, t, undoRedo, updateNodeInternals]);
 
   const onInit:OnInit = useCallback((rflow) => {
     if(link) {
@@ -161,6 +187,7 @@ const FlowApp = () => {
             rflow.setNodes(loadedNodes);
             rflow.setEdges(data.edges || []);
             rflow.setViewport(data.viewport);
+            undoRedo.clearHistory();
             messageApi.destroy();
             notificationApi['success']({
               message: t('message.loadModelSuccessShort'),
@@ -184,7 +211,7 @@ const FlowApp = () => {
         });
       }
     }
-  }, [askForComponentTemplateUpdates, link, messageApi, notificationApi, t]);
+  }, [askForComponentTemplateUpdates, link, messageApi, notificationApi, t, undoRedo]);
 
   //const [{ canDrop, isOver }, drop] = useDrop(() => ({
   const [,drop] = useDrop(() => ({
@@ -206,6 +233,7 @@ const FlowApp = () => {
         position,
         data: structuredClone(_item),
       };
+      undoRedo.takeSnapshot('add component');
       setNodes((nds) => nds.concat(newNode));
 
       return {name: 'YourRactFlow' };
@@ -214,7 +242,7 @@ const FlowApp = () => {
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop(),
     }),
-  }))
+  }), [reactFlow, setNodes, undoRedo])
 
   const onConnectEnd: OnConnectEnd = useCallback((_, connectionState)=>{
 
@@ -223,6 +251,7 @@ const FlowApp = () => {
     let handleAndNodeArray=[] as Array<{thisParamsNodeID:string, thisParamsHandleID: string}>;
 
     if (connectionState.isValid) {
+      undoRedo.takeSnapshot('connect wire');
       // this we add an edge between existing nodes
       const sourceNode=connectionState.fromNode;
 
@@ -327,6 +356,7 @@ const FlowApp = () => {
       const edgePoints=useZustandStore.getState().edgePoints;
 
       if(retval.pType!=undefined) {
+        undoRedo.takeSnapshot('connect wire to existing wire');
         // put SolderJoint node at this position
         const type='general-component-type';
         const newNode = {
@@ -391,7 +421,7 @@ const FlowApp = () => {
 
     stripCheckAndDivideIfMiddleConnection(reactFlow, handleAndNodeArray);
 
-  }, [setNodes, setEdges, reactFlow]);
+  }, [setNodes, setEdges, reactFlow, undoRedo]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds1) => {
@@ -413,11 +443,12 @@ const FlowApp = () => {
   );
 
   const onNodeDragStart: OnNodeDrag = useCallback(() => {
+    undoRedo.takeSnapshot('move component');
     orthogonalWireDragSnapshotRef.current = createOrthogonalWireDragSnapshot(
       reactFlow.getNodes(),
       reactFlow.getEdges(),
     );
-  }, [reactFlow]);
+  }, [reactFlow, undoRedo]);
 
   const getNodesWithDraggedPositions = useCallback((draggedNodes: Node[]) => {
     const nodeById = new Map(reactFlow.getNodes().map((node) => [node.id, node]));
@@ -450,6 +481,14 @@ const FlowApp = () => {
     orthogonalWireDragSnapshotRef.current = null;
     SetTriggerState((value) => value + 1);
   }, [getNodesWithDraggedPositions, setEdges]);
+
+  const onBeforeDelete: OnBeforeDelete = useCallback(async ({ nodes, edges }) => {
+    if (nodes.length > 0 || edges.length > 0) {
+      undoRedo.takeSnapshot('delete');
+    }
+
+    return true;
+  }, [undoRedo]);
 
   const onSelectionChange:OnSelectionChangeFunc = useCallback(({ nodes, edges }) => {
     setPanOnDrag(true);
@@ -585,10 +624,11 @@ const FlowApp = () => {
         },
       }}
     >
-      {messageContextHolder}
-      {notificationContextHolder}
-      {modalContextHolder}
-      <div id="app_container">
+      <UndoRedoProvider value={undoRedo}>
+        {messageContextHolder}
+        {notificationContextHolder}
+        {modalContextHolder}
+        <div id="app_container">
         <div id="headerRow" style={{borderBottomColor: token.colorBorder}}>
             <div style={{flex: "1 1 auto", textAlign: 'center'}}>
               <h2 
@@ -623,6 +663,7 @@ const FlowApp = () => {
               connectionLineComponent={ConnectionLine}
               defaultEdgeOptions={defaultEdgeOptions}
               onDelete={onDeleteNodeOrEdge}
+              onBeforeDelete={onBeforeDelete}
               onSelectionChange={onSelectionChange}
               //onMouseMove={(event)=>{
               //  const pos=reactFlow.screenToFlowPosition({x:event.clientX, y:event.clientY});
@@ -665,6 +706,20 @@ const FlowApp = () => {
                   }, 1);
                 }}
               >
+                <ControlButton
+                  onClick={undoRedo.undo}
+                  disabled={!undoRedo.canUndo}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <UndoOutlined />
+                </ControlButton>
+                <ControlButton
+                  onClick={undoRedo.redo}
+                  disabled={!undoRedo.canRedo}
+                  title="Redo (Ctrl+Shift+Z)"
+                >
+                  <RedoOutlined />
+                </ControlButton>
                 <ControlButton
                   onClick={() => {
                     setPanOnDrag(false);
@@ -852,6 +907,7 @@ const FlowApp = () => {
           </div>
         </div>
       </Modal>
+      </UndoRedoProvider>
     </ConfigProvider>
   );
 }

@@ -11,6 +11,7 @@ import { toPng, toJpeg, toSvg } from 'html-to-image';
 import { getCurrentURL, getAdaptedBounds } from '../utils/utils_functions';
 import { createDiagramExportJson } from '../utils/exportModel';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from '../utils/componentTemplateUpdates';
+import { useUndoRedo } from '../utils/undoRedo';
 
 type ImportedFlow = {
   nodes: Node[];
@@ -58,6 +59,7 @@ export const ImportExportPage = () => {
   const updateNodeInternals = useUpdateNodeInternals();
   const [messageApi, messageContextHolder] = message.useMessage();
   const [modalApi, modalContextHolder] = Modal.useModal();
+  const { clearHistory, takeSnapshot } = useUndoRedo();
 
   const askForComponentTemplateUpdates = (loadedNodes: Node[]) => {
     const updateInfos = findNodeComponentTemplateUpdates(loadedNodes, t('sidebar.components.updateValueMissing'));
@@ -70,6 +72,7 @@ export const ImportExportPage = () => {
       cancelText: t('message.componentUpdatesSkip'),
       onOk: () => {
         let updatedNodeIds: string[] = [];
+        takeSnapshot('component template update');
         reactFlow.setNodes((currentNodes) => {
           const result = applyComponentTemplateUpdatesToNodes(currentNodes);
           updatedNodeIds = result.updatedNodeIds;
@@ -217,6 +220,7 @@ export const ImportExportPage = () => {
                       reactFlow.setNodes(flow.nodes);
                       reactFlow.setEdges(flow.edges);
                       reactFlow.setViewport(flow.viewport);
+                      clearHistory();
                       setTimeout(() => {
                         askForComponentTemplateUpdates(flow.nodes);
                       }, 0);
