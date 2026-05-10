@@ -19,6 +19,7 @@ import {
   createOrthogonalWireDragSnapshot,
   type OrthogonalWireDragSnapshot,
 } from './utils/orthogonalWireRouting.ts';
+import { snapMovedNodePositions } from './utils/nodeMoveSnap.ts';
 import {
   UndoRedoProvider,
   useUndoRedoController,
@@ -463,24 +464,42 @@ const FlowApp = () => {
   const onNodeDrag: OnNodeDrag = useCallback((_, __, draggedNodes) => {
     const snapshot = orthogonalWireDragSnapshotRef.current;
     if (!snapshot) return;
+    const snapResult = snapMovedNodePositions({
+      snapshot,
+      currentNodes: getNodesWithDraggedPositions(draggedNodes),
+      draggedNodeIds: draggedNodes.map((node) => node.id),
+      zoom: reactFlow.getZoom(),
+    });
+    if(snapResult.snapped) {
+      setNodes(snapResult.nodes);
+    }
 
     setEdges(adjustOrthogonalWiresForMovedNodes(
       snapshot,
-      getNodesWithDraggedPositions(draggedNodes),
+      snapResult.nodes,
     ));
-  }, [getNodesWithDraggedPositions, setEdges]);
+  }, [getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
 
   const onNodeDragStop: OnNodeDrag = useCallback((_, __, draggedNodes) => {
     const snapshot = orthogonalWireDragSnapshotRef.current;
     if (!snapshot) return;
+    const snapResult = snapMovedNodePositions({
+      snapshot,
+      currentNodes: getNodesWithDraggedPositions(draggedNodes),
+      draggedNodeIds: draggedNodes.map((node) => node.id),
+      zoom: reactFlow.getZoom(),
+    });
+    if(snapResult.snapped) {
+      setNodes(snapResult.nodes);
+    }
 
     setEdges(adjustOrthogonalWiresForMovedNodes(
       snapshot,
-      getNodesWithDraggedPositions(draggedNodes),
+      snapResult.nodes,
     ));
     orthogonalWireDragSnapshotRef.current = null;
     SetTriggerState((value) => value + 1);
-  }, [getNodesWithDraggedPositions, setEdges]);
+  }, [getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
 
   const onBeforeDelete: OnBeforeDelete = useCallback(async ({ nodes, edges }) => {
     if (nodes.length > 0 || edges.length > 0) {
