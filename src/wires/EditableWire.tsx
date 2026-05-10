@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useRef} from 'react';
 
 import {
   EdgeProps,
@@ -7,8 +7,6 @@ import {
   EdgeLabelRenderer,
   useReactFlow,
   useInternalNode,
-  useOnSelectionChange,
-  OnSelectionChangeParams,
   type Edge,
 } from "@xyflow/react";
 
@@ -30,6 +28,8 @@ import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
 import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
 import {colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
 import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
+import { useUndoRedo } from "../utils/undoRedo.tsx";
+import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
 
 const ROUNDN=1;
 
@@ -97,21 +97,11 @@ export default function EditableWire ({
   const [notMooved, setNotMooved] = useState(true);
 
   const reactFlowInstance=useReactFlow();
+  const { takeSnapshot } = useUndoRedo();
+  const edgePointDragSnapshotTakenRef = useRef(false);
 
-  const [multipleSelect, setMultipleSelect]=useState(false);
-
-  // the passed handler has to be memoized, otherwise the hook will not work correctly
-  const onChange = useCallback(({ nodes, edges } : OnSelectionChangeParams) => {
-    if(nodes.length + edges.length >1) {
-      setMultipleSelect(true);
-    } else {
-      setMultipleSelect(false);
-    }
-  }, []);
- 
-  useOnSelectionChange({
-    onChange,
-  });
+  const selectedElementsCount = useSelectedElementsCount();
+  const multipleSelect = selectedElementsCount > 1;
 
   const sourceNode = useInternalNode(source);
   const sourceHandle=sourceNode?.internals.handleBounds?.source?.filter((handle)=>(handle.id==sourceHandleId))[0];
@@ -330,6 +320,10 @@ export default function EditableWire ({
 
 
   const snapActive = (index: number) => {
+    if(!edgePointDragSnapshotTakenRef.current) {
+      takeSnapshot('move wire point');
+      edgePointDragSnapshotTakenRef.current = true;
+    }
     const edges = reactFlowInstance.getEdges();
     // find index of this edge
     const edgeIndex = edges.findIndex((edge) => edge.id === id);
@@ -352,6 +346,7 @@ export default function EditableWire ({
           const new_data=edgeData;
           new_data.edgePoints[index].active=-1;
           reactFlowInstance.updateEdgeData(id, new_data, {replace: true});
+          edgePointDragSnapshotTakenRef.current = false;
           //console.log("Released");
         }
 
@@ -406,7 +401,9 @@ export default function EditableWire ({
   const updateWireDataAndCollapseIfPossible = (
     patch: Partial<EdgeDataType>,
     wireInfoPatch?: Partial<ComponentDataType>,
+    shouldTakeSnapshot = true,
   ) => {
+    if(shouldTakeSnapshot) takeSnapshot('update wire');
     const nodes = reactFlowInstance.getNodes().map((node) => {
       if(!wireInfoPatch || node.data.wireInfoForNodeId!==id || node.data.technicalID!=="WireInfoNode") return node;
 
@@ -461,6 +458,7 @@ export default function EditableWire ({
       defaultValue={(edgeData.physLength || 0.1) as number}
       min={0.1} max={100}
       onChange={(value)=>{
+        takeSnapshot('update wire length');
         reactFlowInstance.updateEdgeData(id, {physLength: value});
         updateWireInfoNodes({wireInfo_length: value});
         //console.log(reactFlowInstance.getZoom())
@@ -600,12 +598,16 @@ export default function EditableWire ({
               size={"small"}
               //disabledAlpha={true}
               open={openColorPicker}
-              onOpenChange={(open) => setOpenColorPicker(open)}
+              onOpenChange={(open) => {
+                if(open) takeSnapshot('update wire color');
+                setOpenColorPicker(open);
+              }}
               //format={"rgb"}
               onChange={(_,color)=>{
                 updateWireDataAndCollapseIfPossible(
                   {color: color, color_selected: color},
                   {wireInfo_color: color},
+                  false,
                 );
                 setOpenColorPicker(false);
               }}
@@ -675,6 +677,7 @@ export default function EditableWire ({
                   //add node WireInfoNode
                   const nodes=reactFlowInstance.getNodes();
                   if(nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").length==0) {
+                    takeSnapshot('add wire info');
                     const newNode = structuredClone(WireInfoNode);
                     newNode.id = String(Math.random());
                     newNode.position = {x: edgeButtonsPosition.x+20, y: edgeButtonsPosition.y-20};
@@ -694,7 +697,7 @@ export default function EditableWire ({
     </EdgeLabelRenderer>
     }
 
-    { selected &&
+    { selected && !multipleSelect &&
       edgeSegmentsArray.map(({labelX, labelY, active}, index) => (
         <EdgeLabelRenderer
           key={`middle${id}_labelrenderer${index}`}
@@ -737,6 +740,7 @@ export default function EditableWire ({
                 }}
                 onMouseDown={() => {
                   setNotMooved(false);
+                  takeSnapshot('add wire point');
                   const edge = reactFlowInstance.getEdge(id);
                   //console.log("OnMouseDown Middle Edge id="+id);
                   const new_edge=edge;
@@ -788,7 +792,7 @@ export default function EditableWire ({
       ))
     }
 
-    { selected && edgePoints.length>0 && 
+    { selected && !multipleSelect && edgePoints.length>0 && 
       edgePoints.map(({x, y, active}, index) => (
         <EdgeLabelRenderer
           key={`edge${id}_labelrenderer${index}`}

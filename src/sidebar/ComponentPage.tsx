@@ -8,6 +8,7 @@ import { DragableComponent } from './DragableComponent';
 import { useReactFlow} from '@xyflow/react';
 
 import { useTranslation } from "react-i18next";
+import { useUndoRedo } from '../utils/undoRedo';
 
 const ComponentGroups=["controller", "led", "psu", "levelshifter", "electronics", "others"];
 
@@ -16,6 +17,7 @@ export const ComponentPage = () => {
   const { token } = theme.useToken();
   const reactFlowInstance=useReactFlow();
   const [messageApi, messageContextHolder] = message.useMessage();
+  const { takeSnapshot } = useUndoRedo();
 
   const connectionListColumns=[
     {
@@ -77,6 +79,7 @@ export const ComponentPage = () => {
                                 position,
                                 data: structuredClone(compData),
                               };
+                              takeSnapshot('add component');
                               reactFlowInstance.setNodes((nds) => nds.concat(newNode));
                               messageApi.open({
                                 type: 'success',
