@@ -55,11 +55,11 @@ export const DC_JACK_FEMALE: Node = {
                 borderType: "dotted",
                 description: "Supply voltage",
                 functions: [
-                    "suppl_in"
+                    "suppl_out"
                 ],
                 height: 10,
-                hid: "3V3",
-                name: "+3.3 V",
+                hid: "VOUT",
+                name: "V out",
                 position: "left",
                 postype: "right",
                 tolVmax: 3.6,

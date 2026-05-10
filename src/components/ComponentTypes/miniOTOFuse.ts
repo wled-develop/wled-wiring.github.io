@@ -110,6 +110,15 @@ export const miniOTOFuse: Node = {
             ],
             },
         ],
+        internalConnections: [
+            {
+                kind: "fuse",
+                fromHandle: "1",
+                toHandle: "2",
+                fuseId: "NominalValue",
+                nominalCurrentField: "NominalValue",
+            },
+        ],
         handles: [
         {
             hid: "1",
@@ -130,6 +139,7 @@ export const miniOTOFuse: Node = {
             name: "1",
             prefferedLineWidth: 4,
             prefferedLineDirection: "left",
+            mustBeConnected: true,
         } as HandleDataType,
         {
             hid: "2",
@@ -150,6 +160,7 @@ export const miniOTOFuse: Node = {
             name: "2",
             prefferedLineWidth: 4,
             prefferedLineDirection: "right",
+            mustBeConnected: true,
         } as HandleDataType,
         ]
     } as ComponentDataType,

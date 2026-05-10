@@ -1,4 +1,4 @@
-import {type Node, Position} from '@xyflow/react';
+﻿import {type Node, Position} from '@xyflow/react';
 import {ComponentDataType, ImageDataType, HandleDataType } from '../../types';
 
 export const AN_RGB_24V_120LPM: Node = {
@@ -40,6 +40,9 @@ export const AN_RGB_24V_120LPM: Node = {
             position: Position.Left,
             name: "24V (+)",
             description: "+24V supply",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
@@ -60,6 +63,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "RED (-)",
             name: "RED",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_start",
@@ -79,6 +83,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_start",
@@ -98,6 +103,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "BLUE (-)",
             name: "BLUE",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_B"],
         } as HandleDataType,        
         {
             hid: "24V_end",
@@ -116,6 +122,9 @@ export const AN_RGB_24V_120LPM: Node = {
             position: Position.Left,
             name: "24V (+)",
             description: "+24V supply",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -136,6 +145,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "RED (-)",
             name: "RED",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_end",
@@ -155,6 +165,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_end",
@@ -174,6 +185,7 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "BLUE (-)",
             name: "BLUE",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_B"],
         } as HandleDataType,
         {
             hid: "24V_middle",
@@ -192,6 +204,9 @@ export const AN_RGB_24V_120LPM: Node = {
             position: Position.Left,
             name: "24V (+)",
             description: "+24V supply",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -213,7 +228,8 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "RED (-)",
             name: "RED",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_middle",
@@ -233,7 +249,8 @@ export const AN_RGB_24V_120LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_middle",
@@ -250,10 +267,15 @@ export const AN_RGB_24V_120LPM: Node = {
             borderRadius: "30%",
             postype: "centered",
             position: Position.Left,
-            description: "BLUE (-)", name: "BLUE",
+            description: "BLUE (-)",
+            name: "BLUE",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_B"],
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+

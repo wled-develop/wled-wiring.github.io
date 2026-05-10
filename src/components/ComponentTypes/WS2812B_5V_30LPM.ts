@@ -6,7 +6,7 @@ export const WS2812B_5V_30LPM: Node = {
     type: 'general-component-type',
     position: { x: 0, y: 0 },
     origin: [0.5, 0.5],
-    data: { 
+    data: {
         image: {url:"./WS2812B_5V_30LPM.png", width: 85, height: 25} as ImageDataType,
         technicalID: "WS2812B_5V_30LPM",
         name: "compData.WS2812B_5V_30LPM.name",
@@ -41,9 +41,13 @@ export const WS2812B_5V_30LPM: Node = {
             name: "5V pin",
             description: "5V supply input",
             prefferedLineDirection: "left",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "DATA_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 12.6,
@@ -60,6 +64,8 @@ export const WS2812B_5V_30LPM: Node = {
             description: "",
             name: "DATA input",
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -97,6 +103,9 @@ export const WS2812B_5V_30LPM: Node = {
             name: "5V pin",
             description: "5V supply input",
             prefferedLineDirection: "right",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "DATA_end",
@@ -116,6 +125,7 @@ export const WS2812B_5V_30LPM: Node = {
             description: "",
             name: "DATA output",
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -154,7 +164,10 @@ export const WS2812B_5V_30LPM: Node = {
             name: "5V pin",
             description: "5V supply input",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "DATA_middle",
@@ -173,6 +186,7 @@ export const WS2812B_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,

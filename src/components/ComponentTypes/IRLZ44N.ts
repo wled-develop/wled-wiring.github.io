@@ -28,7 +28,7 @@ export const IRLZ44N: Node = {
                 borderType: "dotted",
                 description: "Gate",
                 functions: [
-                    "an_common"
+                    "dig_in"
                 ],
                 height: 10,
                 hid: "G",
@@ -45,6 +45,7 @@ export const IRLZ44N: Node = {
                 y: 110,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "green",
@@ -53,7 +54,7 @@ export const IRLZ44N: Node = {
                 borderType: "dotted",
                 description: "Drain",
                 functions: [
-                    "an_common"
+                    "pwm_out"
                 ],
                 height: 10,
                 hid: "D",
@@ -70,6 +71,7 @@ export const IRLZ44N: Node = {
                 y: 110,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "green",
@@ -78,7 +80,7 @@ export const IRLZ44N: Node = {
                 borderType: "dotted",
                 description: "Source",
                 functions: [
-                    "an_common"
+                    "gnd"
                 ],
                 height: 10,
                 hid: "S",

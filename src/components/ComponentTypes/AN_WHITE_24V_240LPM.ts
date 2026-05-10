@@ -1,4 +1,4 @@
-import {type Node, Position} from '@xyflow/react';
+﻿import {type Node, Position} from '@xyflow/react';
 import {ComponentDataType, ImageDataType, HandleDataType } from '../../types';
 
 export const AN_WHITE_24V_240LPM: Node = {
@@ -40,6 +40,9 @@ export const AN_WHITE_24V_240LPM: Node = {
             position: Position.Left,
             name: "24V pin",
             description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
@@ -60,6 +63,7 @@ export const AN_WHITE_24V_240LPM: Node = {
             description: "W",
             name: "W pin",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_W"]
         } as HandleDataType,
         {
             hid: "24V_end",
@@ -77,7 +81,11 @@ export const AN_WHITE_24V_240LPM: Node = {
             postype: "centered",
             position: Position.Left,
             name: "24V pin",
-            description: "24V supply input"
+            description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
+            prefferedLineDirection: "right",
         } as HandleDataType,
         {
             hid: "W_end",
@@ -94,7 +102,10 @@ export const AN_WHITE_24V_240LPM: Node = {
             borderRadius: "30%",
             postype: "centered",
             position: Position.Left,
-            description: "W", name: "W pin"
+            description: "W",
+            name: "W pin",
+            functions: ["pwm_in_W"],
+            prefferedLineDirection: "right",
         } as HandleDataType,
         {
             hid: "24V_middle",
@@ -113,6 +124,9 @@ export const AN_WHITE_24V_240LPM: Node = {
             position: Position.Left,
             name: "24V pin",
             description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -134,8 +148,12 @@ export const AN_WHITE_24V_240LPM: Node = {
             description: "W",
             name: "W pin",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_W"],
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+

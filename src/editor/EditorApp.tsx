@@ -143,7 +143,7 @@ const FlowApp = () => {
                     });
                   }
                   setBgColor("white");
-                } catch (e) {
+                } catch {
                   setBgColor("#FFCCCB");
                 }
 

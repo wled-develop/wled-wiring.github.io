@@ -40,10 +40,14 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             name: "5V pin",
             description: "5V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
             hid: "Clock_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 15.5,
@@ -59,10 +63,14 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "Must be tied to GND",
             name: "Clock input",
+            functions: ["dig_clock_in"],
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "DATA_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 9.5,
@@ -78,7 +86,10 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA input",
+            functions: ["dig_in"],
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -97,6 +108,7 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
@@ -116,6 +128,9 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             name: "5V pin",
             description: "5V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -135,6 +150,7 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "Clock output",
+            functions: ["dig_clock_out"],
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -154,7 +170,9 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA output",
+            functions: ["dig_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -173,6 +191,7 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -192,6 +211,9 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             name: "5V pin",
             description: "5V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 4,
+            tolVmax: 5,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -210,8 +232,9 @@ export const APA102_5V_30LPM: Node = {
             borderRadius: "30%",
             postype: "centered",
             position: Position.Left,
-            description: "Must be tied to GND",
+            description: "Must not be connected",
             name: "Clock",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -232,6 +255,7 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -252,9 +276,13 @@ export const APA102_5V_30LPM: Node = {
             position: Position.Left,
             description: "GND",
             name: "GND pin",
+            functions: ["gnd"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+

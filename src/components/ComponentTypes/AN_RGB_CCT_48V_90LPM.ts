@@ -1,4 +1,4 @@
-import {type Node, Position} from '@xyflow/react';
+﻿import {type Node, Position} from '@xyflow/react';
 import {ComponentDataType, ImageDataType, HandleDataType } from '../../types';
 
 export const AN_RGB_CCT_48V_90LPM: Node = {
@@ -41,6 +41,9 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             name: "48V (+)",
             description: "+48V supply",
             prefferedLineDirection: "left",
+            functions: ["suppl_in"],
+            tolVmax: 48,
+            tolVmin: 40,
         } as HandleDataType,
         {
             hid: "R_start",
@@ -60,6 +63,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "RED (-)",
             name: "RED",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_start",
@@ -79,6 +83,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_start",
@@ -98,6 +103,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "BLUE (-)",
             name: "BLUE",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_B"],
         } as HandleDataType,
         {
             hid: "WW_start",
@@ -117,6 +123,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "Warm White (-)",
             name: "Warm White",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_WW"],
         } as HandleDataType,
         {
             hid: "W_start",
@@ -136,6 +143,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "White (-)",
             name: "White",
             prefferedLineDirection: "left",
+            functions: ["pwm_in_W"],
         } as HandleDataType,
         
         {
@@ -156,6 +164,9 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             name: "48V (+)",
             description: "+48V supply",
             prefferedLineDirection: "right",
+            functions: ["suppl_in"],
+            tolVmax: 48,
+            tolVmin: 40,
         } as HandleDataType,
         {
             hid: "R_end",
@@ -175,6 +186,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "RED (-)",
             name: "RED",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_end",
@@ -194,6 +206,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_end",
@@ -213,6 +226,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "BLUE (-)",
             name: "BLUE",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_B"],
         } as HandleDataType,
         {
             hid: "WW_end",
@@ -232,6 +246,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "Warm White (-)",
             name: "Warm White",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_WW"],
         } as HandleDataType,
         {
             hid: "W_end",
@@ -251,6 +266,7 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "White (-)",
             name: "White",
             prefferedLineDirection: "right",
+            functions: ["pwm_in_W"],
         } as HandleDataType,
         {
             hid: "48V_middle",
@@ -270,7 +286,10 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             name: "48V (+)",
             description: "+48V supply",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["suppl_in"],
+            tolVmax: 48,
+            tolVmin: 40,
         } as HandleDataType,
         {
             hid: "R_middle",
@@ -290,7 +309,8 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "RED (-)",
             name: "RED",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_R"],
         } as HandleDataType,
         {
             hid: "G_middle",
@@ -310,7 +330,8 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "GREEN (-)",
             name: "GREEN",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_G"],
         } as HandleDataType,
         {
             hid: "B_middle",
@@ -327,9 +348,11 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             borderRadius: "30%",
             postype: "centered",
             position: Position.Left,
-            description: "BLUE (-)", name: "BLUE",
+            description: "BLUE (-)",
+            name: "BLUE",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_B"],
         } as HandleDataType,
         {
             hid: "WW_middle",
@@ -346,9 +369,11 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             borderRadius: "30%",
             postype: "centered",
             position: Position.Left,
-            description: "Warm White (-)", name: "Warm White",
+            description: "Warm White (-)",
+            name: "Warm White",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_WW"],
         } as HandleDataType,
         {
             hid: "W_middle",
@@ -368,8 +393,12 @@ export const AN_RGB_CCT_48V_90LPM: Node = {
             description: "White (-)",
             name: "White",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["pwm_in_W"],
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+

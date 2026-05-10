@@ -33,7 +33,9 @@ export const DragableComponent: FC<FlowNodeProps> = function Box({data}) {
 
   const opacity = isDragging ? 0.4 : 1
   return (
-    <div ref={drag}
+    <div ref={(element) => {
+        drag(element);
+      }}
         style={{ ...style,
             opacity,
             width: "100%",

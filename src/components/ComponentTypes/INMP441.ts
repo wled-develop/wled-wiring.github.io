@@ -46,6 +46,7 @@ export const INMP441: Node = {
                 y: 19,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "blue",
@@ -71,6 +72,7 @@ export const INMP441: Node = {
                 y: 30,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "blue",
@@ -96,6 +98,7 @@ export const INMP441: Node = {
                 y: 41,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "black",
@@ -171,6 +174,7 @@ export const INMP441: Node = {
                 y: 41,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
         ]
     } as ComponentDataType,

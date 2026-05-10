@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 import { useTranslation } from "react-i18next";
 
@@ -7,11 +7,16 @@ import { Collapse, theme } from 'antd';
 
 import {ComponentPage} from './ComponentPage';
 import {ImportExportPage} from './ImportExportPage';
+import {DiagramCheckPage} from './DiagramCheckPage';
 
 const Sidebar = () => {
   const {t} = useTranslation(['main']);
+  const [activePanelKeys, setActivePanelKeys] = useState<string | string[]>(['2']);
 
   const { token } = theme.useToken();
+  const isDiagramCheckOpen = Array.isArray(activePanelKeys)
+    ? activePanelKeys.includes('3')
+    : activePanelKeys === '3';
 
   const panelStyle: React.CSSProperties = {
     border: 'none',
@@ -25,19 +30,19 @@ const Sidebar = () => {
   {
     key: '1',
     label: <span>{t('sidebar.export.title')}</span>,
-    children: ImportExportPage(),
+    children: <ImportExportPage />,
     style: panelStyle,
   },
   {
     key: '2',
     label: <span>{t('sidebar.components.title')}</span>,
-    children: ComponentPage(),
+    children: <ComponentPage />,
     style: panelStyle,
   },
   {
     key: '3',
     label: <span>{t('sidebar.check.title')}</span>,
-    children: <div>{t('sidebar.check.comingSoon')}</div>,
+    children: <DiagramCheckPage isOpen={isDiagramCheckOpen} />,
     style: panelStyle,
   },
   {
@@ -51,8 +56,9 @@ const Sidebar = () => {
   return (
     <Collapse 
       accordion ghost
+      activeKey={activePanelKeys}
       items={getItems(panelStyle)}
-      defaultActiveKey={['2']}
+      onChange={setActivePanelKeys}
       />
   );
 };

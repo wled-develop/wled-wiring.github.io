@@ -8,13 +8,33 @@ import {createMatrix, getPathResult, buildPath, useZustandStore} from "../utils/
 
 import {GridNode} from "../utils/astar.ts";
 
-export default ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
+const sameNearestPoint = (a: nearestPoint, b: nearestPoint) => (
+  a.pType === b.pType &&
+  a.x === b.x &&
+  a.y === b.y &&
+  a.edgeID === b.edgeID &&
+  a.segmentNumber === b.segmentNumber &&
+  a.distance === b.distance &&
+  a.color === b.color
+);
+
+const sameEdgePoints = (a: edgePoint[], b: edgePoint[]) => (
+  a.length === b.length &&
+  a.every((point, index) => (
+    point.x === b[index].x &&
+    point.y === b[index].y &&
+    point.active === b[index].active
+  ))
+);
+
+
+const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
   const connection = useConnection();
   const reactFlow=useReactFlow();
 
   const PFEnabled=useZustandStore((state)=>state.pathFindingEnabled);
 
-  const DEBUGMODE=0;
+  const DEBUGMODE=false;
   let myPathStroke="";
   let x_arr=[] as number[];
   let y_arr=[] as number[];
@@ -80,10 +100,32 @@ export default ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
     }
   }
 
+  const retvalPType = retval.pType;
+  const retvalX = retval.x;
+  const retvalY = retval.y;
+  const retvalEdgeID = retval.edgeID;
+  const retvalSegmentNumber = retval.segmentNumber;
+  const retvalDistance = retval.distance;
+  const retvalColor = retval.color;
+
   useEffect(() => {
-      //useZustandStore((state)=>state.setNearestPoint(retval));
-      useZustandStore.setState({nearestPoint:retval});
-    }, [retval]);
+      const nearestPointForStore = {
+        pType: retvalPType,
+        x: retvalX,
+        y: retvalY,
+        edgeID: retvalEdgeID,
+        segmentNumber: retvalSegmentNumber,
+        distance: retvalDistance,
+        color: retvalColor,
+      } as nearestPoint;
+
+      useZustandStore.setState((state) => {
+        if (sameNearestPoint(state.nearestPoint, nearestPointForStore)) {
+          return state;
+        }
+        return {nearestPoint: nearestPointForStore};
+      });
+    }, [retvalPType, retvalX, retvalY, retvalEdgeID, retvalSegmentNumber, retvalDistance, retvalColor]);
 
   const edgePoints=[] as edgePoint[];
 
@@ -124,9 +166,18 @@ export default ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
     }
   }
 
+  const edgePointsSignature = JSON.stringify(edgePoints);
+
   useEffect(() => {
-      useZustandStore.setState({edgePoints:edgePoints});
-    }, [edgePoints]);
+      const edgePointsForStore = JSON.parse(edgePointsSignature) as edgePoint[];
+
+      useZustandStore.setState((state) => {
+        if (sameEdgePoints(state.edgePoints, edgePointsForStore)) {
+          return state;
+        }
+        return {edgePoints: edgePointsForStore};
+      });
+    }, [edgePointsSignature]);
 
 
   return (
@@ -154,11 +205,11 @@ export default ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
       />
       }
       {DEBUGMODE && x_arr.map((x)=>{
-        return <line x1={String(x)} y1={String(y_arr[0])} x2={String(x)} y2={String(y_arr[y_arr.length-1])} stroke="red" stroke-width="0.5"/>;
+        return <line x1={String(x)} y1={String(y_arr[0])} x2={String(x)} y2={String(y_arr[y_arr.length-1])} stroke="red" strokeWidth="0.5"/>;
       })
       }
       {DEBUGMODE && y_arr.map((y)=>{
-        return <line x1={String(x_arr[0])} y1={String(y)} x2={String(x_arr[x_arr.length-1])} y2={String(y)} stroke="red" stroke-width="0.5"/>;
+        return <line x1={String(x_arr[0])} y1={String(y)} x2={String(x_arr[x_arr.length-1])} y2={String(y)} stroke="red" strokeWidth="0.5"/>;
       })
       }
       {
@@ -182,3 +233,5 @@ export default ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps) => {
     </g>
   );
 };
+
+export default ConnectionLine;

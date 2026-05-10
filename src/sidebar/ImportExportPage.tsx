@@ -1,5 +1,5 @@
 
-import { useReactFlow, getViewportForBounds, Rect} from '@xyflow/react';
+import { useReactFlow, useUpdateNodeInternals, getViewportForBounds, Rect, type Edge, type Node} from '@xyflow/react';
 import { Flex, Button, Divider, theme, Modal, Tooltip, message, Select } from 'antd';
 import {CopyOutlined} from '@ant-design/icons'
 import { useState } from 'react';
@@ -9,13 +9,83 @@ import { useTranslation } from "react-i18next";
 import { toPng, toJpeg, toSvg } from 'html-to-image';
 
 import { getCurrentURL, getAdaptedBounds } from '../utils/utils_functions';
+import { createDiagramExportJson } from '../utils/exportModel';
+import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from '../utils/componentTemplateUpdates';
+
+type ImportedFlow = {
+  nodes: Node[];
+  edges: Edge[];
+  viewport: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> => (
+  typeof value === 'object' && value !== null
+);
+
+const readNumber = (value: unknown, fallback: number) => (
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback
+);
+
+const parseImportedFlow = (jsonData: string): ImportedFlow => {
+  const parsed = JSON.parse(jsonData) as unknown;
+
+  if (!isObject(parsed) || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+    throw new Error('Invalid WLED wiring model file');
+  }
+
+  const viewport = isObject(parsed.viewport) ? parsed.viewport : {};
+
+  return {
+    nodes: parsed.nodes as Node[],
+    edges: parsed.edges as Edge[],
+    viewport: {
+      x: readNumber(viewport.x, 0),
+      y: readNumber(viewport.y, 0),
+      zoom: readNumber(viewport.zoom, 1),
+    },
+  };
+};
 
 
 export const ImportExportPage = () => {
   const {t} = useTranslation(['main']);
   const { token } = theme.useToken();
   const reactFlow = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
   const [messageApi, messageContextHolder] = message.useMessage();
+  const [modalApi, modalContextHolder] = Modal.useModal();
+
+  const askForComponentTemplateUpdates = (loadedNodes: Node[]) => {
+    const updateInfos = findNodeComponentTemplateUpdates(loadedNodes, t('sidebar.components.updateValueMissing'));
+    if(updateInfos.length===0) return;
+
+    modalApi.confirm({
+      title: t('message.componentUpdatesAvailableTitle'),
+      content: t('message.componentUpdatesAvailableDescription', { count: updateInfos.length }),
+      okText: t('message.componentUpdatesApplyAll'),
+      cancelText: t('message.componentUpdatesSkip'),
+      onOk: () => {
+        let updatedNodeIds: string[] = [];
+        reactFlow.setNodes((currentNodes) => {
+          const result = applyComponentTemplateUpdatesToNodes(currentNodes);
+          updatedNodeIds = result.updatedNodeIds;
+          return result.nodes;
+        });
+        setTimeout(() => {
+          updatedNodeIds.forEach((nodeId) => updateNodeInternals(nodeId));
+        }, 0);
+        messageApi.open({
+          type: 'success',
+          content: t('message.componentUpdatesAllApplied', { count: updateInfos.length }),
+          duration: 5,
+        });
+      },
+    });
+  };
 
   function createInfoElement(nodesBounds:Rect, textScalefactor:number, textOffset:number):HTMLElement{
     const element=document.createElement('div');
@@ -70,9 +140,7 @@ export const ImportExportPage = () => {
     setConfirmLoading(true);
     setModalLinkText(t('sidebar.export.share.modalLinkText'));
     setModalText(t('sidebar.export.share.modalLinkBeingGenerated'));
-    const reactFlowObject={};
-    Object.assign(reactFlowObject, reactFlow.toObject(), {application: {version: 1, name: 'WLED Wiring Model', url: getCurrentURL()}});
-    const data = JSON.stringify(reactFlowObject);
+    const data = createDiagramExportJson(reactFlow);
     const requestOptions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -109,7 +177,8 @@ export const ImportExportPage = () => {
 
 
     return <div id="componentPageDiv">
-      {messageContextHolder}        
+      {messageContextHolder}
+      {modalContextHolder}
       <Flex  gap="small" id="componentPageFlexDiv" vertical>
         <Divider key={"Divider1" }
             style={{fontSize: token.fontSize}}
@@ -118,9 +187,7 @@ export const ImportExportPage = () => {
         </Divider>
         <Button
           onClick={() => {
-            const reactFlowObject={};
-            Object.assign(reactFlowObject, reactFlow.toObject(), {application: {version: 1, name: 'WLED Wiring Model', url: getCurrentURL()}});
-            const data = JSON.stringify(reactFlowObject);
+            const data = createDiagramExportJson(reactFlow);
             const blob = new Blob([data], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -144,15 +211,30 @@ export const ImportExportPage = () => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                   const jsonData = e.target?.result;
-                  if (jsonData) {
-                    const flow = JSON.parse(jsonData as string);
-                    if (flow) {
-                      const { x = 0, y = 0, zoom = 1 } = flow.viewport;
-                      reactFlow.setNodes(flow.nodes || []);
-                      reactFlow.setEdges(flow.edges || []);
-                      reactFlow.setViewport({ x, y, zoom });
+                  if (typeof jsonData === 'string') {
+                    try {
+                      const flow = parseImportedFlow(jsonData);
+                      reactFlow.setNodes(flow.nodes);
+                      reactFlow.setEdges(flow.edges);
+                      reactFlow.setViewport(flow.viewport);
+                      setTimeout(() => {
+                        askForComponentTemplateUpdates(flow.nodes);
+                      }, 0);
+                    } catch {
+                      messageApi.open({
+                        type: 'error',
+                        content: t('message.loadModelError'),
+                        duration: 3,
+                      });
                     }
                   }
+                };
+                reader.onerror = () => {
+                  messageApi.open({
+                    type: 'error',
+                    content: t('message.loadModelError'),
+                    duration: 3,
+                  });
                 };
                 reader.readAsText(file);
               }
@@ -182,8 +264,7 @@ export const ImportExportPage = () => {
               a.setAttribute('download', ExportFileName+'.png');
               a.setAttribute('href', dataUrl);
               a.click();
-              element.remove();
-            });
+            }).finally(() => element.remove());
            }}
         >{t('sidebar.export.buttonExportPNG')}</Button>
         <Button

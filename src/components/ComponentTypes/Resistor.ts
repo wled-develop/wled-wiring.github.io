@@ -185,6 +185,7 @@ export const Resistor: Node = {
             y: 13,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         {
             borderColor: "green",
@@ -210,6 +211,7 @@ export const Resistor: Node = {
             y: 13,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         ]
     } as ComponentDataType,

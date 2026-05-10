@@ -70,6 +70,7 @@ export const PIR_HCSR501: Node = {
                 y: 72.2,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "red",

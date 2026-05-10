@@ -156,7 +156,15 @@ export const MHC_V63: Node = {
             },
             
         ],
-
+        internalConnections: [
+            {
+                kind: "fuse",
+                fromHandle: "VIN",
+                toHandle: "VOUT",
+                fuseId: "Fuse",
+                nominalCurrentField: "Fuse",
+            },
+        ],
         handles: [
             {
                 "borderColor": "red",
@@ -173,9 +181,8 @@ export const MHC_V63: Node = {
                 "position": "left",
                 "postype": "left",
                 "tolVmax": 14,
-                "tolVmin": 0,
+                "tolVmin": 4,
                 "type": "source",
-                "Vout": 0,
                 "width": 30,
                 "x": 18,
                 "xalign": "start",
@@ -270,10 +277,8 @@ export const MHC_V63: Node = {
                 "name": "Power output",
                 "position": "left",
                 "postype": "right",
-                "tolVmax": 26,
-                "tolVmin": 0,
                 "type": "source",
-                "Vout": 0,
+                "VoutDependency": "VIN",
                 "width": 30,
                 "x": 311,
                 "xalign": "start",

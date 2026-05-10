@@ -9,6 +9,7 @@ import {
   useInternalNode,
   useOnSelectionChange,
   OnSelectionChangeParams,
+  type Edge,
 } from "@xyflow/react";
 
 import { useTranslation } from "react-i18next";
@@ -26,8 +27,9 @@ import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design
 import "./EditableWire.css";
 import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
 
-import {HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
+import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
 import {colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
+import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
 
 const ROUNDN=1;
 
@@ -48,6 +50,7 @@ export default function EditableWire ({
 
   const {t} = useTranslation(['main']);
   const edgeData = data as EdgeDataType;
+  const checkHighlighted=Boolean(edgeData.checkHighlighted);
 
   const edgePoints = edgeData.edgePoints ?? [];
 
@@ -87,9 +90,6 @@ export default function EditableWire ({
         }
       }
   }
-
-  useEffect
-
 
   const edgeSegmentsCount = edgePoints.length + 1;
   const edgeSegmentsArray = [] as Array<segmentData>;
@@ -403,6 +403,56 @@ export default function EditableWire ({
 
   const edgeButtonsPosition={x: edgeSegmentsArray[0].labelX, y: edgeSegmentsArray[0].labelY};
 
+  const updateWireDataAndCollapseIfPossible = (
+    patch: Partial<EdgeDataType>,
+    wireInfoPatch?: Partial<ComponentDataType>,
+  ) => {
+    const nodes = reactFlowInstance.getNodes().map((node) => {
+      if(!wireInfoPatch || node.data.wireInfoForNodeId!==id || node.data.technicalID!=="WireInfoNode") return node;
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          ...wireInfoPatch,
+        },
+      };
+    });
+    const currentEdges = reactFlowInstance.getEdges();
+    let changedEdge: Edge | undefined;
+
+    const nextEdges = currentEdges.map((edge) => {
+      if(edge.id !== id) return edge;
+
+      changedEdge = {
+        ...edge,
+        data: {
+          ...(edge.data as EdgeDataType),
+          ...patch,
+        },
+      };
+      return changedEdge;
+    });
+
+    if(!changedEdge) return;
+
+    const collapseResult = collapseMergeableSolderJoints({
+      nodes,
+      edges: nextEdges,
+      candidateSolderJointIds: getSolderJointEndpointIds(nodes, changedEdge),
+    });
+
+    reactFlowInstance.setNodes(collapseResult.nodes);
+    reactFlowInstance.setEdges(collapseResult.edges);
+  };
+
+  const updateWireInfoNodes = (patch: Partial<ComponentDataType>) => {
+    const nodes = reactFlowInstance.getNodes();
+    nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
+      reactFlowInstance.updateNodeData(node.id, patch);
+    });
+  };
+
   const contentPhysLineLength = (
     <InputNumber
       size={reactFlowInstance.getZoom()<0.7?"large":"small"}
@@ -412,10 +462,7 @@ export default function EditableWire ({
       min={0.1} max={100}
       onChange={(value)=>{
         reactFlowInstance.updateEdgeData(id, {physLength: value});
-        const nodes=reactFlowInstance.getNodes();
-        nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
-          reactFlowInstance.updateNodeData(node.id, {wireInfo_length: value});
-        }); 
+        updateWireInfoNodes({wireInfo_length: value});
         //console.log(reactFlowInstance.getZoom())
       }}
     />
@@ -434,7 +481,7 @@ export default function EditableWire ({
         { value: 6, label: "6px" },
       ]}
       onChange={(e)=>{
-        reactFlowInstance.updateEdgeData(id, {width: e.target.value});
+        updateWireDataAndCollapseIfPossible({width: e.target.value});
       }}
     />
     </>
@@ -452,11 +499,10 @@ export default function EditableWire ({
       options={(typeof(edgeData.physCrosssectionUnit)==="string"?(edgeData.physCrosssectionUnit==="mm2"?crosssectionsMM2:crosssectionsAWG):crosssectionsMM2).map(val=>({label: String(val), value: val}))}
       style={{width:100}}
       onChange={(value)=>{
-        reactFlowInstance.updateEdgeData(id, {physCrosssection: value});
-        const nodes=reactFlowInstance.getNodes();
-        nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
-          reactFlowInstance.updateNodeData(node.id, {wireInfo_crosssection: value});
-        }); 
+        updateWireDataAndCollapseIfPossible(
+          {physCrosssection: value},
+          {wireInfo_crosssection: value},
+        );
         setOpenWireCrosssection(false);
       }}
     />
@@ -472,11 +518,10 @@ export default function EditableWire ({
       style={{width:70}}
       onChange={(value)=>{
         const physCrosssectionvalue=(value==="mm2"?crosssectionsMM2[3]:crosssectionsAWG[3]);
-        reactFlowInstance.updateEdgeData(id, {physCrosssection: physCrosssectionvalue, physCrosssectionUnit: value});
-        const nodes=reactFlowInstance.getNodes();
-        nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
-          reactFlowInstance.updateNodeData(node.id, {wireInfo_crosssectionUnit: value, wireInfo_crosssection: physCrosssectionvalue});
-        });
+        updateWireDataAndCollapseIfPossible(
+          {physCrosssection: physCrosssectionvalue, physCrosssectionUnit: value},
+          {wireInfo_crosssectionUnit: value, wireInfo_crosssection: physCrosssectionvalue},
+        );
         //setOpenWireCrosssection(false);
       }}
     />
@@ -489,7 +534,7 @@ export default function EditableWire ({
   );
 
   useEffect(() => {
-    setNotMooved(selected || true);
+    setNotMooved(Boolean(selected));
   }, [selected]);
 
   const [openColorPicker, setOpenColorPicker] = useState(false);
@@ -505,15 +550,15 @@ export default function EditableWire ({
           interactionWidth={10}
           style = {{
             stroke: selected ? `${edgeData.color_selected}` : `${edgeData?.color}`,
-            strokeWidth: edgeData.width,
+            strokeWidth: checkHighlighted ? edgeData.width + 3 : edgeData.width,
             strokeLinecap: "round",
             strokeLinejoin: "round",
             //fill: "none",
-            filter: (edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
+            filter: checkHighlighted?"drop-shadow(0px 0px 4px #faad14)":(edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
           }}
         />
       ))}
-      // add circle at the end
+      {/* add circle at the end */}
 
     {selected && !multipleSelect && notMooved && <EdgeLabelRenderer>
         <div
@@ -558,11 +603,10 @@ export default function EditableWire ({
               onOpenChange={(open) => setOpenColorPicker(open)}
               //format={"rgb"}
               onChange={(_,color)=>{
-                reactFlowInstance.updateEdgeData(id, {color: color, color_selected: color});
-                const nodes=reactFlowInstance.getNodes();
-                nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
-                  reactFlowInstance.updateNodeData(node.id, {wireInfo_color: color});
-                });
+                updateWireDataAndCollapseIfPossible(
+                  {color: color, color_selected: color},
+                  {wireInfo_color: color},
+                );
                 setOpenColorPicker(false);
               }}
               style={{zoom: 1/Math.min(reactFlowInstance.getZoom(), 1.6)}}
@@ -632,7 +676,7 @@ export default function EditableWire ({
                   const nodes=reactFlowInstance.getNodes();
                   if(nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").length==0) {
                     const newNode = structuredClone(WireInfoNode);
-                    newNode.id = String(Math.random()),
+                    newNode.id = String(Math.random());
                     newNode.position = {x: edgeButtonsPosition.x+20, y: edgeButtonsPosition.y-20};
                     newNode.data.wireInfoForNodeId = id;
                     newNode.data.wireInfo_length = edgeData.physLength;
@@ -665,7 +709,7 @@ export default function EditableWire ({
             }}
           >
             <div
-              className = '${active} ${`${active ?? -1}` !== "-1" ? "active" : ""}'
+              className={`${active ?? -1} ${`${active ?? -1}` !== "-1" ? "active" : ""}`}
               data-active={active ?? -1}
               key={`middle${id}_actiondiv${index}`}
               style = {{
@@ -759,7 +803,7 @@ export default function EditableWire ({
             }}
           >
             <div
-              className = '${active} ${`${active ?? -1}` !== "-1" ? "active" : ""}'
+              className={`${active ?? -1} ${`${active ?? -1}` !== "-1" ? "active" : ""}`}
               data-active={active ?? -1}
               key={`edge${id}_actiondiv${index}`}
               style = {{
