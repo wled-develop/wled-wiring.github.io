@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { ConfigProvider, theme, message, notification, Button, Modal } from 'antd';
 import { useTranslation } from "react-i18next";
 import { DndProvider } from 'react-dnd-multi-backend'
@@ -14,6 +14,11 @@ import { useZustandStore } from './utils/pathfinder_functions.ts';
 import ConnectionLine from './wires/ConnectionLine.tsx';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from './utils/componentTemplateUpdates.ts';
 import { collapseMergeableSolderJoints, collapseMergeableSolderJointsAfterWireDelete } from './utils/wireMerge.ts';
+import {
+  adjustOrthogonalWiresForMovedNodes,
+  createOrthogonalWireDragSnapshot,
+  type OrthogonalWireDragSnapshot,
+} from './utils/orthogonalWireRouting.ts';
 
 import {postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
 
@@ -49,6 +54,7 @@ import {
   ControlButton,
   type Node,
   type Connection,
+  type OnNodeDrag,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -79,6 +85,7 @@ const FlowApp = () => {
   const PFEnabled=useZustandStore(useShallow((state)=>state.pathFindingEnabled));
   const [selectedNodes, setSelectedNodes] = useState([] as Node[]);
   const [selectedEdges, setSelectedEdges] = useState([] as Edge[]);
+  const orthogonalWireDragSnapshotRef = useRef<OrthogonalWireDragSnapshot | null>(null);
 
   const [isLegalNoticeModalOpen, setIsLegalNoticeModalOpen] = useState(false);
   const [isDataPrivacyModalOpen, setIsDataPrivacyModalOpen] = useState(false);
@@ -405,6 +412,45 @@ const FlowApp = () => {
     [setEdges],
   );
 
+  const onNodeDragStart: OnNodeDrag = useCallback(() => {
+    orthogonalWireDragSnapshotRef.current = createOrthogonalWireDragSnapshot(
+      reactFlow.getNodes(),
+      reactFlow.getEdges(),
+    );
+  }, [reactFlow]);
+
+  const getNodesWithDraggedPositions = useCallback((draggedNodes: Node[]) => {
+    const nodeById = new Map(reactFlow.getNodes().map((node) => [node.id, node]));
+
+    draggedNodes.forEach((node) => {
+      nodeById.set(node.id, node);
+    });
+
+    return Array.from(nodeById.values());
+  }, [reactFlow]);
+
+  const onNodeDrag: OnNodeDrag = useCallback((_, __, draggedNodes) => {
+    const snapshot = orthogonalWireDragSnapshotRef.current;
+    if (!snapshot) return;
+
+    setEdges(adjustOrthogonalWiresForMovedNodes(
+      snapshot,
+      getNodesWithDraggedPositions(draggedNodes),
+    ));
+  }, [getNodesWithDraggedPositions, setEdges]);
+
+  const onNodeDragStop: OnNodeDrag = useCallback((_, __, draggedNodes) => {
+    const snapshot = orthogonalWireDragSnapshotRef.current;
+    if (!snapshot) return;
+
+    setEdges(adjustOrthogonalWiresForMovedNodes(
+      snapshot,
+      getNodesWithDraggedPositions(draggedNodes),
+    ));
+    orthogonalWireDragSnapshotRef.current = null;
+    SetTriggerState((value) => value + 1);
+  }, [getNodesWithDraggedPositions, setEdges]);
+
   const onSelectionChange:OnSelectionChangeFunc = useCallback(({ nodes, edges }) => {
     setPanOnDrag(true);
     setSelectedNodes(nodes);
@@ -564,6 +610,9 @@ const FlowApp = () => {
               nodes={nodes}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDrag={onNodeDrag}
+              onNodeDragStop={onNodeDragStop}
               edges={edges}
               edgeTypes={edgeTypes}
               onEdgesChange={onEdgesChange}
