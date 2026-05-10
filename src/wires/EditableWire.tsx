@@ -8,6 +8,7 @@ import {
   useReactFlow,
   useInternalNode,
   type Edge,
+  type Node,
 } from "@xyflow/react";
 
 import { useTranslation } from "react-i18next";
@@ -29,6 +30,8 @@ import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, int
 import {colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
 import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
 import { getSegmentOrientation, moveWireSegment, type SegmentOrientation } from "../utils/wireSegmentMove.ts";
+import { applySolderJointSegmentMove } from "../utils/solderJointSegmentMove.ts";
+import { snapWireSegmentAxisValue } from "../utils/wireSegmentSnap.ts";
 import { useUndoRedo } from "../utils/undoRedo.tsx";
 import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
 
@@ -39,6 +42,9 @@ const SEGMENT_DRAG_HANDLE_GAP_PX = 16;
 const SEGMENT_DRAG_CENTER_GAP_PX = 20;
 const SEGMENT_DRAG_MIN_PART_LENGTH_PX = 8;
 const SEGMENT_DRAG_DEBUG_STORAGE_KEY = 'wledWireSegmentDragDebug';
+
+let globalSegmentDragSession = 0;
+let globalSegmentDragCleanup: (() => void) | null = null;
 
 export default function EditableWire ({
   id,
@@ -110,13 +116,17 @@ export default function EditableWire ({
   const edgePointDragSnapshotTakenRef = useRef(false);
   const segmentDragCleanupRef = useRef<(() => void) | null>(null);
   const segmentDragRef = useRef<{
+    sessionId: number;
     segmentIndex: number;
     orientation: SegmentOrientation;
     startClientX: number;
     startClientY: number;
     initialPoints: XYPoint[];
+    initialNodes: Node[];
+    initialEdges: Edge[];
     hasMoved: boolean;
     snapshotTaken: boolean;
+    usedSolderJointMove: boolean;
   } | null>(null);
 
   const selectedElementsCount = useSelectedElementsCount();
@@ -133,6 +143,32 @@ export default function EditableWire ({
     setSegmentDragDebugMessage(`${timestamp} ${message}`);
     console.debug('[wire-segment-drag]', message, details ?? '');
   };
+
+  const cloneSegmentDragNodes = (nodes: Node[]) => nodes.map((node) => ({
+    ...node,
+    position: {...node.position},
+    data: {...node.data},
+  }));
+
+  const cloneSegmentDragEdges = (edges: Edge[]) => edges.map((edge) => {
+    const clonedData = edge.data
+      ? {
+        ...(edge.data as EdgeDataType),
+        startXY: (edge.data as EdgeDataType).startXY
+          ? {...((edge.data as EdgeDataType).startXY as XYPoint)}
+          : undefined,
+        endXY: (edge.data as EdgeDataType).endXY
+          ? {...((edge.data as EdgeDataType).endXY as XYPoint)}
+          : undefined,
+        edgePoints: [ ...(((edge.data as EdgeDataType).edgePoints ?? []).map((point) => ({...point}))) ],
+      }
+      : edge.data;
+
+    return {
+      ...edge,
+      data: clonedData,
+    };
+  });
 
   const sourceNode = useInternalNode(source);
   const preserveStartPinStub = (sourceNode?.data as ComponentDataType | undefined)?.technicalID !== 'SolderJoint';
@@ -353,7 +389,12 @@ export default function EditableWire ({
 
 
   const cleanupSegmentDrag = () => {
-    segmentDragCleanupRef.current?.();
+    globalSegmentDragSession += 1;
+    globalSegmentDragCleanup?.();
+    globalSegmentDragCleanup = null;
+    if(segmentDragCleanupRef.current) {
+      segmentDragCleanupRef.current();
+    }
     segmentDragCleanupRef.current = null;
     segmentDragRef.current = null;
     setActiveSegmentIndex(-1);
@@ -471,7 +512,13 @@ export default function EditableWire ({
       edgePoints: currentEdgeData.edgePoints?.length ?? 0,
     });
 
+    const initialNodes = cloneSegmentDragNodes(reactFlowInstance.getNodes());
+    const initialEdges = cloneSegmentDragEdges(reactFlowInstance.getEdges());
+    const sessionId = globalSegmentDragSession + 1;
+    globalSegmentDragSession = sessionId;
+
     segmentDragRef.current = {
+      sessionId,
       segmentIndex: index,
       orientation,
       startClientX: clientX,
@@ -481,18 +528,21 @@ export default function EditableWire ({
         ...((currentEdgeData.edgePoints ?? []).map((point) => ({x: point.x, y: point.y}))),
         {x: targetXadjusted, y: targetYadjusted},
       ],
+      initialNodes,
+      initialEdges,
       hasMoved: false,
       snapshotTaken: false,
+      usedSolderJointMove: false,
     };
     const handleWindowMouseMove = (event: MouseEvent) => {
-      handleSegmentPointerMove(event.clientX, event.clientY);
+      handleSegmentPointerMove(event.clientX, event.clientY, sessionId);
     };
     const handleWindowTouchMove = (event: TouchEvent) => {
       const touch = event.touches[0];
       if(!touch) return;
 
       event.preventDefault();
-      handleSegmentPointerMove(touch.clientX, touch.clientY);
+      handleSegmentPointerMove(touch.clientX, touch.clientY, sessionId);
     };
 
     window.addEventListener('mousemove', handleWindowMouseMove);
@@ -501,13 +551,27 @@ export default function EditableWire ({
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('touchmove', handleWindowTouchMove);
     };
+    globalSegmentDragCleanup = segmentDragCleanupRef.current;
     setActiveSegmentIndex(index);
   };
 
-  const handleSegmentPointerMove = (clientX: number, clientY: number) => {
+  const handleSegmentPointerMove = (clientX: number, clientY: number, sessionId?: number) => {
     const drag = segmentDragRef.current;
+    if(sessionId !== undefined && sessionId !== globalSegmentDragSession) {
+      debugSegmentDrag('move ignored: stale global segment drag session', {
+        clientX,
+        clientY,
+        sessionId,
+        activeSessionId: globalSegmentDragSession,
+      });
+      return;
+    }
     if(!drag) {
       debugSegmentDrag('move ignored: no active segment drag', {clientX, clientY});
+      return;
+    }
+    if(sessionId !== undefined && sessionId !== drag.sessionId) {
+      debugSegmentDrag('move ignored: replaced segment drag session', {clientX, clientY, sessionId});
       return;
     }
 
@@ -534,7 +598,41 @@ export default function EditableWire ({
       x: clientX,
       y: clientY,
     });
-    const axisValue = drag.orientation === 'horizontal' ? position.y : position.x;
+    const rawAxisValue = drag.orientation === 'horizontal' ? position.y : position.x;
+    const snapResult = snapWireSegmentAxisValue({
+      points: drag.initialPoints,
+      segmentIndex: drag.segmentIndex,
+      orientation: drag.orientation,
+      axisValue: rawAxisValue,
+      zoom: reactFlowInstance.getZoom(),
+    });
+    const axisValue = snapResult.axisValue;
+    const solderJointMoveResult = applySolderJointSegmentMove({
+      nodes: drag.initialNodes,
+      edges: drag.initialEdges,
+      movedEdgeId: id,
+      movedPoints: drag.initialPoints,
+      segmentIndex: drag.segmentIndex,
+      orientation: drag.orientation,
+      axisValue,
+      pinStubLength: PIN_STUB_LENGTH,
+    });
+    if(solderJointMoveResult.handled) {
+      drag.usedSolderJointMove = true;
+      reactFlowInstance.setNodes(cloneSegmentDragNodes(solderJointMoveResult.nodes));
+      reactFlowInstance.setEdges(cloneSegmentDragEdges(solderJointMoveResult.edges));
+      debugSegmentDrag('solder joint moved with segment', {
+        segmentIndex: drag.segmentIndex,
+        axisValue,
+        snap: snapResult.snapped ? snapResult.reason : undefined,
+      });
+      return;
+    }
+
+    if(drag.usedSolderJointMove) {
+      reactFlowInstance.setNodes(cloneSegmentDragNodes(drag.initialNodes));
+    }
+
     const result = moveWireSegment({
       points: drag.initialPoints,
       segmentIndex: drag.segmentIndex,
@@ -552,8 +650,10 @@ export default function EditableWire ({
       return;
     }
 
-    const currentEdges = reactFlowInstance.getEdges();
-    const currentEdge = currentEdges.find((edge) => edge.id === id);
+    const latestEdges = drag.usedSolderJointMove
+      ? cloneSegmentDragEdges(drag.initialEdges)
+      : reactFlowInstance.getEdges();
+    const currentEdge = latestEdges.find((edge) => edge.id === id);
     const currentEdgeData = currentEdge?.data as EdgeDataType | undefined;
     if(!currentEdge || !currentEdgeData) {
       debugSegmentDrag('move ignored: current edge missing', {edgeId: id});
@@ -571,7 +671,7 @@ export default function EditableWire ({
     };
 
     reactFlowInstance.setEdges(
-      currentEdges.map((edge) => (
+      latestEdges.map((edge) => (
         edge.id === id
           ? updatedEdge
           : {...edge}
@@ -581,6 +681,7 @@ export default function EditableWire ({
       segmentIndex: drag.segmentIndex,
       axisValue,
       edgePoints: result.edgePoints.map((point) => ({x: point.x, y: point.y})),
+      snap: snapResult.snapped ? snapResult.reason : undefined,
     });
   };
 
@@ -726,7 +827,16 @@ export default function EditableWire ({
   }, [selected]);
 
   useEffect(() => () => {
-    segmentDragCleanupRef.current?.();
+    if(segmentDragRef.current) {
+      globalSegmentDragSession += 1;
+      globalSegmentDragCleanup?.();
+      globalSegmentDragCleanup = null;
+      segmentDragRef.current = null;
+    }
+    if(segmentDragCleanupRef.current) {
+      segmentDragCleanupRef.current();
+      segmentDragCleanupRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
