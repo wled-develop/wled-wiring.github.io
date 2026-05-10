@@ -28,10 +28,17 @@ import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
 import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
 import {colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
 import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
+import { getSegmentOrientation, moveWireSegment, type SegmentOrientation } from "../utils/wireSegmentMove.ts";
 import { useUndoRedo } from "../utils/undoRedo.tsx";
 import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
 
 const ROUNDN=1;
+const SEGMENT_DRAG_THRESHOLD = 4;
+const PIN_STUB_LENGTH = 12;
+const SEGMENT_DRAG_HANDLE_GAP_PX = 16;
+const SEGMENT_DRAG_CENTER_GAP_PX = 20;
+const SEGMENT_DRAG_MIN_PART_LENGTH_PX = 8;
+const SEGMENT_DRAG_DEBUG_STORAGE_KEY = 'wledWireSegmentDragDebug';
 
 export default function EditableWire ({
   id,
@@ -95,15 +102,40 @@ export default function EditableWire ({
   const edgeSegmentsArray = [] as Array<segmentData>;
 
   const [notMooved, setNotMooved] = useState(true);
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState(-1);
+  const [segmentDragDebugMessage, setSegmentDragDebugMessage] = useState('');
 
   const reactFlowInstance=useReactFlow();
   const { takeSnapshot } = useUndoRedo();
   const edgePointDragSnapshotTakenRef = useRef(false);
+  const segmentDragCleanupRef = useRef<(() => void) | null>(null);
+  const segmentDragRef = useRef<{
+    segmentIndex: number;
+    orientation: SegmentOrientation;
+    startClientX: number;
+    startClientY: number;
+    initialPoints: XYPoint[];
+    hasMoved: boolean;
+    snapshotTaken: boolean;
+  } | null>(null);
 
   const selectedElementsCount = useSelectedElementsCount();
   const multipleSelect = selectedElementsCount > 1;
+  const segmentDragDebugEnabled = (
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(SEGMENT_DRAG_DEBUG_STORAGE_KEY) === '1'
+  );
+
+  const debugSegmentDrag = (message: string, details?: unknown) => {
+    if(!segmentDragDebugEnabled) return;
+
+    const timestamp = new Date().toLocaleTimeString();
+    setSegmentDragDebugMessage(`${timestamp} ${message}`);
+    console.debug('[wire-segment-drag]', message, details ?? '');
+  };
 
   const sourceNode = useInternalNode(source);
+  const preserveStartPinStub = (sourceNode?.data as ComponentDataType | undefined)?.technicalID !== 'SolderJoint';
   const sourceHandle=sourceNode?.internals.handleBounds?.source?.filter((handle)=>(handle.id==sourceHandleId))[0];
   //console.log("Computed from data", [(sourceHandle?.x || 0)+(sourceHandle?.width || 0)/2+(sourceNode?.position.x || 0), (sourceHandle?.y || 0)+(sourceNode?.position.y || 0)]);
   //console.log(sourceHandle);
@@ -131,6 +163,7 @@ export default function EditableWire ({
   }
 
   const targetNode = useInternalNode(target);
+  const preserveEndPinStub = (targetNode?.data as ComponentDataType | undefined)?.technicalID !== 'SolderJoint';
   const targetHandle=targetNode?.internals.handleBounds?.source?.filter((handle)=>(handle.id==targetHandleId))[0];
   let targetHandleDef= (targetNode?.data?.handles!=undefined) ? (targetNode?.data?.handles as Array<HandleDataType>).filter((handleDef)=>handleDef.hid ==targetHandleId)[0] : undefined;
  
@@ -319,43 +352,47 @@ export default function EditableWire ({
   }
 
 
+  const cleanupSegmentDrag = () => {
+    segmentDragCleanupRef.current?.();
+    segmentDragCleanupRef.current = null;
+    segmentDragRef.current = null;
+    setActiveSegmentIndex(-1);
+    debugSegmentDrag('cleanup segment drag');
+  };
+
   const snapActive = (index: number) => {
     if(!edgePointDragSnapshotTakenRef.current) {
       takeSnapshot('move wire point');
       edgePointDragSnapshotTakenRef.current = true;
     }
     const edges = reactFlowInstance.getEdges();
-    // find index of this edge
     const edgeIndex = edges.findIndex((edge) => edge.id === id);
-    //console.log("OnMouseDown Edge-index="+String(edgeIndex)+" Edge id="+id);
     const new_data=edgeData;
     new_data.edgePoints[index].active=edgeIndex;
     reactFlowInstance.updateEdgeData(id, new_data, {replace: true});
   }
 
-  const releaseAllActive = (index: number) => {
-    //console.log("OnMouseUp Edge");
-    const edges = reactFlowInstance.getEdges();
-    for (let i = 0; i < edges.length; i++) {
-      let handlersLength = 0;
-      if(edges[i].data != null) {
-        handlersLength = (edges[i].data?.edgePoints  as Array<edgePoint>).length;
-      }
-      for (let j = 0; j < handlersLength; j++) {
-        if( (edges[i].data?.edgePoints  as Array<edgePoint>)[j].active !== -1) {
-          const new_data=edgeData;
-          new_data.edgePoints[index].active=-1;
-          reactFlowInstance.updateEdgeData(id, new_data, {replace: true});
-          edgePointDragSnapshotTakenRef.current = false;
-          //console.log("Released");
-        }
+  const releaseAllActive = (index?: number) => {
+    const edge = reactFlowInstance.getEdge(id);
+    const currentEdgeData = edge?.data as EdgeDataType | undefined;
+    if(!edge || !currentEdgeData) return;
 
-      }
-    }
+    const nextEdgePoints = (currentEdgeData.edgePoints ?? []).map((point, pointIndex) => ({
+      ...point,
+      active: index === undefined || pointIndex === index ? -1 : point.active,
+    }));
+
+    reactFlowInstance.updateEdge(id, {
+      ...edge,
+      data: {
+        ...currentEdgeData,
+        edgePoints: nextEdgePoints,
+      },
+    });
+    edgePointDragSnapshotTakenRef.current = false;
   }
 
   const moveEdge = (activeEdge: number,  clientX: number, clientY: number, index: number) => {
-    //console.log("OnMouseMove activeEdge = "+String(activeEdge));
     if (activeEdge === -1) {
       return;
     }
@@ -393,6 +430,159 @@ export default function EditableWire ({
 
     //console.log("moved to x="+String(position.x)+" and y="+String(position.y) + ", eventX="+String(event.clientX)+", eventY="+String(event.clientY));
    }
+
+  const startSegmentDrag = ({
+    clientX,
+    clientY,
+    index,
+    preventDefault,
+  }: {
+    clientX: number;
+    clientY: number;
+    index: number;
+    preventDefault: () => void;
+  }) => {
+    const segment = edgeSegmentsArray[index];
+    const orientation = getSegmentOrientation(
+      {x: segment.segmentSourceX, y: segment.segmentSourceY},
+      {x: segment.segmentTargetX, y: segment.segmentTargetY},
+    );
+    if(!orientation) {
+      debugSegmentDrag('start ignored: segment is not orthogonal', {index, segment});
+      return;
+    }
+
+    const currentEdge = reactFlowInstance.getEdge(id);
+    const currentEdgeData = currentEdge?.data as EdgeDataType | undefined;
+    if(!currentEdgeData) {
+      debugSegmentDrag('start ignored: edge data missing', {index, edgeId: id});
+      return;
+    }
+
+    preventDefault();
+    releaseAllActive();
+    cleanupSegmentDrag();
+
+    debugSegmentDrag('segment drag start', {
+      index,
+      orientation,
+      clientX,
+      clientY,
+      edgePoints: currentEdgeData.edgePoints?.length ?? 0,
+    });
+
+    segmentDragRef.current = {
+      segmentIndex: index,
+      orientation,
+      startClientX: clientX,
+      startClientY: clientY,
+      initialPoints: [
+        {x: sourceXadjusted, y: sourceYadjusted},
+        ...((currentEdgeData.edgePoints ?? []).map((point) => ({x: point.x, y: point.y}))),
+        {x: targetXadjusted, y: targetYadjusted},
+      ],
+      hasMoved: false,
+      snapshotTaken: false,
+    };
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      handleSegmentPointerMove(event.clientX, event.clientY);
+    };
+    const handleWindowTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if(!touch) return;
+
+      event.preventDefault();
+      handleSegmentPointerMove(touch.clientX, touch.clientY);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('touchmove', handleWindowTouchMove, {passive: false});
+    segmentDragCleanupRef.current = () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('touchmove', handleWindowTouchMove);
+    };
+    setActiveSegmentIndex(index);
+  };
+
+  const handleSegmentPointerMove = (clientX: number, clientY: number) => {
+    const drag = segmentDragRef.current;
+    if(!drag) {
+      debugSegmentDrag('move ignored: no active segment drag', {clientX, clientY});
+      return;
+    }
+
+    const moveDistance = Math.sqrt(
+      (clientX - drag.startClientX) ** 2 + (clientY - drag.startClientY) ** 2,
+    );
+    if(!drag.hasMoved && moveDistance < SEGMENT_DRAG_THRESHOLD) {
+      debugSegmentDrag('move below threshold', {
+        moveDistance,
+        threshold: SEGMENT_DRAG_THRESHOLD,
+      });
+      return;
+    }
+
+    if(!drag.snapshotTaken) {
+      takeSnapshot('move wire segment');
+      drag.snapshotTaken = true;
+      debugSegmentDrag('segment drag snapshot taken', {segmentIndex: drag.segmentIndex});
+    }
+    drag.hasMoved = true;
+    setNotMooved(false);
+
+    const position = reactFlowInstance.screenToFlowPosition({
+      x: clientX,
+      y: clientY,
+    });
+    const axisValue = drag.orientation === 'horizontal' ? position.y : position.x;
+    const result = moveWireSegment({
+      points: drag.initialPoints,
+      segmentIndex: drag.segmentIndex,
+      axisValue,
+      pinStubLength: PIN_STUB_LENGTH,
+      preserveStartPinStub,
+      preserveEndPinStub,
+    });
+    if(!result) {
+      debugSegmentDrag('move ignored: geometry returned no result', {
+        segmentIndex: drag.segmentIndex,
+        axisValue,
+        orientation: drag.orientation,
+      });
+      return;
+    }
+
+    const currentEdges = reactFlowInstance.getEdges();
+    const currentEdge = currentEdges.find((edge) => edge.id === id);
+    const currentEdgeData = currentEdge?.data as EdgeDataType | undefined;
+    if(!currentEdge || !currentEdgeData) {
+      debugSegmentDrag('move ignored: current edge missing', {edgeId: id});
+      return;
+    }
+
+    const updatedEdge = {
+      ...currentEdge,
+      data: {
+        ...currentEdgeData,
+        edgePoints: result.edgePoints,
+        startXY: result.points[0],
+        endXY: result.points[result.points.length - 1],
+      },
+    };
+
+    reactFlowInstance.setEdges(
+      currentEdges.map((edge) => (
+        edge.id === id
+          ? updatedEdge
+          : {...edge}
+      )),
+    );
+    debugSegmentDrag('segment moved', {
+      segmentIndex: drag.segmentIndex,
+      axisValue,
+      edgePoints: result.edgePoints.map((point) => ({x: point.x, y: point.y})),
+    });
+  };
 
   const handleWidth = Math.min(edgeData?.width+2,3);
 
@@ -535,6 +725,29 @@ export default function EditableWire ({
     setNotMooved(Boolean(selected));
   }, [selected]);
 
+  useEffect(() => () => {
+    segmentDragCleanupRef.current?.();
+  }, []);
+
+  useEffect(() => {
+    const handleRelease = () => {
+      releaseAllActive();
+      cleanupSegmentDrag();
+    };
+
+    window.addEventListener('mouseup', handleRelease);
+    window.addEventListener('touchend', handleRelease);
+    window.addEventListener('touchcancel', handleRelease);
+    window.addEventListener('blur', handleRelease);
+
+    return () => {
+      window.removeEventListener('mouseup', handleRelease);
+      window.removeEventListener('touchend', handleRelease);
+      window.removeEventListener('touchcancel', handleRelease);
+      window.removeEventListener('blur', handleRelease);
+    };
+  });
+
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [openWireCrosssection, setOpenWireCrosssection] = useState(false);
 
@@ -557,6 +770,30 @@ export default function EditableWire ({
         />
       ))}
       {/* add circle at the end */}
+
+    {selected && !multipleSelect && segmentDragDebugEnabled && <EdgeLabelRenderer>
+        <div
+          className='nopan nodrag'
+          style={{
+            pointerEvents: "none",
+            transform: `translate(${edgeButtonsPosition.x + 5}px,${edgeButtonsPosition.y + 42}px)`,
+            position: "absolute",
+            zIndex: 200,
+            background: "rgba(255, 255, 255, 0.94)",
+            border: "1px solid #faad14",
+            color: "#262626",
+            fontFamily: "monospace",
+            fontSize: 11 / Math.min(reactFlowInstance.getZoom(), 1.4),
+            lineHeight: 1.4,
+            maxWidth: 360,
+            padding: "4px 6px",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {segmentDragDebugMessage || `Debug active: ${SEGMENT_DRAG_DEBUG_STORAGE_KEY}=1`}
+        </div>
+      </EdgeLabelRenderer>
+    }
 
     {selected && !multipleSelect && notMooved && <EdgeLabelRenderer>
         <div
@@ -698,6 +935,119 @@ export default function EditableWire ({
     }
 
     { selected && !multipleSelect &&
+      edgeSegmentsArray.map((segment, index) => {
+        const orientation = getSegmentOrientation(
+          {x: segment.segmentSourceX, y: segment.segmentSourceY},
+          {x: segment.segmentTargetX, y: segment.segmentTargetY},
+        );
+        if(!orientation) return null;
+
+        const segmentLength = Math.sqrt(
+          (segment.segmentTargetX - segment.segmentSourceX) ** 2 +
+          (segment.segmentTargetY - segment.segmentSourceY) ** 2,
+        );
+        const zoom = reactFlowInstance.getZoom();
+        const segmentLengthPx = segmentLength * zoom;
+        const handleGapPx = Math.min(SEGMENT_DRAG_HANDLE_GAP_PX, segmentLengthPx / 4);
+        const centerGapPx = Math.min(SEGMENT_DRAG_CENTER_GAP_PX, segmentLengthPx / 4);
+        const segmentDragPartLength = (segmentLengthPx - handleGapPx * 2 - centerGapPx) / 2;
+        if(segmentDragPartLength < SEGMENT_DRAG_MIN_PART_LENGTH_PX) return null;
+
+        const startOffset = -(centerGapPx / 2 + segmentDragPartLength / 2);
+        const endOffset = centerGapPx / 2 + segmentDragPartLength / 2;
+        const startSegmentDragFromEvent = (
+          clientX: number,
+          clientY: number,
+          preventDefault: () => void,
+        ) => startSegmentDrag({
+          clientX,
+          clientY,
+          index,
+          preventDefault,
+        });
+
+        return (
+          <EdgeLabelRenderer
+            key={`segmentdrag${id}_labelrenderer${index}`}
+          >
+            <div
+              className="nopan nodrag"
+              style={{
+                pointerEvents: "all",
+                transform: `translate(-50%, -50%) translate(${segment.labelX}px,${segment.labelY}px)`,
+                position: "absolute",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{
+                  width: activeSegmentIndex === index
+                    ? `${orientation === 'horizontal' ? Math.max(segmentLengthPx, 500) : 500}px`
+                    : (orientation === 'horizontal' ? `${segmentLengthPx}px` : "18px"),
+                  height: activeSegmentIndex === index
+                    ? `${orientation === 'vertical' ? Math.max(segmentLengthPx, 500) : 500}px`
+                    : (orientation === 'vertical' ? `${segmentLengthPx}px` : "18px"),
+                  cursor: orientation === 'horizontal' ? "ns-resize" : "ew-resize",
+                  touchAction: "none",
+                  position: "relative",
+                  zIndex: 1,
+                  pointerEvents: activeSegmentIndex === index ? "all" : "none",
+                }}
+                onMouseUp={() => cleanupSegmentDrag()}
+                onTouchEnd={() => cleanupSegmentDrag()}
+              >
+                {[startOffset, endOffset].map((offset) => (
+                  <div
+                    key={`segmentdrag${id}_${index}_${offset}`}
+                    style={{
+                      position: "absolute",
+                      left: orientation === 'horizontal' ? `calc(50% + ${offset}px - ${segmentDragPartLength / 2}px)` : "0px",
+                      top: orientation === 'vertical' ? `calc(50% + ${offset}px - ${segmentDragPartLength / 2}px)` : "0px",
+                      width: orientation === 'horizontal' ? `${segmentDragPartLength}px` : "18px",
+                      height: orientation === 'vertical' ? `${segmentDragPartLength}px` : "18px",
+                      pointerEvents: "all",
+                    }}
+                    onMouseDown={(event) => {
+                      if(event.button !== 0) return;
+                      event.stopPropagation();
+                      debugSegmentDrag('segment drag handle mouse down', {
+                        index,
+                        clientX: event.clientX,
+                        clientY: event.clientY,
+                        offset,
+                      });
+                      startSegmentDragFromEvent(
+                        event.clientX,
+                        event.clientY,
+                        () => event.preventDefault(),
+                      );
+                    }}
+                    onTouchStart={(event) => {
+                      const touch = event.touches[0];
+                      if(!touch) return;
+                      event.stopPropagation();
+                      debugSegmentDrag('segment drag handle touch start', {
+                        index,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        offset,
+                      });
+                      startSegmentDragFromEvent(
+                        touch.clientX,
+                        touch.clientY,
+                        () => event.preventDefault(),
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </EdgeLabelRenderer>
+        );
+      })
+    }
+
+    { selected && !multipleSelect &&
       edgeSegmentsArray.map(({labelX, labelY, active}, index) => (
         <EdgeLabelRenderer
           key={`middle${id}_labelrenderer${index}`}
@@ -709,6 +1059,7 @@ export default function EditableWire ({
               pointerEvents: "all",
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               position: "absolute",
+              zIndex: 20,
             }}
           >
             <div
@@ -723,6 +1074,8 @@ export default function EditableWire ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                position: "relative",
+                zIndex: 2,
               }}
             >
               <div
@@ -737,12 +1090,35 @@ export default function EditableWire ({
                   borderWidth: `${Math.min(edgeData.width, 3)}px`,
                   borderStyle: "solid",
                   cursor: "pointer",
+                  touchAction: "none",
                 }}
-                onMouseDown={() => {
+                onMouseDown={(event) => {
+                  if(event.button !== 0) return;
                   setNotMooved(false);
                   takeSnapshot('add wire point');
                   const edge = reactFlowInstance.getEdge(id);
                   //console.log("OnMouseDown Middle Edge id="+id);
+                  const new_edge=edge;
+
+                  if(new_edge?.data != null) {
+                    if(new_edge.data?.edgePoints == null) {
+                      Object.assign(new_edge.data, {edgePoints: [] as Array<edgePoint>});
+                    }
+                    (new_edge.data?.edgePoints as Array<edgePoint>).splice(index, 0, {
+                      x: labelX,
+                      y: labelY,
+                      active: index,
+                    });
+                    reactFlowInstance.updateEdge(id, new_edge);
+                  }
+                }}
+                onTouchStart={(event) => {
+                  const touch = event.touches[0];
+                  if(!touch) return;
+                  event.preventDefault();
+                  setNotMooved(false);
+                  takeSnapshot('add wire point');
+                  const edge = reactFlowInstance.getEdge(id);
                   const new_edge=edge;
 
                   if(new_edge?.data != null) {
@@ -804,6 +1180,7 @@ export default function EditableWire ({
               pointerEvents: "all",
               transform: `translate(-50%, -50%) translate(${x}px,${y}px)`,
               position: "absolute",
+              zIndex: 30,
             }}
           >
             <div
@@ -818,6 +1195,8 @@ export default function EditableWire ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                position: "relative",
+                zIndex: 3,
               }}
               onMouseUp={()=>releaseAllActive(index)}
               onTouchEnd={()=>releaseAllActive(index)}
@@ -844,9 +1223,16 @@ export default function EditableWire ({
                   borderColor: `${edgeData.color_selected}`,
                   borderWidth: `${Math.min(edgeData.width, 3)}px`,
                   borderStyle: "solid",
+                  touchAction: "none",
                 }}
-                onMouseDown={()=>snapActive(index)}
-                onTouchStart={()=>snapActive(index)}
+                onMouseDown={(event)=>{
+                  if(event.button !== 0) return;
+                  snapActive(index);
+                }}
+                onTouchStart={(event)=>{
+                  event.preventDefault();
+                  snapActive(index);
+                }}
 
               >
 
