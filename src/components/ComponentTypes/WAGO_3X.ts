@@ -76,13 +76,13 @@ export const WAGO_3X: Node = {
                 borderLineWidth: 0.8,
                 borderRadius: "20%",
                 borderType: "dotted",
-                description: "Terminal 2",
+                description: "Terminal 3",
                 functions: [
                     "suppl_conn", "general_conn"
                 ],
                 height: 10,
-                hid: "2",
-                name: "Terminal 2",
+                hid: "3",
+                name: "Terminal 3",
                 position: "left",
                 postype: "bottom",
                 tolVmax: 0,

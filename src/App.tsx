@@ -12,6 +12,8 @@ import Sidebar from './sidebar/Sidebar';
 import { getAdaptedBounds } from './utils/utils_functions.ts';
 import { useZustandStore } from './utils/pathfinder_functions.ts';
 import ConnectionLine from './wires/ConnectionLine.tsx';
+import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from './utils/componentTemplateUpdates.ts';
+import { collapseMergeableSolderJoints, collapseMergeableSolderJointsAfterWireDelete } from './utils/wireMerge.ts';
 
 import {postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
 
@@ -38,6 +40,7 @@ import {
   ConnectionMode,
   ReactFlowProvider,
   useReactFlow,
+  useUpdateNodeInternals,
   OnDelete,
   OnInit,
   OnSelectionChangeFunc,
@@ -72,6 +75,7 @@ const FlowApp = () => {
   const [edges, setEdges] = useState([] as Edge[]);
   const [messageApi, messageContextHolder] = message.useMessage();
   const [notificationApi, notificationContextHolder] = notification.useNotification();
+  const [modalApi, modalContextHolder] = Modal.useModal();
   const PFEnabled=useZustandStore(useShallow((state)=>state.pathFindingEnabled));
   const [selectedNodes, setSelectedNodes] = useState([] as Node[]);
   const [selectedEdges, setSelectedEdges] = useState([] as Edge[]);
@@ -95,9 +99,37 @@ const FlowApp = () => {
   const { token } = theme.useToken();
 
   const reactFlow = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const url_params_object = new URLSearchParams( window.location.search );
   const link=url_params_object.get("link");
+
+  const askForComponentTemplateUpdates = useCallback((loadedNodes: Node[]) => {
+    const updateInfos = findNodeComponentTemplateUpdates(loadedNodes, t('sidebar.components.updateValueMissing'));
+    if(updateInfos.length===0) return;
+
+    modalApi.confirm({
+      title: t('message.componentUpdatesAvailableTitle'),
+      content: t('message.componentUpdatesAvailableDescription', { count: updateInfos.length }),
+      okText: t('message.componentUpdatesApplyAll'),
+      cancelText: t('message.componentUpdatesSkip'),
+      onOk: () => {
+        let updatedNodeIds: string[] = [];
+        setNodes((currentNodes) => {
+          const result = applyComponentTemplateUpdatesToNodes(currentNodes);
+          updatedNodeIds = result.updatedNodeIds;
+          return result.nodes;
+        });
+        setTimeout(() => {
+          updatedNodeIds.forEach((nodeId) => updateNodeInternals(nodeId));
+        }, 0);
+        notificationApi['success']({
+          message: t('message.componentUpdatesAppliedShort'),
+          description: t('message.componentUpdatesAllApplied', { count: updateInfos.length }),
+        });
+      },
+    });
+  }, [modalApi, notificationApi, setNodes, t, updateNodeInternals]);
 
   const onInit:OnInit = useCallback((rflow) => {
     if(link) {
@@ -118,7 +150,8 @@ const FlowApp = () => {
           })
           .then((data) => {
             //console.log("Fetched data=", data);
-            rflow.setNodes(data.nodes || []);
+            const loadedNodes = data.nodes || [];
+            rflow.setNodes(loadedNodes);
             rflow.setEdges(data.edges || []);
             rflow.setViewport(data.viewport);
             messageApi.destroy();
@@ -126,6 +159,9 @@ const FlowApp = () => {
               message: t('message.loadModelSuccessShort'),
               description: t('message.loadModelSuccess'),
             });
+            setTimeout(() => {
+              askForComponentTemplateUpdates(loadedNodes);
+            }, 0);
           })
           .catch(() => {
             messageApi.destroy();
@@ -141,7 +177,7 @@ const FlowApp = () => {
         });
       }
     }
-  }, [link]);
+  }, [askForComponentTemplateUpdates, link, messageApi, notificationApi, t]);
 
   //const [{ canDrop, isOver }, drop] = useDrop(() => ({
   const [,drop] = useDrop(() => ({
@@ -192,6 +228,9 @@ const FlowApp = () => {
         source: connectionState.fromNode?.id, target: connectionState.toNode?.id,
         sourceHandle: connectionState.fromHandle?.id, targetHandle: connectionState.toHandle?.id
       } as Connection;
+      const candidateSolderJointIds = [connectionState.fromNode, connectionState.toNode]
+        .filter((node) => node?.data.technicalID === 'SolderJoint')
+        .map((node) => node?.id);
       const color = sourceHandle?.borderColor || "#000000";
       // default line width is 2, if no preffered defined
       const width = sourceHandle?.prefferedLineWidth || 2;
@@ -218,7 +257,7 @@ const FlowApp = () => {
               physCrosssectionUnit: "mm2",
               physType: "single",
           }}, edges);
-          SetTriggerState(triggerState+1);
+          SetTriggerState((value) => value + 1);
           return edg;
         }
       );
@@ -233,6 +272,22 @@ const FlowApp = () => {
           //newHandles[0].changeColorAutomatically=false;
           reactFlow.updateNodeData(params.target, {handles: newHandles});
         }
+      }
+
+      if(candidateSolderJointIds.length>0) {
+        setTimeout(() => {
+          const collapseResult = collapseMergeableSolderJoints({
+            nodes: reactFlow.getNodes(),
+            edges: reactFlow.getEdges(),
+            candidateSolderJointIds,
+          });
+
+          if(collapseResult.collapsedSolderJointIds.length>0) {
+            setNodes(collapseResult.nodes);
+            setEdges(collapseResult.edges);
+            SetTriggerState((value) => value + 1);
+          }
+        }, 0);
       }
       
       handleAndNodeArray=[{thisParamsNodeID: params.source,thisParamsHandleID: params.sourceHandle},
@@ -329,16 +384,16 @@ const FlowApp = () => {
 
     stripCheckAndDivideIfMiddleConnection(reactFlow, handleAndNodeArray);
 
-  }, [setNodes, setEdges, reactFlow.screenToFlowPosition, triggerState, PFEnabled]);
+  }, [setNodes, setEdges, reactFlow]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds1) => {
       const nds = applyNodeChanges(changes, nds1);
       //console.log(nds);
-      SetTriggerState(triggerState+1);
+      SetTriggerState((value) => value + 1);
       return nds;
     }),
-    [setNodes, triggerState],
+    [setNodes],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -389,17 +444,9 @@ const FlowApp = () => {
       
     }
 
-  }, []);
+  }, [reactFlow]);
 
   const onDeleteNodeOrEdge: OnDelete= useCallback((params)=> {
-    // if edge deleted and it has connected WireInfoNode
-    params.edges.map((edge)=>{
-      const allnodes = reactFlow.getNodes();
-      allnodes.filter((node)=>(node.data.wireInfoForNodeId==edge.id && node.data.technicalID=="WireInfoNode")).map((node)=>{
-        reactFlow.deleteElements({ nodes: [{id: node.id}] });
-      })
-    })
-
     // deleted edge can mean that data.physLengths[] array must be changed for the node.
     // go for all nodes and check if in this array there are objects with startIndex for which
     // handles in repeatedHandleArray exist but no one handle has connections
@@ -451,8 +498,20 @@ const FlowApp = () => {
         }
       }
   });
+    const solderJointCollapseResult = collapseMergeableSolderJointsAfterWireDelete({
+      nodes,
+      edgesBeforeDelete: edges,
+      deletedEdges: params.edges,
+      deletedNodes: params.nodes,
+    });
+
+    setNodes(solderJointCollapseResult.nodes);
+    setEdges(solderJointCollapseResult.edges);
+    if(solderJointCollapseResult.collapsedSolderJointIds.length>0) {
+      SetTriggerState((value) => value + 1);
+    }
     //console.log("Some Edge or Node deleted");
-  },[edges]);
+  },[edges, nodes, reactFlow, setEdges, setNodes]);
 
   // ensures that edges are redrawn if triggerState changes
   useEffect(() => {
@@ -482,6 +541,7 @@ const FlowApp = () => {
     >
       {messageContextHolder}
       {notificationContextHolder}
+      {modalContextHolder}
       <div id="app_container">
         <div id="headerRow" style={{borderBottomColor: token.colorBorder}}>
             <div style={{flex: "1 1 auto", textAlign: 'center'}}>
@@ -497,7 +557,9 @@ const FlowApp = () => {
         <div id="mainRow">
           <div id="reactflowDiv" style={{borderColor: token.colorBorder}}>
             <ReactFlow
-              ref={drop}
+              ref={(element) => {
+                drop(element);
+              }}
               data-testid="reactflow_pane"
               nodes={nodes}
               nodeTypes={nodeTypes}

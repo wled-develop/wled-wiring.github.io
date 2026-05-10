@@ -108,6 +108,7 @@ export const Kerko: Node = {
             y: 1.8,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         {
             borderColor: "black",
@@ -133,6 +134,7 @@ export const Kerko: Node = {
             y: 25,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         ]
     } as ComponentDataType,

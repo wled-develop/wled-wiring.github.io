@@ -69,6 +69,15 @@ export type CompInputFieldsBoxType = {
   rotate180only?: boolean;
 } 
 
+export type ComponentInternalConnectionType = {
+  kind: "fuse";
+  fromHandle: string;
+  toHandle: string;
+  fuseId: string;
+  nominalCurrent?: number;
+  nominalCurrentField?: string;
+}
+
 export type HandleDataType = {
     hid: string;
     type: HandleType;
@@ -93,10 +102,12 @@ export type HandleDataType = {
     tolVmax?: number,
     tolVmin?: number,
     Vout?: number,
-    functions?: ("dig_in" | "dig_out" | "an_in" | "an_out" | "rst" | "suppl_in" | "suppl_out" | "gnd" | "usb_full" | "usb_power_out" | "suppl_conn" | "general_conn" | "pe" | "neutral" | "line" | "an_common" | "audio_in" | "audio_out" | "eth" | "rs485_A" | "rs485_B")[],
+    VoutDependency?: string,
+    functions?: ("dig_in" | "dig_out" | "dig_clock_in" | "dig_clock_out" | "dig_backup_in" | "dig_backup_out" | "not_connected" | "an_in" | "an_out" | "rst" | "suppl_in" | "suppl_out" | "gnd" | "usb_full" | "usb_power_out" | "suppl_conn" | "general_conn" | "pe_in" | "pe_out" | "neutral_in" | "neutral_out" | "line_in" | "line_out" | "an_common" | "audio_in" | "audio_out" | "eth" | "rs485_A" | "rs485_B" | "pwm_in_R" | "pwm_in_G" | "pwm_in_B" | "pwm_in_W" | "pwm_in_WW" | "pwm_out"  )[],
     prefferedLineWidth?: number,
     hideConditions?: {selectHID: string, values: number[]}[],
     prefferedLineDirection?: DirectionType, // his can overwrite default behaviour of pathfinding that draw a line from/to handle in direction of closest node bound. Useful for example in case of miniOTO fuse
+    mustBeConnected?: boolean,
   };
 
   export interface FlowNodeProps {
@@ -138,6 +149,7 @@ export type HandleDataType = {
     inputFieldsBox?: CompInputFieldsBoxType;
     inputFields?: CompInputFieldDataType[];
     selectFields?: CompSelectFieldDataType[];
+    internalConnections?: ComponentInternalConnectionType[];
     // these variables for node that is assigned to a wire and holds information about the wire
     wireInfoForNodeId?: string;
     correspondingWireSelected?: boolean;
@@ -145,6 +157,7 @@ export type HandleDataType = {
     wireInfo_crosssection?: number | null;
     wireInfo_crosssectionUnit?: string;
     wireInfo_color?: string;
+    checkHighlighted?: boolean;
     // --------------
     // for popover
     popover?: {
@@ -169,6 +182,7 @@ export type HandleDataType = {
     color: string;
     color_selected: string;
     correspondingInfoNodeSelected?: boolean;
+    checkHighlighted?: boolean;
   }
 
   export type edgePoint = {
@@ -204,5 +218,3 @@ export type HandleDataType = {
     segmentTargetX: number,
     segmentTargetY: number 
   };
-
-

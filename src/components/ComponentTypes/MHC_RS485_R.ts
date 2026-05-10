@@ -104,7 +104,7 @@ export const MHC_RS485_R: Node = {
                 "borderType": "dotted",
                 "description": "Power input (from LEDs)",
                 "functions": [
-                    "suppl_out"
+                    "suppl_in"
                 ],
                 "height": 14,
                 "hid": "VIN",

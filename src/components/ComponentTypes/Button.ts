@@ -47,6 +47,7 @@ export const Button: Node = {
             y: 27,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         {
             borderColor: "green",
@@ -72,6 +73,7 @@ export const Button: Node = {
             y: 27,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         ]
     } as ComponentDataType,

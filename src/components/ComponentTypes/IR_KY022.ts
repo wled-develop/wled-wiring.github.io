@@ -61,7 +61,7 @@ export const IR_KY022: Node = {
                 position: "left",
                 postype: "left",
                 tolVmax: 3.6,
-                tolVmin: 0,
+                tolVmin: 3.0,
                 type: "source",
                 Vout: 0,
                 width: 10,
@@ -95,6 +95,7 @@ export const IR_KY022: Node = {
                 y: 49.2,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
 
         ]

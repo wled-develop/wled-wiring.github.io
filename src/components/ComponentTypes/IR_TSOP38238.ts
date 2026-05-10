@@ -45,6 +45,7 @@ export const IR_TSOP38238: Node = {
                 y: 76,
                 yalign: "start",
                 prefferedLineWidth: 1,
+                mustBeConnected: true,
             } as HandleDataType,
             {
                 borderColor: "black",
@@ -86,7 +87,7 @@ export const IR_TSOP38238: Node = {
                 position: "left",
                 postype: "bottom",
                 tolVmax: 3.6,
-                tolVmin: 0,
+                tolVmin: 3.0,
                 type: "source",
                 Vout: 0,
                 width: 6,

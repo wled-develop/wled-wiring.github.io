@@ -6,7 +6,7 @@ export const WS2814_12V_30LPM: Node = {
     type: 'general-component-type',
     position: { x: 0, y: 0 },
     origin: [0.5, 0.5],
-    data: { 
+    data: {
         image: {url:"./WS2814_12V_30LPM.png", width: 253, height: 25} as ImageDataType,
         technicalID: "WS2814_12V_30LPM",
         name: "compData.WS2814_12V_30LPM.name",
@@ -41,9 +41,13 @@ export const WS2814_12V_30LPM: Node = {
             name: "12V pin",
             description: "12V supply input",
             prefferedLineDirection: "left",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
         } as HandleDataType,
         {
             hid: "DATA_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 13,
@@ -60,6 +64,8 @@ export const WS2814_12V_30LPM: Node = {
             description: "",
             name: "DATA input",
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -97,6 +103,9 @@ export const WS2814_12V_30LPM: Node = {
             name: "12V pin",
             description: "12V supply input",
             prefferedLineDirection: "right",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
         } as HandleDataType,
         {
             hid: "DATA_end",
@@ -116,6 +125,7 @@ export const WS2814_12V_30LPM: Node = {
             description: "",
             name: "DATA output",
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -153,6 +163,9 @@ export const WS2814_12V_30LPM: Node = {
             position: Position.Left,
             name: "12V pin",
             description: "12V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -173,6 +186,7 @@ export const WS2814_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,

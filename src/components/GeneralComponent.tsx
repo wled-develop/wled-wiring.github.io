@@ -2,7 +2,8 @@ import {useState, useCallback} from 'react';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
-            DeleteOutlined, CopyOutlined, BorderOutlined, XFilled, CaretUpOutlined, CaretDownOutlined} from '@ant-design/icons';
+            DeleteOutlined, CopyOutlined, BorderOutlined, XFilled, CaretUpOutlined, CaretDownOutlined,
+            InfoCircleOutlined} from '@ant-design/icons';
 
 import Icon from '@ant-design/icons';
 
@@ -15,8 +16,9 @@ import { useTranslation } from "react-i18next";
 import { ComponentDataType, edgePoint, type GeneralComponent, ImageDataType } from '../types';
 import { colorNameToRGBString, stripCheckAndDivideIfMiddleConnection} from '../utils/utils_functions';
 import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_functions.ts';
+import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
 
-import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, message} from 'antd';
+import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, message, Button as AntButton, Table} from 'antd';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
 
 import ConnectionIcon from '../icons/connection.svg?react';
@@ -33,6 +35,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     const [messageApi, messageContextHolder] = message.useMessage();
 
     const [openColorPicker, setOpenColorPicker] = useState(false);
+    const [openComponentUpdatePopover, setOpenComponentUpdatePopover] = useState(false);
 
     const updateNodeInternals = useUpdateNodeInternals();
 
@@ -44,6 +47,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
 
     const rotatable=compData.rotatable;
     const rotation=rotatable?compData.rotation:0;
+    const checkHighlighted=Boolean(compData.checkHighlighted);
 
     const nodeLength=(compData?.nodeLength || 1);
 
@@ -185,6 +189,168 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
 
 
 
+    const componentTemplateData = getComponentTemplateData(compData.technicalID);
+
+    const componentUpdateChanges = componentTemplateData
+        ? getComponentUpdateChanges(compData, componentTemplateData, t('sidebar.components.updateValueMissing'))
+        : [];
+
+    const updateComponentEnabled = componentUpdateChanges.length>0;
+
+    const componentInfoConnectionListColumns = [
+        {
+            title: t('sidebar.components.popoverContent.listOfConnectionsHeading1'),
+            dataIndex: 'pinName',
+            key: 'pinName',
+            width: 100
+        },
+        {
+            title: t('sidebar.components.popoverContent.listOfConnectionsHeading2'),
+            dataIndex: 'description',
+            key: 'description',
+            width: 300
+        }
+    ];
+
+    const componentInfoConnectionListData = compData.handles?.map((handle, index) => ({
+        key: handle.hid || index,
+        pinName: handle.name,
+        description: handle.description || "",
+    })) || [];
+
+    const componentUpdateChangeColumns = [
+        {
+            title: t('sidebar.components.updateChangeProperty'),
+            dataIndex: 'path',
+            key: 'path',
+            width: 180,
+        },
+        {
+            title: t('sidebar.components.updateChangeCurrent'),
+            dataIndex: 'currentValue',
+            key: 'currentValue',
+            width: 180,
+        },
+        {
+            title: t('sidebar.components.updateChangeTemplate'),
+            dataIndex: 'templateValue',
+            key: 'templateValue',
+            width: 180,
+        }
+    ];
+
+    const applyComponentUpdates = () => {
+        if(!componentTemplateData) return;
+
+        const updatedComponentData = buildUpdatedComponentData(compData, componentTemplateData);
+        reactFlowInstance.updateNodeData(id, updatedComponentData);
+        updateNodeInternals(id);
+        setOpenComponentUpdatePopover(false);
+        messageApi.open({
+            type: 'success',
+            content: t('message.componentUpdatesApplied'),
+            duration: 5,
+        });
+    };
+
+    const componentUpdateContent = (
+        <div
+            style={{
+                maxWidth: 650,
+                maxHeight: 500,
+                overflow: "auto",
+            }}
+        >
+            <AntButton
+                type="primary"
+                disabled={!updateComponentEnabled}
+                onClick={applyComponentUpdates}
+                style={{
+                    marginBottom: 10,
+                }}
+            >
+                {t('sidebar.components.applyUpdatesButtonText')}
+            </AntButton>
+            <p
+                style={{
+                    marginTop: 0,
+                }}
+            >
+                {t('sidebar.components.updateExplanation')}
+            </p>
+            {componentUpdateChanges.length>0 ?
+                <Table
+                    columns={componentUpdateChangeColumns}
+                    dataSource={componentUpdateChanges}
+                    size='small'
+                    tableLayout='auto'
+                    pagination={{ position: ['topRight'], pageSize: 5 }}
+                />
+            :
+                <p>{t('sidebar.components.noUpdateChanges')}</p>
+            }
+        </div>
+    );
+
+    const componentInfoContent = (
+        <div
+            style={{
+                maxWidth: 400,
+                maxHeight: 600,
+                overflow: "auto",
+            }}
+        >
+            <p><b>{t(compData.name)}</b><br/>{t(compData.description)}</p>
+            {compData.popover?.description && <p>{t(compData.popover.description)}</p>}
+            {compData.popover?.buyLinks && compData.popover.buyLinks.length>0 &&
+                <div>
+                    <u>{t('sidebar.components.popoverContent.whereToBuy')}</u><ul>
+                    {compData.popover.buyLinks.map((link, index) => (
+                        <li key={index}>
+                            <a href={link.url} target="_blank" rel="noopener noreferrer">{link.text}</a>
+                        </li>
+                    ))}
+                    </ul>
+                </div>
+            }
+            {componentInfoConnectionListData.length>0 &&
+                <div
+                    style={{
+                        maxWidth: 400,
+                        maxHeight: 400,
+                    }}
+                >
+                    <u>{t('sidebar.components.popoverContent.listOfConnections')}</u>
+                    <Table
+                        columns={componentInfoConnectionListColumns}
+                        dataSource={componentInfoConnectionListData}
+                        size='small'
+                        tableLayout='auto'
+                        virtual
+                        pagination={{ position: ['topRight'], pageSize: 5 }}
+                    />
+                </div>
+            }
+            <Popover
+                content={componentUpdateContent}
+                title={t('sidebar.components.updatePopoverTitle')}
+                trigger="click"
+                open={openComponentUpdatePopover}
+                onOpenChange={(open) => setOpenComponentUpdatePopover(updateComponentEnabled ? open : false)}
+            >
+                <AntButton
+                    type="primary"
+                    disabled={!updateComponentEnabled}
+                    style={{
+                        marginTop: 10,
+                    }}
+                >
+                    {t('sidebar.components.updateButtonText')}
+                </AntButton>
+            </Popover>
+        </div>
+    );
+
     const startConnectionContent = (
         <Select
             showSearch
@@ -231,7 +397,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 const startNodeHid=(startNode.data as ComponentDataType).selectedHid;
                 console.log("startNodeHid", startNodeHid);
 
-                if(startNodeID==id && (startNodeHid  as string)==(value as String)) {
+                if(startNodeID==id && (startNodeHid  as string)==(value as string)) {
                     messageApi.open({
                         type: 'error',
                         content: t('message.startPinFirst'),
@@ -368,6 +534,18 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     }}
                 ><CopyOutlined/></button>
             </Tooltip>
+            <Popover
+                content={componentInfoContent}
+                title={t('sidebar.components.popoverTitle')}
+                trigger="click"
+            >
+                <Tooltip
+                    title={t('tooltip.componentInfo')}
+                    placement="bottom"
+                >
+                    <button><InfoCircleOutlined /></button>
+                </Tooltip>
+            </Popover>
 
             {
                 combinedHandlesArrayVisible.length>0 && 
@@ -642,6 +820,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
         style={{
             border: (selected && !compData.applyNodeResizer)?`${borderWidth}px solid #333333`:(compData.changableColor?`${borderWidth}px solid ${compData.color}`:`${borderWidth}px solid transparent`),
             boxSizing: "content-box",
+            boxShadow: checkHighlighted?"0 0 0 3px #faad14, 0 0 10px #faad14":undefined,
             height: (compData.wireInfoForNodeId || (compData.technicalID=="InfoNode"))?"":(rotationSwapImgWH?(nodeLength*nodeBasicSizeX):nodeBasicSizeY),
             width: (compData.wireInfoForNodeId)?"":(rotationSwapImgWH?nodeBasicSizeY:(nodeLength*nodeBasicSizeX)),
             //backgroundImage: `url(${backgroundImageURL})`,

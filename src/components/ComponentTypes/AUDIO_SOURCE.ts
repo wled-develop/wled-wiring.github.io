@@ -47,6 +47,7 @@ export const AUDIO_SOURCE: Node = {
             "y": 78,
             "yalign": "start",
             prefferedLineWidth: 3,
+            mustBeConnected: true,
         },
         ]
     } as ComponentDataType,

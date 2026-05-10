@@ -75,6 +75,7 @@ export const PSU_HP: Node = {
             description: "Vout (#1)",
             functions: ["suppl_out"],
             prefferedLineWidth: 3,
+            VoutDependency: "source_voltage",
         } as HandleDataType,
         {
             hid: "Vout2",
@@ -95,6 +96,7 @@ export const PSU_HP: Node = {
             description: "Vout (#2)",
             functions: ["suppl_out"],
             prefferedLineWidth: 3,
+            VoutDependency: "source_voltage",
         } as HandleDataType,
         {
             hid: "Vout3",
@@ -114,6 +116,7 @@ export const PSU_HP: Node = {
             name: "Vout",
             description: "Vout (#3)",
             functions: ["suppl_out"],
+            VoutDependency: "source_voltage",
             prefferedLineWidth: 3,
         } as HandleDataType,
         {
@@ -193,7 +196,7 @@ export const PSU_HP: Node = {
             position: Position.Left,
             name: "PE",
             description: "Protective earth",
-            functions: ["pe"],
+            functions: ["pe_in"],
             prefferedLineWidth: 3,
         } as HandleDataType,
         {
@@ -213,7 +216,7 @@ export const PSU_HP: Node = {
             position: Position.Left,
             name: "N",
             description: "Neutral 110~V/230~V",
-            functions: ["neutral"],
+            functions: ["neutral_in"],
             prefferedLineWidth: 3,
         } as HandleDataType,
         {
@@ -233,7 +236,7 @@ export const PSU_HP: Node = {
             position: Position.Left,
             name: "L",
             description: "Line 110~V/230~V",
-            functions: ["line"],
+            functions: ["line_in"],
             prefferedLineWidth: 3,
         } as HandleDataType,
         ]

@@ -114,7 +114,7 @@ export const LM2596_PCB: Node = {
                 tolVmax: 40,
                 tolVmin: 0,
                 type: "source",
-                Vout: 5,
+                VoutDependency: "source_voltage",
                 width: 12,
                 x: 163,
                 xalign: "start",

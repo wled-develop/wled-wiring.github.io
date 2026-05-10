@@ -40,10 +40,14 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             name: "12V pin",
             description: "12V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
             hid: "BACKUP_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 9.6,
@@ -59,10 +63,14 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "Must be tied to GND",
             name: "Backup input",
+            functions: ["dig_backup_in"],
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "DATA_start",
+            mustBeConnected: true,
             type: "source",
             x: 2.7,
             y: 16,
@@ -78,7 +86,10 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA input",
+            functions: ["dig_in"],
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -97,6 +108,7 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
@@ -116,6 +128,9 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             name: "12V pin",
             description: "12V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -135,6 +150,7 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "Backup output",
+            functions: ["dig_backup_out"],
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -154,7 +170,9 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA output",
+            functions: ["dig_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -173,6 +191,7 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -192,6 +211,9 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             name: "12V pin",
             description: "12V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 10,
+            tolVmax: 12,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -212,8 +234,7 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "Must be tied to GND",
             name: "Backup",
-            repeated: "yes",
-            repeatAtFirst: "no"
+            functions: ["not_connected"],
         } as HandleDataType,
         {
             hid: "DATA_middle",
@@ -232,6 +253,7 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -252,9 +274,14 @@ export const WS2815_12V_30LPM: Node = {
             position: Position.Left,
             description: "GND",
             name: "GND pin",
+            functions: ["gnd"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+
+

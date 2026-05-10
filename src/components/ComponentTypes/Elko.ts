@@ -120,6 +120,7 @@ export const Elko: Node = {
             y: 7.5,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         {
             borderColor: "black",
@@ -145,6 +146,7 @@ export const Elko: Node = {
             y: 19.5,
             yalign: "start",
             prefferedLineWidth: 1,
+            mustBeConnected: true,
         } as HandleDataType,
         ]
     } as ComponentDataType,

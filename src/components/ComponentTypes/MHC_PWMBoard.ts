@@ -222,7 +222,15 @@ export const MHC_PWMBoard: Node = {
             ],
             },           
         ],
-
+        internalConnections: [
+            {
+                kind: "fuse",
+                fromHandle: "VIN",
+                toHandle: "VOUT",
+                fuseId: "Fuse",
+                nominalCurrentField: "Fuse",
+            },
+        ],
         handles: [
             {
                 "borderColor": "red",
@@ -241,7 +249,6 @@ export const MHC_PWMBoard: Node = {
                 "tolVmax": 48,
                 "tolVmin": 12,
                 "type": "source",
-                "Vout": 0,
                 "width": 30,
                 "x": 20,
                 "xalign": "start",
@@ -366,7 +373,7 @@ export const MHC_PWMBoard: Node = {
                 "tolVmax": 48,
                 "tolVmin": 0,
                 "type": "source",
-                "Vout": 0,
+                "VoutDependency": "VIN",
                 "width": 30,
                 "x": 312,
                 "xalign": "start",
@@ -381,7 +388,7 @@ export const MHC_PWMBoard: Node = {
                 "borderType": "dashed",
                 "description": "PWM Output 1",
                 "functions": [
-                    "suppl_out"
+                    "pwm_out"
                 ],
                 "height": 18,
                 "hid": "PWMOUT1",
@@ -406,7 +413,7 @@ export const MHC_PWMBoard: Node = {
                 "borderType": "dashed",
                 "description": "PWM Output 2",
                 "functions": [
-                    "suppl_out"
+                    "pwm_out"
                 ],
                 "height": 18,
                 "hid": "PWMOUT2",
@@ -431,7 +438,7 @@ export const MHC_PWMBoard: Node = {
                 "borderType": "dashed",
                 "description": "PWM Output 3",
                 "functions": [
-                    "suppl_out"
+                    "pwm_out"
                 ],
                 "height": 18,
                 "hid": "PWMOUT3",

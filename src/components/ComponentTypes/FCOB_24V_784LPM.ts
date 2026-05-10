@@ -40,10 +40,14 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             name: "24V pin",
             description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
             hid: "DATA_start",
+            mustBeConnected: true,
             type: "source",
             x: 3.7,
             y: 18,
@@ -59,7 +63,10 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA input",
+            functions: ["dig_in"],
             prefferedLineDirection: "left",
+            tolVmin: 4.5,
+            tolVmax: 5,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -77,6 +84,7 @@ export const FCOB_24V_784LPM: Node = {
             postype: "centered",
             position: Position.Left,
             description: "", name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "left",
         } as HandleDataType,
         {
@@ -96,6 +104,9 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             name: "24V pin",
             description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -115,7 +126,9 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA output",
+            functions: ["dig_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -134,6 +147,7 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             description: "",
             name: "GND pin",
+            functions: ["gnd"],
             prefferedLineDirection: "right",
         } as HandleDataType,
         {
@@ -153,6 +167,9 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             name: "24V pin",
             description: "24V supply input",
+            functions: ["suppl_in"],
+            tolVmin: 20,
+            tolVmax: 24,
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -173,6 +190,7 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             description: "",
             name: "DATA",
+            functions: ["not_connected"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
@@ -193,9 +211,13 @@ export const FCOB_24V_784LPM: Node = {
             position: Position.Left,
             description: "GND",
             name: "GND pin",
+            functions: ["gnd"],
             repeated: "yes",
             repeatAtFirst: "no"
         } as HandleDataType,
         ]
     } as ComponentDataType,
 }
+
+
+
