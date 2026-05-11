@@ -665,6 +665,7 @@ const FlowApp = () => {
               ref={(element) => {
                 drop(element);
               }}
+              className={!panOnDrag ? "react-flow--multiselect" : undefined}
               data-testid="reactflow_pane"
               nodes={nodes}
               nodeTypes={nodeTypes}
@@ -741,8 +742,10 @@ const FlowApp = () => {
                 </ControlButton>
                 <ControlButton
                   onClick={() => {
-                    setPanOnDrag(false);
+                    setPanOnDrag((enabled) => !enabled);
                   }}
+                  className={!panOnDrag ? "control-button--active" : undefined}
+                  aria-pressed={!panOnDrag}
                   title={t('tooltip.selectMulti')}
                 >
                   <SelectOutlined />

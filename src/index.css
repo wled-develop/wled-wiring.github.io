@@ -113,6 +113,21 @@ html, body {
   z-index: 100;
 }
 
+.react-flow--multiselect .react-flow__pane,
+.react-flow--multiselect .react-flow__selectionpane {
+  cursor: crosshair !important;
+}
+
+.react-flow__controls-button.control-button--active {
+  background: #1677ff;
+  color: #fff;
+}
+
+.react-flow__controls-button.control-button--active:hover {
+  background: #4096ff;
+  color: #fff;
+}
+
 .react-flow__handle {
   display: inline-flex;
   transition: box-shadow 0.2s ease;
