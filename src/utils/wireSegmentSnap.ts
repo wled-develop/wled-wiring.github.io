@@ -1,8 +1,8 @@
 import type { XYPoint } from '../types';
 import type { SegmentOrientation } from './wireSegmentMove';
 
-const DEFAULT_SNAP_DISTANCE_PX = 4;
-const DEFAULT_MIN_SEGMENT_LENGTH_PX = 6;
+const DEFAULT_SNAP_DISTANCE_PX = 3;
+const DEFAULT_MIN_SEGMENT_LENGTH_PX = 4;
 
 export type SnapWireSegmentAxisValueParams = {
   points: XYPoint[];
