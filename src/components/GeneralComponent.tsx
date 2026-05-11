@@ -1,4 +1,5 @@
-import {useState} from 'react';
+import {useLayoutEffect, useState, type CSSProperties, type MouseEvent} from 'react';
+import {createPortal} from 'react-dom';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
@@ -31,12 +32,27 @@ const customColorPanelRender: ColorPickerProps['panelRender'] = (_,{ components:
     <Presets />
 );
 
+type PinTooltipState = {
+    text: string;
+    anchorX: number;
+    anchorTop: number;
+    anchorBottom: number;
+};
+
+type PinTooltipLayout = {
+    style: CSSProperties;
+    arrowStyle: CSSProperties;
+    placement: 'top' | 'bottom';
+};
+
 export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent>) {
     const {t} = useTranslation(['main']);
     const [messageApi, messageContextHolder] = message.useMessage();
 
     const [openColorPicker, setOpenColorPicker] = useState(false);
     const [openComponentUpdatePopover, setOpenComponentUpdatePopover] = useState(false);
+    const [pinTooltip, setPinTooltip] = useState<PinTooltipState | null>(null);
+    const [pinTooltipLayout, setPinTooltipLayout] = useState<PinTooltipLayout | null>(null);
 
     const updateNodeInternals = useUpdateNodeInternals();
 
@@ -75,6 +91,57 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
 
     const selectedElementsCount = useSelectedElementsCount();
     const multipleSelect = selectedElementsCount > 1;
+
+    const showPinTooltip = (event: MouseEvent<HTMLDivElement>, text: string) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setPinTooltipLayout(null);
+        setPinTooltip({
+            text,
+            anchorX: rect.left + rect.width / 2,
+            anchorTop: rect.top,
+            anchorBottom: rect.bottom,
+        });
+    };
+
+    const hidePinTooltip = () => {
+        setPinTooltip(null);
+        setPinTooltipLayout(null);
+    };
+
+    useLayoutEffect(() => {
+        if(!pinTooltip) return;
+
+        const tooltipElement = document.getElementById(`pin-tooltip-${id}`);
+        if(!tooltipElement) return;
+
+        const gap = 10;
+        const viewportMargin = 8;
+        const tooltipRect = tooltipElement.getBoundingClientRect();
+
+        const maxLeft = Math.max(viewportMargin, window.innerWidth - tooltipRect.width - viewportMargin);
+        const left = Math.min(Math.max(pinTooltip.anchorX - tooltipRect.width / 2, viewportMargin), maxLeft);
+
+        const hasRoomAbove = pinTooltip.anchorTop - tooltipRect.height - gap >= viewportMargin;
+        const placement = hasRoomAbove ? 'top' : 'bottom';
+        const top = placement === 'top'
+            ? Math.max(viewportMargin, pinTooltip.anchorTop - tooltipRect.height - gap)
+            : Math.min(window.innerHeight - tooltipRect.height - viewportMargin, pinTooltip.anchorBottom + gap);
+
+        const arrowX = Math.min(Math.max(pinTooltip.anchorX - left, 12), Math.max(12, tooltipRect.width - 12));
+
+        setPinTooltipLayout({
+            placement,
+            style: {
+                left,
+                top: Math.max(viewportMargin, top),
+                opacity: 1,
+                visibility: 'visible',
+            },
+            arrowStyle: {
+                left: arrowX,
+            },
+        });
+    }, [id, pinTooltip]);
 
     const borderWidth = compData.borderWidth || 2;
     const repeatedHandleArray = compData.repeatedHandleArray || [];
@@ -464,6 +531,20 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     return (
       <>
         {messageContextHolder}
+        {pinTooltip && createPortal(
+            <div
+                id={`pin-tooltip-${id}`}
+                className={`pin-tooltip-floating pin-tooltip-floating--${pinTooltipLayout?.placement || 'top'}`}
+                style={pinTooltipLayout?.style}
+            >
+                {pinTooltip.text}
+                <span
+                    className="pin-tooltip-floating__arrow"
+                    style={pinTooltipLayout?.arrowStyle}
+                />
+            </div>,
+            document.body
+        )}
         <NodeToolbar
             isVisible={selected && !multipleSelect}
             position={Position.Top}
@@ -1066,6 +1147,10 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                         key={`node${id}_handle_${hid}`}
                         type={type}
                         position={position}
+                        onMouseEnter={(event) => {
+                            if(name) showPinTooltip(event, name);
+                        }}
+                        onMouseLeave={hidePinTooltip}
                         style={{
                             //background: (compData.technicalID=="SolderJoint")?borderColor:(combinedHandlesArrayIsConnected[index]?borderColor:"transparent"),
                             background: (compData.technicalID=="SolderJoint")?borderColor:"transparent",
@@ -1081,16 +1166,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                             height: rotated_height,
                             margin: "auto"
                         }}
-                    >
-                        {name && <span className="tooltiptext"
-                            key={`node${id}_handle_${hid}_tooltip`}
-                            style = {{
-                                transform: `translateY(-50%) translateY(-0.6em) translateY(-8px)`,
-                            }}
-                        >
-                            {name}
-                        </span>}
-                    </Handle>
+                    />
                 })
             }
             
