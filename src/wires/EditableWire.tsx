@@ -42,9 +42,46 @@ const SEGMENT_DRAG_HANDLE_GAP_PX = 16;
 const SEGMENT_DRAG_CENTER_GAP_PX = 20;
 const SEGMENT_DRAG_MIN_PART_LENGTH_PX = 8;
 const SEGMENT_DRAG_DEBUG_STORAGE_KEY = 'wledWireSegmentDragDebug';
+const WIRE_JUMP_MIN_RADIUS = 3;
+const WIRE_JUMP_MAX_RADIUS = 18;
+const WIRE_JUMP_BASE_RADIUS = 1.5;
+const WIRE_JUMP_CLEARANCE = 1;
+const WIRE_JUMP_MIN_SIN_ANGLE = 0.35;
 
 let globalSegmentDragSession = 0;
 let globalSegmentDragCleanup: (() => void) | null = null;
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const finiteNumberOr = (value: unknown, fallback: number) => (
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback
+);
+
+const calculateWireJumpRadius = (
+  upperWireWidth: unknown,
+  lowerWireWidth: unknown,
+  upperSegment: {x0: number; y0: number; x1: number; y1: number},
+  lowerSegment: {x0: number; y0: number; x1: number; y1: number},
+) => {
+  const upperWidth = finiteNumberOr(upperWireWidth, 1);
+  const lowerWidth = finiteNumberOr(lowerWireWidth, 1);
+  const upperDx = upperSegment.x1 - upperSegment.x0;
+  const upperDy = upperSegment.y1 - upperSegment.y0;
+  const lowerDx = lowerSegment.x1 - lowerSegment.x0;
+  const lowerDy = lowerSegment.y1 - lowerSegment.y0;
+  const upperLength = Math.sqrt(upperDx ** 2 + upperDy ** 2);
+  const lowerLength = Math.sqrt(lowerDx ** 2 + lowerDy ** 2);
+  const sinAngle = upperLength > 0 && lowerLength > 0
+    ? Math.abs(upperDx * lowerDy - upperDy * lowerDx) / (upperLength * lowerLength)
+    : 1;
+  const angleFactor = 1 / Math.max(sinAngle, WIRE_JUMP_MIN_SIN_ANGLE);
+  const rawRadius = WIRE_JUMP_BASE_RADIUS
+    + WIRE_JUMP_CLEARANCE
+    + lowerWidth * 0.55 * angleFactor
+    + upperWidth * 0.55;
+
+  return clamp(rawRadius, WIRE_JUMP_MIN_RADIUS, WIRE_JUMP_MAX_RADIUS);
+};
 
 export default function EditableWire ({
   id,
@@ -335,11 +372,17 @@ export default function EditableWire ({
                 //calculate squared distances to the cross point to shorten the path
                 const a1=(x0-px)*(x0-px)+(y0-py)*(y0-py);
                 const a2=(x1-px)*(x1-px)+(y1-py)*(y1-py);
-                const min_a=0*2*2;
+                const jumpRadius = calculateWireJumpRadius(
+                  edgeData?.width,
+                  edges[i].data?.width,
+                  {x0, y0, x1, y1},
+                  {x0: x2, y0: y2, x1: x3, y1: y3},
+                );
+                const min_a=jumpRadius*jumpRadius;
                 // only draw intersection if distance high and id (==z-index) is bigger
                 if (a1>min_a && a2>min_a && id>edges[i].id) {
                   //console.log("INTERSECTION at ["+String(px)+", "+String(py)+"]");
-                  const d = 6 + (edgeData?.width as number) + (edges[i].data?.width as number);
+                  const d = jumpRadius * 2;
                   const xdir=(x1>x0)?1:-1;
                   let xs1=px; // covers special case of vertical line
                   let xs2=px;
@@ -356,8 +399,22 @@ export default function EditableWire ({
                     ys1 = py-ydir*d/2/sqrty;
                     ys2 = py+ydir*d/2/sqrty;
                   }
+
+                  const distanceFromSegmentStart = Math.sqrt(a1);
                   
-                  intersections.push({x:px, y: py, segmentIndex: k, partnerId: edges[i].id, partnerSegmentIndex: m, xs1, xs2, ys1, ys2});
+                  intersections.push({
+                    x:px,
+                    y: py,
+                    segmentIndex: k,
+                    partnerId: edges[i].id,
+                    partnerSegmentIndex: m,
+                    xs1,
+                    xs2,
+                    ys1,
+                    ys2,
+                    radius: jumpRadius,
+                    distanceFromSegmentStart,
+                  });
 
                 }
               }
@@ -371,18 +428,9 @@ export default function EditableWire ({
     //
     edgeSegmentsArray[i].edgePath = `M${edgeSegmentsArray[i].segmentSourceX} ${edgeSegmentsArray[i].segmentSourceY}`;
     const this_intersect = intersections.filter((value)=>(value.segmentIndex==i));
-    if(edgeSegmentsArray[i].segmentSourceX < edgeSegmentsArray[i].segmentTargetX) {
-      this_intersect.sort((a, b)=>(a.xs1 - b.xs1));
-    } else {
-      this_intersect.sort((a, b)=>(b.xs1 - a.xs1));
-    }
-    if(edgeSegmentsArray[i].segmentSourceY < edgeSegmentsArray[i].segmentTargetY) {
-      this_intersect.sort((a, b)=>(a.ys1 - b.ys1));
-    } else {
-      this_intersect.sort((a, b)=>(b.ys1 - a.ys1));
-    }
+    this_intersect.sort((a, b)=>(a.distanceFromSegmentStart - b.distanceFromSegmentStart));
     for(let j = 0; j < this_intersect.length; j++) {
-      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${this_intersect[j].xs1} ${this_intersect[j].ys1} A 1 1 0 0 0 ${this_intersect[j].xs2} ${this_intersect[j].ys2}`;
+      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${this_intersect[j].xs1} ${this_intersect[j].ys1} A ${this_intersect[j].radius} ${this_intersect[j].radius} 0 0 0 ${this_intersect[j].xs2} ${this_intersect[j].ys2}`;
     }
     edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${edgeSegmentsArray[i].segmentTargetX} ${edgeSegmentsArray[i].segmentTargetY}`;
   }

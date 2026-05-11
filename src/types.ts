@@ -206,6 +206,8 @@ export type HandleDataType = {
     ys1: number;
     xs2: number;
     ys2: number;
+    radius: number;
+    distanceFromSegmentStart: number;
   };
   
   export type segmentData = {
