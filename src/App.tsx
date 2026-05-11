@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { ConfigProvider, theme, message, notification, Button, Modal } from 'antd';
+import { ConfigProvider, theme, message, notification, Button, Modal, Select } from 'antd';
 import { useTranslation } from "react-i18next";
 import { DndProvider } from 'react-dnd-multi-backend'
 import { HTML5toTouch } from 'rdndmb-html5-to-touch'
@@ -62,6 +62,7 @@ import {
   type Connection,
   type OnNodeDrag,
   type OnBeforeDelete,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -82,6 +83,14 @@ const defaultEdgeOptions = {
        physType: "single",
   } as EdgeDataType
 };
+
+const exampleOptions = [
+  {labelKey: 'examples.example1', value: 'examples/example1'},
+  {labelKey: 'examples.example2', value: 'examples/example2'},
+  {labelKey: 'examples.example3', value: 'examples/example3'},
+  {labelKey: 'examples.example4', value: 'examples/example4'},
+  {labelKey: 'examples.example5', value: 'examples/example5'},
+];
 
 const FlowApp = () => {
   const [nodes, setNodes] = useState(initialNodes);
@@ -165,54 +174,56 @@ const FlowApp = () => {
     });
   }, [modalApi, notificationApi, setNodes, t, undoRedo, updateNodeInternals]);
 
+  const loadModelFromLink = useCallback((modelLink: string, rflow: ReactFlowInstance = reactFlow) => {
+    if(modelLink.length==24 || modelLink.length==17 || modelLink.length==18) {
+      const linktofile="https://raw.githubusercontent.com/wled-development/wled-wiring-store/refs/heads/main/"+modelLink+".json";
+      messageApi.open({
+        type: 'loading',
+        content: t('message.loadingModel'),
+        duration: 0,
+      });
+      fetch(linktofile)
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Model file could not be loaded');
+        })
+        .then((data) => {
+          const loadedNodes = data.nodes || [];
+          rflow.setNodes(loadedNodes);
+          rflow.setEdges(data.edges || []);
+          rflow.setViewport(data.viewport);
+          undoRedo.clearHistory();
+          messageApi.destroy();
+          notificationApi['success']({
+            message: t('message.loadModelSuccessShort'),
+            description: t('message.loadModelSuccess'),
+          });
+          setTimeout(() => {
+            askForComponentTemplateUpdates(loadedNodes);
+          }, 0);
+        })
+        .catch(() => {
+          messageApi.destroy();
+          notificationApi['error']({
+            message: t('message.loadModelErrorShort'),
+            description: t('message.loadModelError'),
+          });
+        });
+    } else {
+      notificationApi['error']({
+        message: t('message.loadModelErrorShort'),
+        description: t('message.loadModelWrongLink'),
+      });
+    }
+  }, [askForComponentTemplateUpdates, messageApi, notificationApi, reactFlow, t, undoRedo]);
+
   const onInit:OnInit = useCallback((rflow) => {
     if(link) {
-      if(link.length==24 || link.length==17 || link.length==18) {
-        const linktofile="https://raw.githubusercontent.com/wled-development/wled-wiring-store/refs/heads/main/"+link+".json";
-        // fetch link to file
-        //console.log("LOADING");
-        messageApi.open({
-          type: 'loading',
-          content: t('message.loadingModel'),
-          duration: 0,
-        });
-        fetch(linktofile)
-          .then((response) => {
-            if (response.ok) {
-              return response.json();
-            }
-          })
-          .then((data) => {
-            //console.log("Fetched data=", data);
-            const loadedNodes = data.nodes || [];
-            rflow.setNodes(loadedNodes);
-            rflow.setEdges(data.edges || []);
-            rflow.setViewport(data.viewport);
-            undoRedo.clearHistory();
-            messageApi.destroy();
-            notificationApi['success']({
-              message: t('message.loadModelSuccessShort'),
-              description: t('message.loadModelSuccess'),
-            });
-            setTimeout(() => {
-              askForComponentTemplateUpdates(loadedNodes);
-            }, 0);
-          })
-          .catch(() => {
-            messageApi.destroy();
-            notificationApi['error']({
-              message: t('message.loadModelErrorShort'),
-              description: t('message.loadModelError'),
-            });
-          });
-      } else {
-        notificationApi['error']({
-          message: t('message.loadModelErrorShort'),
-          description: t('message.loadModelWrongLink'),
-        });
-      }
+      loadModelFromLink(link, rflow);
     }
-  }, [askForComponentTemplateUpdates, link, messageApi, notificationApi, t, undoRedo]);
+  }, [link, loadModelFromLink]);
 
   //const [{ canDrop, isOver }, drop] = useDrop(() => ({
   const [,drop] = useDrop(() => ({
@@ -782,13 +793,34 @@ const FlowApp = () => {
 
               { nodes.length === 0 &&
                 <Panel position="top-center">
-                  <span
+                  <div
                     style={{
-                      fontSize: 16,
-                      color: token.colorText,
+                      alignItems: "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
                     }}
-                  
-                  >{t('dragComponents')}</span>
+                  >
+                    <span
+                      style={{
+                        fontSize: 16,
+                        color: token.colorText,
+                      }}
+                    >{t('dragComponents')}</span>
+                    <Select
+                      showSearch
+                      placeholder={t('sidebar.export.selectExample')}
+                      optionFilterProp="label"
+                      style={{minWidth: 280}}
+                      options={exampleOptions.map((option) => ({
+                        label: t(option.labelKey),
+                        value: option.value,
+                      }))}
+                      onSelect={(value) => {
+                        loadModelFromLink(value);
+                      }}
+                    />
+                  </div>
                 </Panel>
               }
             </ReactFlow>
