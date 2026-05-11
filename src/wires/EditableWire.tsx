@@ -42,6 +42,12 @@ const SEGMENT_DRAG_HANDLE_GAP_PX = 16;
 const SEGMENT_DRAG_CENTER_GAP_PX = 20;
 const SEGMENT_DRAG_MIN_PART_LENGTH_PX = 8;
 const SEGMENT_DRAG_DEBUG_STORAGE_KEY = 'wledWireSegmentDragDebug';
+const WIRE_TOOLBAR_WIDTH_PX = 190;
+const WIRE_TOOLBAR_HEIGHT_PX = 34;
+const WIRE_TOOLBAR_GAP_PX = 12;
+const WIRE_TOOLBAR_VIEWPORT_MARGIN_PX = 12;
+const WIRE_TOOLBAR_HANDLE_CLEARANCE_PX = 14;
+const WIRE_TOOLBAR_OVERLAP_PENALTY = 10000;
 const WIRE_JUMP_MIN_RADIUS = 3;
 const WIRE_JUMP_MAX_RADIUS = 18;
 const WIRE_JUMP_BASE_RADIUS = 1.5;
@@ -63,6 +69,163 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const finiteNumberOr = (value: unknown, fallback: number) => (
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 );
+
+const rectsOverlap = (
+  a: {left: number; right: number; top: number; bottom: number},
+  b: {left: number; right: number; top: number; bottom: number},
+) => (
+  a.left < b.right &&
+  a.right > b.left &&
+  a.top < b.bottom &&
+  a.bottom > b.top
+);
+
+const rectOverlapArea = (
+  a: {left: number; right: number; top: number; bottom: number},
+  b: {left: number; right: number; top: number; bottom: number},
+) => {
+  if(!rectsOverlap(a, b)) return 0;
+
+  return (Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+    (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+};
+
+const mergeIntervals = (intervals: Array<{start: number; end: number}>) => (
+  intervals
+    .filter((interval) => interval.end > interval.start)
+    .sort((a, b) => a.start - b.start)
+    .reduce<Array<{start: number; end: number}>>((merged, interval) => {
+      const previous = merged[merged.length - 1];
+      if(!previous || interval.start > previous.end) {
+        merged.push({...interval});
+      } else {
+        previous.end = Math.max(previous.end, interval.end);
+      }
+      return merged;
+    }, [])
+);
+
+const isValueInIntervals = (value: number, intervals: Array<{start: number; end: number}>) => (
+  intervals.some((interval) => value > interval.start && value < interval.end)
+);
+
+const findClosestAllowedValue = (
+  desired: number,
+  min: number,
+  max: number,
+  forbiddenIntervals: Array<{start: number; end: number}>,
+) => {
+  if(max <= min) return min;
+
+  const mergedIntervals = mergeIntervals(forbiddenIntervals)
+    .map((interval) => ({
+      start: clamp(interval.start, min, max),
+      end: clamp(interval.end, min, max),
+    }))
+    .filter((interval) => interval.end > interval.start);
+  const clampedDesired = clamp(desired, min, max);
+  if(!isValueInIntervals(clampedDesired, mergedIntervals)) return clampedDesired;
+
+  const candidates = [
+    min,
+    max,
+    ...mergedIntervals.flatMap((interval) => [interval.start, interval.end]),
+  ]
+    .map((candidate) => clamp(candidate, min, max))
+    .filter((candidate) => !isValueInIntervals(candidate, mergedIntervals));
+
+  return candidates.reduce(
+    (best, candidate) => (
+      Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best
+    ),
+    clampedDesired,
+  );
+};
+
+const intersectIntervals = (
+  first: {start: number; end: number} | null,
+  second: {start: number; end: number} | null,
+) => {
+  if(!first || !second) return null;
+
+  const start = Math.max(first.start, second.start);
+  const end = Math.min(first.end, second.end);
+  return end > start ? {start, end} : null;
+};
+
+const rangeOverlapIntervalForShift = (
+  rangeStart: number,
+  rangeEnd: number,
+  obstacleStart: number,
+  obstacleEnd: number,
+  direction: number,
+) => {
+  if(Math.abs(direction) < 0.0001) {
+    return rangeStart < obstacleEnd && rangeEnd > obstacleStart
+      ? {start: Number.NEGATIVE_INFINITY, end: Number.POSITIVE_INFINITY}
+      : null;
+  }
+
+  const shiftStart = (obstacleStart - rangeEnd) / direction;
+  const shiftEnd = (obstacleEnd - rangeStart) / direction;
+  return {
+    start: Math.min(shiftStart, shiftEnd),
+    end: Math.max(shiftStart, shiftEnd),
+  };
+};
+
+const constrainShiftForViewport = (
+  position: number,
+  min: number,
+  max: number,
+  direction: number,
+) => {
+  if(Math.abs(direction) < 0.0001) {
+    return position >= min && position <= max
+      ? {start: Number.NEGATIVE_INFINITY, end: Number.POSITIVE_INFINITY}
+      : null;
+  }
+
+  const shiftStart = (min - position) / direction;
+  const shiftEnd = (max - position) / direction;
+  return {
+    start: Math.min(shiftStart, shiftEnd),
+    end: Math.max(shiftStart, shiftEnd),
+  };
+};
+
+const shiftRectAlongVector = (
+  rect: {left: number; right: number; top: number; bottom: number},
+  vector: {x: number; y: number},
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  obstacleRects: Array<{left: number; right: number; top: number; bottom: number}>,
+) => {
+  const viewportShiftRange = intersectIntervals(
+    constrainShiftForViewport(rect.left, minX, maxX, vector.x),
+    constrainShiftForViewport(rect.top, minY, maxY, vector.y),
+  );
+  if(!viewportShiftRange) return {x: clamp(rect.left, minX, maxX), y: clamp(rect.top, minY, maxY)};
+
+  const forbiddenShifts = obstacleRects
+    .map((obstacleRect) => intersectIntervals(
+      rangeOverlapIntervalForShift(rect.left, rect.right, obstacleRect.left, obstacleRect.right, vector.x),
+      rangeOverlapIntervalForShift(rect.top, rect.bottom, obstacleRect.top, obstacleRect.bottom, vector.y),
+    ))
+    .filter((interval): interval is {start: number; end: number} => interval !== null);
+
+  const shift = findClosestAllowedValue(0, viewportShiftRange.start, viewportShiftRange.end, forbiddenShifts);
+  return {
+    x: rect.left + vector.x * shift,
+    y: rect.top + vector.y * shift,
+  };
+};
+
+type WireToolbarAnchor = XYPoint & {
+  segmentIndex?: number;
+};
 
 const calculateWireJumpRadius = (
   upperWireWidth: unknown,
@@ -177,6 +340,7 @@ export default function EditableWire ({
   const [notMooved, setNotMooved] = useState(true);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(-1);
   const [segmentDragDebugMessage, setSegmentDragDebugMessage] = useState('');
+  const [wireToolbarAnchor, setWireToolbarAnchor] = useState<WireToolbarAnchor | null>(null);
 
   const reactFlowInstance=useReactFlow();
   const { takeSnapshot } = useUndoRedo();
@@ -853,7 +1017,220 @@ export default function EditableWire ({
 
   const handleWidth = Math.min(edgeData?.width+2,3);
 
-  const edgeButtonsPosition={x: edgeSegmentsArray[0].labelX, y: edgeSegmentsArray[0].labelY};
+  const edgeButtonsFallbackPosition={x: edgeSegmentsArray[0].labelX, y: edgeSegmentsArray[0].labelY, segmentIndex: 0};
+  const calculateWireToolbarPosition = () => {
+    const anchor = wireToolbarAnchor ?? edgeButtonsFallbackPosition;
+    if(typeof document === 'undefined') return {x: anchor.x + 5, y: anchor.y + 5};
+
+    const flowElement = document.querySelector('.react-flow') as HTMLElement | null;
+    const flowRect = flowElement?.getBoundingClientRect();
+    if(!flowRect) return {x: anchor.x + 5, y: anchor.y + 5};
+
+    const anchorScreen = reactFlowInstance.flowToScreenPosition(anchor);
+    const zoom = reactFlowInstance.getZoom();
+    const toolbarWidth = WIRE_TOOLBAR_WIDTH_PX / zoom;
+    const toolbarHeight = WIRE_TOOLBAR_HEIGHT_PX / zoom;
+    const gap = WIRE_TOOLBAR_GAP_PX / zoom;
+    const handlePoints = [
+      ...edgeSegmentsArray.map((segment) => ({x: segment.labelX, y: segment.labelY})),
+      ...edgePoints.map((point) => ({x: point.x, y: point.y})),
+    ];
+    const handleRects = handlePoints.map((point) => {
+      const screenPoint = reactFlowInstance.flowToScreenPosition(point);
+      return {
+        left: screenPoint.x - WIRE_TOOLBAR_HANDLE_CLEARANCE_PX,
+        right: screenPoint.x + WIRE_TOOLBAR_HANDLE_CLEARANCE_PX,
+        top: screenPoint.y - WIRE_TOOLBAR_HANDLE_CLEARANCE_PX,
+        bottom: screenPoint.y + WIRE_TOOLBAR_HANDLE_CLEARANCE_PX,
+      };
+    });
+
+    const minX = flowRect.left + WIRE_TOOLBAR_VIEWPORT_MARGIN_PX;
+    const maxX = flowRect.right - WIRE_TOOLBAR_VIEWPORT_MARGIN_PX - WIRE_TOOLBAR_WIDTH_PX;
+    const minY = flowRect.top + WIRE_TOOLBAR_VIEWPORT_MARGIN_PX;
+    const maxY = flowRect.bottom - WIRE_TOOLBAR_VIEWPORT_MARGIN_PX - WIRE_TOOLBAR_HEIGHT_PX;
+    const maxAllowedX = Math.max(minX, maxX);
+    const maxAllowedY = Math.max(minY, maxY);
+    const anchorSegment = edgeSegmentsArray[anchor.segmentIndex ?? 0] ?? edgeSegmentsArray[0];
+    const segmentStartScreen = reactFlowInstance.flowToScreenPosition({
+      x: anchorSegment.segmentSourceX,
+      y: anchorSegment.segmentSourceY,
+    });
+    const segmentEndScreen = reactFlowInstance.flowToScreenPosition({
+      x: anchorSegment.segmentTargetX,
+      y: anchorSegment.segmentTargetY,
+    });
+    const segmentOrientation = getSegmentOrientation(
+      {x: anchorSegment.segmentSourceX, y: anchorSegment.segmentSourceY},
+      {x: anchorSegment.segmentTargetX, y: anchorSegment.segmentTargetY},
+    );
+    const screenCandidates: Array<{x: number; y: number; intendedX: number; intendedY: number; priority: number}> = [];
+    const addCandidate = (candidate: {x: number; y: number; intendedX: number; intendedY: number; priority: number}) => {
+      screenCandidates.push(candidate);
+    };
+
+    if(segmentOrientation === 'horizontal') {
+      const segmentY = (segmentStartScreen.y + segmentEndScreen.y) / 2;
+      [
+        {intendedY: segmentY + WIRE_TOOLBAR_GAP_PX, priority: 0},
+        {intendedY: segmentY - WIRE_TOOLBAR_GAP_PX - WIRE_TOOLBAR_HEIGHT_PX, priority: 8},
+      ].forEach(({intendedY, priority}) => {
+        const y = clamp(intendedY, minY, maxAllowedY);
+        const candidateVerticalRange = {
+          top: y,
+          bottom: y + WIRE_TOOLBAR_HEIGHT_PX,
+        };
+        const forbiddenXIntervals = handleRects
+          .filter((handleRect) => (
+            candidateVerticalRange.top < handleRect.bottom &&
+            candidateVerticalRange.bottom > handleRect.top
+          ))
+          .map((handleRect) => ({
+            start: handleRect.left - WIRE_TOOLBAR_WIDTH_PX,
+            end: handleRect.right,
+          }));
+        const intendedX = anchorScreen.x - WIRE_TOOLBAR_WIDTH_PX / 2;
+        const x = findClosestAllowedValue(intendedX, minX, maxAllowedX, forbiddenXIntervals);
+        addCandidate({x, y, intendedX, intendedY, priority});
+      });
+    } else if(segmentOrientation === 'vertical') {
+      const segmentX = (segmentStartScreen.x + segmentEndScreen.x) / 2;
+      [
+        {intendedX: segmentX + WIRE_TOOLBAR_GAP_PX, priority: 0},
+        {intendedX: segmentX - WIRE_TOOLBAR_GAP_PX - WIRE_TOOLBAR_WIDTH_PX, priority: 8},
+      ].forEach(({intendedX, priority}) => {
+        const x = clamp(intendedX, minX, maxAllowedX);
+        const candidateHorizontalRange = {
+          left: x,
+          right: x + WIRE_TOOLBAR_WIDTH_PX,
+        };
+        const forbiddenYIntervals = handleRects
+          .filter((handleRect) => (
+            candidateHorizontalRange.left < handleRect.right &&
+            candidateHorizontalRange.right > handleRect.left
+          ))
+          .map((handleRect) => ({
+            start: handleRect.top - WIRE_TOOLBAR_HEIGHT_PX,
+            end: handleRect.bottom,
+          }));
+        const intendedY = anchorScreen.y - WIRE_TOOLBAR_HEIGHT_PX / 2;
+        const y = findClosestAllowedValue(intendedY, minY, maxAllowedY, forbiddenYIntervals);
+        addCandidate({x, y, intendedX, intendedY, priority});
+      });
+    } else {
+      const segmentDx = segmentEndScreen.x - segmentStartScreen.x;
+      const segmentDy = segmentEndScreen.y - segmentStartScreen.y;
+      const segmentLength = Math.sqrt(segmentDx ** 2 + segmentDy ** 2);
+      if(segmentLength > 0) {
+        const tangent = {
+          x: segmentDx / segmentLength,
+          y: segmentDy / segmentLength,
+        };
+        const normal = {
+          x: -tangent.y,
+          y: tangent.x,
+        };
+        const halfToolbar = {
+          x: WIRE_TOOLBAR_WIDTH_PX / 2,
+          y: WIRE_TOOLBAR_HEIGHT_PX / 2,
+        };
+        const normalHalfExtent = Math.abs(normal.x) * halfToolbar.x + Math.abs(normal.y) * halfToolbar.y;
+
+        [1, -1].forEach((side, index) => {
+          const intendedCenter = {
+            x: anchorScreen.x + normal.x * side * (normalHalfExtent + WIRE_TOOLBAR_GAP_PX),
+            y: anchorScreen.y + normal.y * side * (normalHalfExtent + WIRE_TOOLBAR_GAP_PX),
+          };
+          const intendedX = intendedCenter.x - halfToolbar.x;
+          const intendedY = intendedCenter.y - halfToolbar.y;
+          const shiftedPosition = shiftRectAlongVector(
+            {
+              left: intendedX,
+              right: intendedX + WIRE_TOOLBAR_WIDTH_PX,
+              top: intendedY,
+              bottom: intendedY + WIRE_TOOLBAR_HEIGHT_PX,
+            },
+            tangent,
+            minX,
+            maxAllowedX,
+            minY,
+            maxAllowedY,
+            handleRects,
+          );
+          addCandidate({
+            x: shiftedPosition.x,
+            y: shiftedPosition.y,
+            intendedX,
+            intendedY,
+            priority: index * 8,
+          });
+        });
+      }
+    }
+
+    if(screenCandidates.length === 0) {
+      const intendedX = anchorScreen.x + WIRE_TOOLBAR_GAP_PX;
+      const intendedY = anchorScreen.y + WIRE_TOOLBAR_GAP_PX;
+      addCandidate({
+        x: clamp(intendedX, minX, maxAllowedX),
+        y: clamp(intendedY, minY, maxAllowedY),
+        intendedX,
+        intendedY,
+        priority: 20,
+      });
+    }
+
+    const scoredCandidates = screenCandidates.map((screenCandidate) => {
+      const candidateRect = {
+        left: screenCandidate.x,
+        right: screenCandidate.x + WIRE_TOOLBAR_WIDTH_PX,
+        top: screenCandidate.y,
+        bottom: screenCandidate.y + WIRE_TOOLBAR_HEIGHT_PX,
+      };
+      const overlapArea = handleRects.reduce(
+        (sum, handleRect) => sum + rectOverlapArea(candidateRect, handleRect),
+        0,
+      );
+      const dx = anchorScreen.x < candidateRect.left
+        ? candidateRect.left - anchorScreen.x
+        : Math.max(anchorScreen.x - candidateRect.right, 0);
+      const dy = anchorScreen.y < candidateRect.top
+        ? candidateRect.top - anchorScreen.y
+        : Math.max(anchorScreen.y - candidateRect.bottom, 0);
+      const distanceFromAnchor = Math.sqrt(dx ** 2 + dy ** 2);
+      const clampDistance = Math.abs(screenCandidate.x - screenCandidate.intendedX) +
+        Math.abs(screenCandidate.y - screenCandidate.intendedY);
+
+      return {
+        x: screenCandidate.x,
+        y: screenCandidate.y,
+        score: overlapArea * WIRE_TOOLBAR_OVERLAP_PENALTY +
+          distanceFromAnchor * 4 +
+          clampDistance * 3 +
+          screenCandidate.priority,
+      };
+    });
+    const candidate = scoredCandidates.reduce(
+      (bestCandidate, candidate) => (
+        candidate.score < bestCandidate.score ? candidate : bestCandidate
+      ),
+      scoredCandidates[0] ?? {
+        x: clamp(anchorScreen.x + WIRE_TOOLBAR_GAP_PX, minX, Math.max(minX, maxX)),
+        y: clamp(anchorScreen.y + WIRE_TOOLBAR_GAP_PX, minY, Math.max(minY, maxY)),
+        score: 0,
+      },
+    );
+    const position = reactFlowInstance.screenToFlowPosition({x: candidate.x, y: candidate.y});
+
+    return {
+      x: position.x,
+      y: position.y,
+      width: toolbarWidth,
+      height: toolbarHeight,
+      gap,
+    };
+  };
+  const edgeButtonsPosition = calculateWireToolbarPosition();
 
   const updateWireDataAndCollapseIfPossible = (
     patch: Partial<EdgeDataType>,
@@ -1049,6 +1426,27 @@ export default function EditableWire ({
           path={edgePath}
           markerEnd={markerEnd}
           interactionWidth={10}
+          onMouseDown={(event) => {
+            if(event.button !== 0) return;
+            setWireToolbarAnchor({
+              ...reactFlowInstance.screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+              }),
+              segmentIndex: index,
+            });
+          }}
+          onTouchStart={(event) => {
+            const touch = event.touches[0];
+            if(!touch) return;
+            setWireToolbarAnchor({
+              ...reactFlowInstance.screenToFlowPosition({
+                x: touch.clientX,
+                y: touch.clientY,
+              }),
+              segmentIndex: index,
+            });
+          }}
           style = {{
             stroke: selected ? `${edgeData.color_selected}` : `${edgeData?.color}`,
             strokeWidth: checkHighlighted ? edgeData.width + 3 : edgeData.width,
@@ -1090,8 +1488,9 @@ export default function EditableWire ({
           className='nopan nodrag pointer-events-auto absolute'
           style = {{
             pointerEvents: "all",
-            transform: `translate(${edgeButtonsPosition.x+5}px,${edgeButtonsPosition.y+5}px)`,
+            transform: `translate(${edgeButtonsPosition.x}px,${edgeButtonsPosition.y}px)`,
             position: "absolute",
+            zIndex: 1000,
           }}
         >
           <Flex>
