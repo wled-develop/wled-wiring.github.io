@@ -207,6 +207,7 @@ export type HandleDataType = {
     xs2: number;
     ys2: number;
     radius: number;
+    bridgePath: string;
     distanceFromSegmentStart: number;
   };
   

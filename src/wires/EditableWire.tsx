@@ -27,7 +27,7 @@ import "./EditableWire.css";
 import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
 
 import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
-import {colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
+import {canonicalizeColorForCompare, colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
 import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
 import { getSegmentOrientation, moveWireSegment, type SegmentOrientation } from "../utils/wireSegmentMove.ts";
 import { applySolderJointSegmentMove } from "../utils/solderJointSegmentMove.ts";
@@ -47,6 +47,11 @@ const WIRE_JUMP_MAX_RADIUS = 18;
 const WIRE_JUMP_BASE_RADIUS = 1.5;
 const WIRE_JUMP_CLEARANCE = 1;
 const WIRE_JUMP_MIN_SIN_ANGLE = 0.35;
+const WIRE_JUMP_SPLINE_SIN_ANGLE = 0.58;
+const WIRE_JUMP_SPLINE_MAX_LENGTH_FACTOR = 1.6;
+const WIRE_JUMP_SPLINE_HEIGHT_FACTOR = 0.85;
+const WIRE_JUMP_HALO_COLOR = '#fff';
+const WIRE_JUMP_HALO_WIDTH_EXTRA = 3;
 
 let globalSegmentDragSession = 0;
 let globalSegmentDragCleanup: (() => void) | null = null;
@@ -60,20 +65,10 @@ const finiteNumberOr = (value: unknown, fallback: number) => (
 const calculateWireJumpRadius = (
   upperWireWidth: unknown,
   lowerWireWidth: unknown,
-  upperSegment: {x0: number; y0: number; x1: number; y1: number},
-  lowerSegment: {x0: number; y0: number; x1: number; y1: number},
+  sinAngle: number,
 ) => {
   const upperWidth = finiteNumberOr(upperWireWidth, 1);
   const lowerWidth = finiteNumberOr(lowerWireWidth, 1);
-  const upperDx = upperSegment.x1 - upperSegment.x0;
-  const upperDy = upperSegment.y1 - upperSegment.y0;
-  const lowerDx = lowerSegment.x1 - lowerSegment.x0;
-  const lowerDy = lowerSegment.y1 - lowerSegment.y0;
-  const upperLength = Math.sqrt(upperDx ** 2 + upperDy ** 2);
-  const lowerLength = Math.sqrt(lowerDx ** 2 + lowerDy ** 2);
-  const sinAngle = upperLength > 0 && lowerLength > 0
-    ? Math.abs(upperDx * lowerDy - upperDy * lowerDx) / (upperLength * lowerLength)
-    : 1;
   const angleFactor = 1 / Math.max(sinAngle, WIRE_JUMP_MIN_SIN_ANGLE);
   const rawRadius = WIRE_JUMP_BASE_RADIUS
     + WIRE_JUMP_CLEARANCE
@@ -81,6 +76,39 @@ const calculateWireJumpRadius = (
     + upperWidth * 0.55;
 
   return clamp(rawRadius, WIRE_JUMP_MIN_RADIUS, WIRE_JUMP_MAX_RADIUS);
+};
+
+const calculateSegmentSinAngle = (
+  upperSegment: {x0: number; y0: number; x1: number; y1: number},
+  lowerSegment: {x0: number; y0: number; x1: number; y1: number},
+) => {
+  const upperDx = upperSegment.x1 - upperSegment.x0;
+  const upperDy = upperSegment.y1 - upperSegment.y0;
+  const lowerDx = lowerSegment.x1 - lowerSegment.x0;
+  const lowerDy = lowerSegment.y1 - lowerSegment.y0;
+  const upperLength = Math.sqrt(upperDx ** 2 + upperDy ** 2);
+  const lowerLength = Math.sqrt(lowerDx ** 2 + lowerDy ** 2);
+  return upperLength > 0 && lowerLength > 0
+    ? Math.abs(upperDx * lowerDy - upperDy * lowerDx) / (upperLength * lowerLength)
+    : 1;
+};
+
+const getEdgeRenderLayer = (edge: Edge, edgeIndex: number) => (
+  typeof edge.zIndex === 'number' && Number.isFinite(edge.zIndex)
+    ? edge.zIndex
+    : edgeIndex
+);
+
+const isWireRenderedAbove = (edgeId: string, otherEdge: Edge, edges: Edge[]) => {
+  const edgeIndex = edges.findIndex((edge) => edge.id === edgeId);
+  const otherEdgeIndex = edges.findIndex((edge) => edge.id === otherEdge.id);
+  if(edgeIndex < 0 || otherEdgeIndex < 0) return false;
+
+  const edgeLayer = getEdgeRenderLayer(edges[edgeIndex], edgeIndex);
+  const otherEdgeLayer = getEdgeRenderLayer(otherEdge, otherEdgeIndex);
+  if(edgeLayer !== otherEdgeLayer) return edgeLayer > otherEdgeLayer;
+
+  return edgeIndex > otherEdgeIndex;
 };
 
 export default function EditableWire ({
@@ -312,6 +340,7 @@ export default function EditableWire ({
   
   // find intersections
   const intersections = [] as Array<intersectionPoint>;
+  const wireJumpHaloPaths = [] as Array<{path: string; width: number}>;
   const edges = reactFlowInstance.getEdges();
   for (let i = 0; i < edges.length; i++) {
     if(edges[i].id !==id && (edges[i].data != undefined) && (edges[i].data?.startXY != undefined) && (edges[i].data?.endXY != undefined) ) {
@@ -372,35 +401,49 @@ export default function EditableWire ({
                 //calculate squared distances to the cross point to shorten the path
                 const a1=(x0-px)*(x0-px)+(y0-py)*(y0-py);
                 const a2=(x1-px)*(x1-px)+(y1-py)*(y1-py);
-                const jumpRadius = calculateWireJumpRadius(
-                  edgeData?.width,
-                  edges[i].data?.width,
+                const upperSegmentLength = Math.sqrt((x1-x0) ** 2 + (y1-y0) ** 2);
+                const ux = upperSegmentLength > 0 ? (x1-x0) / upperSegmentLength : 1;
+                const uy = upperSegmentLength > 0 ? (y1-y0) / upperSegmentLength : 0;
+                const sinAngle = calculateSegmentSinAngle(
                   {x0, y0, x1, y1},
                   {x0: x2, y0: y2, x1: x3, y1: y3},
                 );
-                const min_a=jumpRadius*jumpRadius;
-                // only draw intersection if distance high and id (==z-index) is bigger
-                if (a1>min_a && a2>min_a && id>edges[i].id) {
+                const jumpRadius = calculateWireJumpRadius(
+                  edgeData?.width,
+                  edges[i].data?.width,
+                  sinAngle,
+                );
+                const useSplineBridge = sinAngle < WIRE_JUMP_SPLINE_SIN_ANGLE;
+                const bridgeHalfLength = useSplineBridge
+                  ? jumpRadius * clamp(1 / Math.max(sinAngle, WIRE_JUMP_MIN_SIN_ANGLE), 1.15, WIRE_JUMP_SPLINE_MAX_LENGTH_FACTOR)
+                  : jumpRadius;
+                const min_a=bridgeHalfLength*bridgeHalfLength;
+                // only draw intersection jumps on the wire that is visually above the crossing partner.
+                if (a1>min_a && a2>min_a && isWireRenderedAbove(id, edges[i], edges)) {
                   //console.log("INTERSECTION at ["+String(px)+", "+String(py)+"]");
-                  const d = jumpRadius * 2;
-                  const xdir=(x1>x0)?1:-1;
-                  let xs1=px; // covers special case of vertical line
-                  let xs2=px;
-                  if(Math.abs(px-x0)>0.000001) {
-                    const sqrtx = Math.sqrt((py-y0)*(py-y0)/((px-x0)*(px-x0)) + 1);
-                    xs1 = px-xdir*d/2/sqrtx;
-                    xs2 = px+xdir*d/2/sqrtx;
-                  }
-                  const ydir=(y1>y0)?1:-1;
-                  let ys1=py; // covers horizontal line case
-                  let ys2=py;
-                  if(Math.abs(py-y0)>0.000001) {
-                    const sqrty = Math.sqrt((px-x0)*(px-x0)/((py-y0)*(py-y0)) + 1);
-                    ys1 = py-ydir*d/2/sqrty;
-                    ys2 = py+ydir*d/2/sqrty;
-                  }
+                  const xs1 = px - ux * bridgeHalfLength;
+                  const ys1 = py - uy * bridgeHalfLength;
+                  const xs2 = px + ux * bridgeHalfLength;
+                  const ys2 = py + uy * bridgeHalfLength;
+                  const normalX = -uy;
+                  const normalY = ux;
+                  const bridgeHeight = useSplineBridge
+                    ? clamp(jumpRadius * WIRE_JUMP_SPLINE_HEIGHT_FACTOR, 3, 12)
+                    : jumpRadius;
+                  const bridgePath = useSplineBridge
+                    ? `Q ${px + normalX * bridgeHeight} ${py + normalY * bridgeHeight} ${xs2} ${ys2}`
+                    : `A ${jumpRadius} ${jumpRadius} 0 0 0 ${xs2} ${ys2}`;
 
                   const distanceFromSegmentStart = Math.sqrt(a1);
+                  if(
+                    canonicalizeColorForCompare(edgeData?.color) ===
+                    canonicalizeColorForCompare(edges[i].data?.color)
+                  ) {
+                    wireJumpHaloPaths.push({
+                      path: `M${xs1} ${ys1} ${bridgePath}`,
+                      width: finiteNumberOr(edgeData?.width, 1) + WIRE_JUMP_HALO_WIDTH_EXTRA,
+                    });
+                  }
                   
                   intersections.push({
                     x:px,
@@ -413,6 +456,7 @@ export default function EditableWire ({
                     ys1,
                     ys2,
                     radius: jumpRadius,
+                    bridgePath,
                     distanceFromSegmentStart,
                   });
 
@@ -430,7 +474,7 @@ export default function EditableWire ({
     const this_intersect = intersections.filter((value)=>(value.segmentIndex==i));
     this_intersect.sort((a, b)=>(a.distanceFromSegmentStart - b.distanceFromSegmentStart));
     for(let j = 0; j < this_intersect.length; j++) {
-      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${this_intersect[j].xs1} ${this_intersect[j].ys1} A ${this_intersect[j].radius} ${this_intersect[j].radius} 0 0 0 ${this_intersect[j].xs2} ${this_intersect[j].ys2}`;
+      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${this_intersect[j].xs1} ${this_intersect[j].ys1} ${this_intersect[j].bridgePath}`;
     }
     edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${edgeSegmentsArray[i].segmentTargetX} ${edgeSegmentsArray[i].segmentTargetY}`;
   }
@@ -911,6 +955,20 @@ export default function EditableWire ({
 
   return (
     <>
+      {wireJumpHaloPaths.map(({ path, width }, index) => (
+        <BaseEdge
+          key={`edge${id}_jumphalo${index}`}
+          path={path}
+          interactionWidth={0}
+          style = {{
+            stroke: WIRE_JUMP_HALO_COLOR,
+            strokeWidth: width,
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            pointerEvents: "none",
+          }}
+        />
+      ))}
       {edgeSegmentsArray.map(({ edgePath }, index) => (
         <BaseEdge
           key={`edge${id}_segment${index}`}
