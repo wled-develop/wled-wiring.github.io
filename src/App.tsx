@@ -9,6 +9,8 @@ import { type HandleDataType, PhysLengthType, ItemTypes, ComponentDataType, Edge
 import "./i18n"
 import LocaleSwitcher from "./utils/LocaleSwitcher";
 import Sidebar from './sidebar/Sidebar';
+import { ComponentDragPreviewLayer } from './sidebar/ComponentDragPreviewLayer.tsx';
+import type { SidebarComponentDragItem } from './sidebar/dragTypes.ts';
 import { getAdaptedBounds } from './utils/utils_functions.ts';
 import { useZustandStore } from './utils/pathfinder_functions.ts';
 import ConnectionLine from './wires/ConnectionLine.tsx';
@@ -229,13 +231,14 @@ const FlowApp = () => {
   const [,drop] = useDrop(() => ({
     accept: ItemTypes.NODE,
     //drop: () => ({ name: 'YourRactFlow' }),
-    drop(_item: ComponentDataType, monitor) {
+    drop(_item: SidebarComponentDragItem, monitor) {
       //console.log("DROP to x,y = ", monitor.getClientOffset());
       const xy=monitor.getClientOffset();
+      const componentData = _item.componentData;
       //console.log("DROP to x,y = ", xy?.x, xy?.y);
       let position=reactFlow.screenToFlowPosition(xy || {x:0, y:0});
-      position.x=position.x-(_item.image?.width || 0)/2;
-      position.y=position.y-(_item.image?.height || 0)/2;
+      position.x=position.x-(componentData.image?.width || 0)/2;
+      position.y=position.y-(componentData.image?.height || 0)/2;
       //console.log("DROP to flow x,y =", position);
       //console.log("DROPPED ITEM=", _item);
       const type='general-component-type';
@@ -243,7 +246,7 @@ const FlowApp = () => {
         id: String(Math.random()),
         type,
         position,
-        data: structuredClone(_item),
+        data: structuredClone(componentData),
       };
       undoRedo.takeSnapshot('add component');
       setNodes((nds) => nds.concat(newNode));
@@ -969,7 +972,8 @@ const FlowApp = () => {
 const App = () => (
   <ReactFlowProvider>
     <DndProvider options={HTML5toTouch}>
-          <FlowApp />
+      <ComponentDragPreviewLayer />
+      <FlowApp />
     </DndProvider>
  </ReactFlowProvider>
 );

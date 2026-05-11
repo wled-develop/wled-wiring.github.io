@@ -42,6 +42,7 @@ const SEGMENT_DRAG_HANDLE_GAP_PX = 16;
 const SEGMENT_DRAG_CENTER_GAP_PX = 20;
 const SEGMENT_DRAG_MIN_PART_LENGTH_PX = 8;
 const SEGMENT_DRAG_DEBUG_STORAGE_KEY = 'wledWireSegmentDragDebug';
+const SEGMENT_TOUCH_DRAG_RESTART_SUPPRESS_MS = 450;
 const WIRE_TOOLBAR_WIDTH_PX = 190;
 const WIRE_TOOLBAR_HEIGHT_PX = 34;
 const WIRE_TOOLBAR_GAP_PX = 12;
@@ -346,10 +347,12 @@ export default function EditableWire ({
   const { takeSnapshot } = useUndoRedo();
   const edgePointDragSnapshotTakenRef = useRef(false);
   const segmentDragCleanupRef = useRef<(() => void) | null>(null);
+  const suppressSegmentTouchDragUntilRef = useRef(0);
   const segmentDragRef = useRef<{
     sessionId: number;
     segmentIndex: number;
     orientation: SegmentOrientation;
+    inputType: 'mouse' | 'touch';
     startClientX: number;
     startClientY: number;
     initialPoints: XYPoint[];
@@ -719,6 +722,7 @@ export default function EditableWire ({
 
 
   const cleanupSegmentDrag = () => {
+    const hadTouchDrag = segmentDragRef.current?.inputType === 'touch';
     globalSegmentDragSession += 1;
     globalSegmentDragCleanup?.();
     globalSegmentDragCleanup = null;
@@ -728,6 +732,9 @@ export default function EditableWire ({
     segmentDragCleanupRef.current = null;
     segmentDragRef.current = null;
     setActiveSegmentIndex(-1);
+    if(hadTouchDrag) {
+      suppressSegmentTouchDragUntilRef.current = window.performance.now() + SEGMENT_TOUCH_DRAG_RESTART_SUPPRESS_MS;
+    }
     debugSegmentDrag('cleanup segment drag');
   };
 
@@ -806,13 +813,22 @@ export default function EditableWire ({
     clientX,
     clientY,
     index,
+    inputType,
+    pointerId,
     preventDefault,
   }: {
     clientX: number;
     clientY: number;
     index: number;
+    inputType: 'mouse' | 'touch';
+    pointerId?: number;
     preventDefault: () => void;
   }) => {
+    if(inputType === 'touch' && window.performance.now() < suppressSegmentTouchDragUntilRef.current) {
+      debugSegmentDrag('touch segment drag suppressed after release', {index, clientX, clientY});
+      return;
+    }
+
     const segment = edgeSegmentsArray[index];
     const orientation = getSegmentOrientation(
       {x: segment.segmentSourceX, y: segment.segmentSourceY},
@@ -851,6 +867,7 @@ export default function EditableWire ({
       sessionId,
       segmentIndex: index,
       orientation,
+      inputType,
       startClientX: clientX,
       startClientY: clientY,
       initialPoints: [
@@ -864,23 +881,44 @@ export default function EditableWire ({
       snapshotTaken: false,
       usedSolderJointMove: false,
     };
-    const handleWindowMouseMove = (event: MouseEvent) => {
-      handleSegmentPointerMove(event.clientX, event.clientY, sessionId);
-    };
-    const handleWindowTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if(!touch) return;
+    if(pointerId !== undefined) {
+      const handleWindowPointerMove = (event: PointerEvent) => {
+        if(event.pointerId !== pointerId) return;
+        event.preventDefault();
+        handleSegmentPointerMove(event.clientX, event.clientY, sessionId);
+      };
+      const handleWindowPointerRelease = (event: PointerEvent) => {
+        if(event.pointerId !== pointerId) return;
+        cleanupSegmentDrag();
+      };
 
-      event.preventDefault();
-      handleSegmentPointerMove(touch.clientX, touch.clientY, sessionId);
-    };
+      window.addEventListener('pointermove', handleWindowPointerMove);
+      window.addEventListener('pointerup', handleWindowPointerRelease);
+      window.addEventListener('pointercancel', handleWindowPointerRelease);
+      segmentDragCleanupRef.current = () => {
+        window.removeEventListener('pointermove', handleWindowPointerMove);
+        window.removeEventListener('pointerup', handleWindowPointerRelease);
+        window.removeEventListener('pointercancel', handleWindowPointerRelease);
+      };
+    } else {
+      const handleWindowMouseMove = (event: MouseEvent) => {
+        handleSegmentPointerMove(event.clientX, event.clientY, sessionId);
+      };
+      const handleWindowTouchMove = (event: TouchEvent) => {
+        const touch = event.touches[0];
+        if(!touch) return;
 
-    window.addEventListener('mousemove', handleWindowMouseMove);
-    window.addEventListener('touchmove', handleWindowTouchMove, {passive: false});
-    segmentDragCleanupRef.current = () => {
-      window.removeEventListener('mousemove', handleWindowMouseMove);
-      window.removeEventListener('touchmove', handleWindowTouchMove);
-    };
+        event.preventDefault();
+        handleSegmentPointerMove(touch.clientX, touch.clientY, sessionId);
+      };
+
+      window.addEventListener('mousemove', handleWindowMouseMove);
+      window.addEventListener('touchmove', handleWindowTouchMove, {passive: false});
+      segmentDragCleanupRef.current = () => {
+        window.removeEventListener('mousemove', handleWindowMouseMove);
+        window.removeEventListener('touchmove', handleWindowTouchMove);
+      };
+    }
     globalSegmentDragCleanup = segmentDragCleanupRef.current;
     setActiveSegmentIndex(index);
   };
@@ -1404,6 +1442,16 @@ export default function EditableWire ({
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [openWireCrosssection, setOpenWireCrosssection] = useState(false);
 
+  const setWireToolbarAnchorFromPointer = (clientX: number, clientY: number, segmentIndex: number) => {
+    setWireToolbarAnchor({
+      ...reactFlowInstance.screenToFlowPosition({
+        x: clientX,
+        y: clientY,
+      }),
+      segmentIndex,
+    });
+  };
+
   return (
     <>
       {wireJumpHaloPaths.map(({ path, width }, index) => (
@@ -1421,41 +1469,38 @@ export default function EditableWire ({
         />
       ))}
       {edgeSegmentsArray.map(({ edgePath }, index) => (
-        <BaseEdge
-          key={`edge${id}_segment${index}`}
-          path={edgePath}
-          markerEnd={markerEnd}
-          interactionWidth={10}
-          onMouseDown={(event) => {
-            if(event.button !== 0) return;
-            setWireToolbarAnchor({
-              ...reactFlowInstance.screenToFlowPosition({
-                x: event.clientX,
-                y: event.clientY,
-              }),
-              segmentIndex: index,
-            });
-          }}
-          onTouchStart={(event) => {
-            const touch = event.touches[0];
-            if(!touch) return;
-            setWireToolbarAnchor({
-              ...reactFlowInstance.screenToFlowPosition({
-                x: touch.clientX,
-                y: touch.clientY,
-              }),
-              segmentIndex: index,
-            });
-          }}
-          style = {{
-            stroke: selected ? `${edgeData.color_selected}` : `${edgeData?.color}`,
-            strokeWidth: checkHighlighted ? edgeData.width + 3 : edgeData.width,
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            //fill: "none",
-            filter: checkHighlighted?"drop-shadow(0px 0px 4px #faad14)":(edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
-          }}
-        />
+        <g key={`edge${id}_segment${index}`}>
+          <BaseEdge
+            path={edgePath}
+            markerEnd={markerEnd}
+            interactionWidth={0}
+            style = {{
+              stroke: selected ? `${edgeData.color_selected}` : `${edgeData?.color}`,
+              strokeWidth: checkHighlighted ? edgeData.width + 3 : edgeData.width,
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              //fill: "none",
+              filter: checkHighlighted?"drop-shadow(0px 0px 4px #faad14)":(edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
+            }}
+          />
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="transparent"
+            strokeWidth={10}
+            strokeLinecap="round"
+            className="react-flow__edge-interaction"
+            onMouseDown={(event) => {
+              if(event.button !== 0) return;
+              setWireToolbarAnchorFromPointer(event.clientX, event.clientY, index);
+            }}
+            onTouchStart={(event) => {
+              const touch = event.touches[0];
+              if(!touch) return;
+              setWireToolbarAnchorFromPointer(touch.clientX, touch.clientY, index);
+            }}
+          />
+        </g>
       ))}
       {/* add circle at the end */}
 
@@ -1647,11 +1692,15 @@ export default function EditableWire ({
         const startSegmentDragFromEvent = (
           clientX: number,
           clientY: number,
+          inputType: 'mouse' | 'touch',
+          pointerId: number | undefined,
           preventDefault: () => void,
         ) => startSegmentDrag({
           clientX,
           clientY,
           index,
+          inputType,
+          pointerId,
           preventDefault,
         });
 
@@ -1696,11 +1745,13 @@ export default function EditableWire ({
                       height: orientation === 'vertical' ? `${segmentDragPartLength}px` : "18px",
                       pointerEvents: "all",
                     }}
-                    onMouseDown={(event) => {
-                      if(event.button !== 0) return;
+                    onPointerDown={(event) => {
+                      if(event.pointerType === 'mouse' && event.button !== 0) return;
                       event.stopPropagation();
-                      debugSegmentDrag('segment drag handle mouse down', {
+                      event.preventDefault();
+                      debugSegmentDrag('segment drag handle pointer down', {
                         index,
+                        pointerType: event.pointerType,
                         clientX: event.clientX,
                         clientY: event.clientY,
                         offset,
@@ -1708,23 +1759,9 @@ export default function EditableWire ({
                       startSegmentDragFromEvent(
                         event.clientX,
                         event.clientY,
-                        () => event.preventDefault(),
-                      );
-                    }}
-                    onTouchStart={(event) => {
-                      const touch = event.touches[0];
-                      if(!touch) return;
-                      event.stopPropagation();
-                      debugSegmentDrag('segment drag handle touch start', {
-                        index,
-                        clientX: touch.clientX,
-                        clientY: touch.clientY,
-                        offset,
-                      });
-                      startSegmentDragFromEvent(
-                        touch.clientX,
-                        touch.clientY,
-                        () => event.preventDefault(),
+                        event.pointerType === 'mouse' ? 'mouse' : 'touch',
+                        event.pointerId,
+                        () => {},
                       );
                     }}
                   />
