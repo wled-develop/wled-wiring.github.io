@@ -208,6 +208,10 @@ export type HandleDataType = {
     ys2: number;
     radius: number;
     bridgePath: string;
+    bridgeStartDistance: number;
+    bridgeEndDistance: number;
+    bridgeHeight: number;
+    shouldDrawHalo: boolean;
     distanceFromSegmentStart: number;
   };
   

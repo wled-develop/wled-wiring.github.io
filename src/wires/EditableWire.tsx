@@ -52,6 +52,8 @@ const WIRE_JUMP_SPLINE_MAX_LENGTH_FACTOR = 1.6;
 const WIRE_JUMP_SPLINE_HEIGHT_FACTOR = 0.85;
 const WIRE_JUMP_HALO_COLOR = '#fff';
 const WIRE_JUMP_HALO_WIDTH_EXTRA = 3;
+const WIRE_JUMP_MERGE_GAP = 2;
+const WIRE_JUMP_MERGED_HEIGHT_EXTRA = 1.5;
 
 let globalSegmentDragSession = 0;
 let globalSegmentDragCleanup: (() => void) | null = null;
@@ -435,15 +437,10 @@ export default function EditableWire ({
                     : `A ${jumpRadius} ${jumpRadius} 0 0 0 ${xs2} ${ys2}`;
 
                   const distanceFromSegmentStart = Math.sqrt(a1);
-                  if(
+                  const shouldDrawHalo = (
                     canonicalizeColorForCompare(edgeData?.color) ===
                     canonicalizeColorForCompare(edges[i].data?.color)
-                  ) {
-                    wireJumpHaloPaths.push({
-                      path: `M${xs1} ${ys1} ${bridgePath}`,
-                      width: finiteNumberOr(edgeData?.width, 1) + WIRE_JUMP_HALO_WIDTH_EXTRA,
-                    });
-                  }
+                  );
                   
                   intersections.push({
                     x:px,
@@ -457,6 +454,10 @@ export default function EditableWire ({
                     ys2,
                     radius: jumpRadius,
                     bridgePath,
+                    bridgeStartDistance: distanceFromSegmentStart - bridgeHalfLength,
+                    bridgeEndDistance: distanceFromSegmentStart + bridgeHalfLength,
+                    bridgeHeight,
+                    shouldDrawHalo,
                     distanceFromSegmentStart,
                   });
 
@@ -473,9 +474,82 @@ export default function EditableWire ({
     edgeSegmentsArray[i].edgePath = `M${edgeSegmentsArray[i].segmentSourceX} ${edgeSegmentsArray[i].segmentSourceY}`;
     const this_intersect = intersections.filter((value)=>(value.segmentIndex==i));
     this_intersect.sort((a, b)=>(a.distanceFromSegmentStart - b.distanceFromSegmentStart));
+
+    const segmentSourceX = edgeSegmentsArray[i].segmentSourceX;
+    const segmentSourceY = edgeSegmentsArray[i].segmentSourceY;
+    const segmentTargetX = edgeSegmentsArray[i].segmentTargetX;
+    const segmentTargetY = edgeSegmentsArray[i].segmentTargetY;
+    const segmentLength = Math.sqrt((segmentTargetX - segmentSourceX) ** 2 + (segmentTargetY - segmentSourceY) ** 2);
+    const ux = segmentLength > 0 ? (segmentTargetX - segmentSourceX) / segmentLength : 1;
+    const uy = segmentLength > 0 ? (segmentTargetY - segmentSourceY) / segmentLength : 0;
+    const normalX = -uy;
+    const normalY = ux;
+    const mergeGap = Math.max(WIRE_JUMP_MERGE_GAP, finiteNumberOr(edgeData?.width, 1) * 0.5);
+    let intersectionGroup = [] as Array<intersectionPoint>;
+
+    const appendIntersectionGroup = (group: Array<intersectionPoint>) => {
+      if(group.length===0) return;
+
+      if(group.length===1) {
+        const intersection = group[0];
+        const bridgeSegmentPath = `M${intersection.xs1} ${intersection.ys1} ${intersection.bridgePath}`;
+        edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${intersection.xs1} ${intersection.ys1} ${intersection.bridgePath}`;
+        if(intersection.shouldDrawHalo) {
+          wireJumpHaloPaths.push({
+            path: bridgeSegmentPath,
+            width: finiteNumberOr(edgeData?.width, 1) + WIRE_JUMP_HALO_WIDTH_EXTRA,
+          });
+        }
+        return;
+      }
+
+      const startDistance = clamp(
+        Math.min(...group.map((intersection) => intersection.bridgeStartDistance)),
+        0,
+        segmentLength,
+      );
+      const endDistance = clamp(
+        Math.max(...group.map((intersection) => intersection.bridgeEndDistance)),
+        0,
+        segmentLength,
+      );
+      const startX = segmentSourceX + ux * startDistance;
+      const startY = segmentSourceY + uy * startDistance;
+      const endX = segmentSourceX + ux * endDistance;
+      const endY = segmentSourceY + uy * endDistance;
+      const centerDistance = (startDistance + endDistance) / 2;
+      const centerX = segmentSourceX + ux * centerDistance;
+      const centerY = segmentSourceY + uy * centerDistance;
+      const bridgeHeight = clamp(
+        Math.max(...group.map((intersection) => intersection.bridgeHeight)) +
+          Math.min(group.length - 1, 2) * WIRE_JUMP_MERGED_HEIGHT_EXTRA,
+        WIRE_JUMP_MIN_RADIUS,
+        WIRE_JUMP_MAX_RADIUS,
+      );
+      const bridgePath = `Q ${centerX + normalX * bridgeHeight} ${centerY + normalY * bridgeHeight} ${endX} ${endY}`;
+      const bridgeSegmentPath = `M${startX} ${startY} ${bridgePath}`;
+      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${startX} ${startY} ${bridgePath}`;
+      if(group.some((intersection) => intersection.shouldDrawHalo)) {
+        wireJumpHaloPaths.push({
+          path: bridgeSegmentPath,
+          width: finiteNumberOr(edgeData?.width, 1) + WIRE_JUMP_HALO_WIDTH_EXTRA,
+        });
+      }
+    };
+
     for(let j = 0; j < this_intersect.length; j++) {
-      edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${this_intersect[j].xs1} ${this_intersect[j].ys1} ${this_intersect[j].bridgePath}`;
+      const intersection = this_intersect[j];
+      const groupEndDistance = intersectionGroup.length > 0
+        ? Math.max(...intersectionGroup.map((groupIntersection) => groupIntersection.bridgeEndDistance))
+        : undefined;
+      if(groupEndDistance !== undefined && intersection.bridgeStartDistance > groupEndDistance + mergeGap) {
+        appendIntersectionGroup(intersectionGroup);
+        intersectionGroup = [];
+      }
+      intersectionGroup.push(intersection);
     }
+    appendIntersectionGroup(intersectionGroup);
+
     edgeSegmentsArray[i].edgePath = edgeSegmentsArray[i].edgePath + ` L${edgeSegmentsArray[i].segmentTargetX} ${edgeSegmentsArray[i].segmentTargetY}`;
   }
 
