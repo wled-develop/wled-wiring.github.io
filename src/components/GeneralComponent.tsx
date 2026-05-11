@@ -45,7 +45,7 @@ type PinTooltipLayout = {
     placement: 'top' | 'bottom';
 };
 
-export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent>) {
+export function GeneralComponent({id, data, selected, dragging}:NodeProps<GeneralComponent>) {
     const {t} = useTranslation(['main']);
     const [messageApi, messageContextHolder] = message.useMessage();
 
@@ -91,6 +91,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
 
     const selectedElementsCount = useSelectedElementsCount();
     const multipleSelect = selectedElementsCount > 1;
+    const componentEditActive = Boolean(selected && !multipleSelect && !dragging);
 
     const showPinTooltip = (event: MouseEvent<HTMLDivElement>, text: string) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -190,7 +191,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     }
     const inputFieldsBox_rotation_notSelected = (rotation==180)?0:rotation;
     const inputFieldsBox_rotation_selected = 0;
-    const inputFieldsBox_rotation = (!selected || multipleSelect)?inputFieldsBox_rotation_notSelected:inputFieldsBox_rotation_selected;
+    const inputFieldsBox_rotation = componentEditActive?inputFieldsBox_rotation_selected:inputFieldsBox_rotation_notSelected;
 
     // physLengths
     const drawPhysLengths=compData.physLengths || [{startIndex: 0, length:undefined}];
@@ -528,6 +529,21 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
     const [openStartConnection, setOpenStartConnection] = useState(false);
     const [openCloseConnection, setOpenCloseConnection] = useState(false);
 
+    useLayoutEffect(() => {
+        if(!dragging) return;
+
+        setOpenColorPicker(false);
+        setOpenComponentUpdatePopover(false);
+        setOpenStartConnection(false);
+        setOpenCloseConnection(false);
+        setPinTooltip(null);
+        setPinTooltipLayout(null);
+
+        if(document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+    }, [dragging]);
+
     return (
       <>
         {messageContextHolder}
@@ -546,7 +562,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
             document.body
         )}
         <NodeToolbar
-            isVisible={selected && !multipleSelect}
+            isVisible={componentEditActive}
             position={Position.Top}
             align={"center"}
         >
@@ -896,7 +912,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
         {
             compData.applyNodeResizer && <NodeResizer
                 color="#ff0071"
-                isVisible={selected && !multipleSelect}
+                isVisible={componentEditActive}
                 minWidth={5}
                 minHeight={5}
                 onResizeStart={() => {
@@ -1020,7 +1036,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 />
                 </div>
             }
-            {(!selected && resizableX) && drawPhysLengths.map(({length}, index)=>(
+            {((!selected || dragging) && resizableX) && drawPhysLengths.map(({length}, index)=>(
                 <div
                     key={`node${id}_lengthsdiv_${index}`}
                     style={{
@@ -1051,7 +1067,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                 </div>
             ))}
             {
-                (!selected || multipleSelect) && compData.showName && 
+                !componentEditActive && compData.showName && 
                 <div
                 key={`node${id}_showname`}
                 style={{
@@ -1070,7 +1086,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                         {t(compData.name)}
                 </div>
             }
-            {(selected && !multipleSelect && resizableX) && drawPhysLengths.map(({length}, index)=>(
+            {(componentEditActive && resizableX) && drawPhysLengths.map(({length}, index)=>(
                 <div
                     className='nopan nodrag'
                     key={`node${id}_lengthsdivselected_${index}`}
@@ -1191,7 +1207,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     }}
                 >
                 {
-                    (!selected || multipleSelect) && compData.inputFields?.filter(
+                    !componentEditActive && compData.inputFields?.filter(
                         (inputFieldData)=>(inputFieldData.type=="number_input")
                     ).map((inputFieldData, index)=>(
                         <div 
@@ -1206,7 +1222,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     ))
                 }
                 {
-                    selected && !multipleSelect && compData.inputFields?.filter(
+                    componentEditActive && compData.inputFields?.filter(
                         (inputFieldData)=>(inputFieldData.type=="number_input")
                     ).map((inputFieldData, index)=>(
                         <div 
@@ -1263,7 +1279,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     }}
                 >
                 {
-                    (!selected || multipleSelect) && compData.selectFields?.filter((selectFieldData, _)=>selectFieldData.hide!=true).map((selectFieldData, index)=>(
+                    !componentEditActive && compData.selectFields?.filter((selectFieldData, _)=>selectFieldData.hide!=true).map((selectFieldData, index)=>(
                         <div 
                             key={`node${id}_selectfieldtext_${index}`}
                             style={{
@@ -1276,7 +1292,7 @@ export function GeneralComponent({id, data, selected}:NodeProps<GeneralComponent
                     ))
                 }
                 {
-                    selected && !multipleSelect && compData.selectFields?.map((selectFieldData, index)=>(
+                    componentEditActive && compData.selectFields?.map((selectFieldData, index)=>(
                         <div 
                             key={`node${id}_selectfieldtext_${index}`}
                             className='nopan nodrag'
