@@ -1,5 +1,5 @@
-
-import { Flex, Card, Divider, theme, Popover, Table, Button, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Card, Divider, theme, Popover, Table, Button, message } from 'antd';
 
 import {ComponentList} from '../components/ComponentList';
 import {ComponentDataType} from '../types';
@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useUndoRedo } from '../utils/undoRedo';
 
 const ComponentGroups=["controller", "led", "psu", "levelshifter", "electronics", "others"];
+const touchCapablePointerQuery = '(hover: none), (pointer: coarse), (any-pointer: coarse)';
 
 export const ComponentPage = () => {
   const {t} = useTranslation(['main']);
@@ -18,6 +19,23 @@ export const ComponentPage = () => {
   const reactFlowInstance=useReactFlow();
   const [messageApi, messageContextHolder] = message.useMessage();
   const { takeSnapshot } = useUndoRedo();
+  const [componentInfoTrigger, setComponentInfoTrigger] = useState<'hover' | 'click'>(() => (
+    typeof window !== 'undefined' &&
+    window.matchMedia(touchCapablePointerQuery).matches
+      ? 'click'
+      : 'hover'
+  ));
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(touchCapablePointerQuery);
+    const updateTrigger = () => {
+      setComponentInfoTrigger(mediaQuery.matches ? 'click' : 'hover');
+    };
+
+    updateTrigger();
+    mediaQuery.addEventListener('change', updateTrigger);
+    return () => mediaQuery.removeEventListener('change', updateTrigger);
+  }, []);
 
   const connectionListColumns=[
     {
@@ -36,7 +54,7 @@ export const ComponentPage = () => {
 
     return <div id="componentPageDiv">
       {messageContextHolder}
-      <Flex  wrap id="componentPageFlexDiv" vertical>
+      <div id="componentPageFlexDiv">
         {ComponentGroups.map((group) => {
           const ComponentListForGroup=ComponentList.filter((component) => (component.data as ComponentDataType).group === group);
           if(ComponentListForGroup.length>0) {
@@ -46,11 +64,12 @@ export const ComponentPage = () => {
               >
                 {t('componentGroupTypes.'+group)}
               </Divider>
-            <Flex  wrap id="componentGroupFlexDiv">
+            <div className="component-group-grid">
             {ComponentListForGroup.map((component) => {
               const compData=(component.data as ComponentDataType);
-              const connectionListData = compData.handles?.map((handle) => {
+              const connectionListData = compData.handles?.map((handle, index) => {
                 return {
+                  key: `${compData.technicalID}_${handle.hid}_${index}`,
                   pinName: handle.name,
                   description: handle.description,
                 };
@@ -65,6 +84,7 @@ export const ComponentPage = () => {
                     title=<>{t(compData.name)}<br/>{t(compData.description)}</>
                     extra = {
                       <Popover
+                        trigger={componentInfoTrigger}
                         title=<>
                           <span>{t('sidebar.components.popoverTitle')}</span>&nbsp;&nbsp;&nbsp;
                           <Button
@@ -121,9 +141,9 @@ export const ComponentPage = () => {
                                 <Table
                                   columns={connectionListColumns}
                                   dataSource={connectionListData}
+                                  rowKey="key"
                                   size='small'
                                   tableLayout='auto'
-                                  virtual
                                   pagination={{ position: ['topRight'], pageSize: 5 }}
                                 >
                                 </Table>
@@ -132,11 +152,9 @@ export const ComponentPage = () => {
                           </div>
                         }
                       
-                      ><span style={{color: "blue"}}><b>...</b></span></Popover>
+                      ><span style={{color: "blue", touchAction: "manipulation"}}><b>...</b></span></Popover>
                     }
                     style={{ 
-                      width: 120,
-                      margin: 5,
                       fontSize: 12,
                     }}
                     >
@@ -150,13 +168,13 @@ export const ComponentPage = () => {
               }
             })
             }
-            </Flex>
+            </div>
             </div>
           } else {
             return <div key={"Group_"+group }></div>;
           }
         })
         }
-      </Flex>
+      </div>
     </div>
 }

@@ -33,6 +33,21 @@ html, body {
   min-width: 300px;
 }
 
+#componentPageFlexDiv {
+  display: flex;
+  flex-direction: column;
+}
+
+.component-group-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.component-group-grid > .ant-card {
+  min-width: 0;
+}
+
 @media (max-width: 600px) {
   #reactflowDiv {
     border-bottom-style: solid;
