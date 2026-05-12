@@ -142,9 +142,12 @@ export type HandleDataType = {
     color?: string;
     // for Info Node
     InfoText?: string;
+    infoText?: string;
     changableTextColor?: boolean;
     textColor?: string;
     infoTextSize?: number;
+    infoTextFontFamily?: string;
+    infoTextBold?: boolean;
     // these variables are for node that ahs some input fields like PSU node
     inputFieldsBox?: CompInputFieldsBoxType;
     inputFields?: CompInputFieldDataType[];

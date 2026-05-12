@@ -1,10 +1,10 @@
-import {useLayoutEffect, useState, type CSSProperties, type MouseEvent} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent} from 'react';
 import {createPortal} from 'react-dom';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
-            DeleteOutlined, CopyOutlined, BorderOutlined, XFilled, CaretUpOutlined, CaretDownOutlined,
-            InfoCircleOutlined} from '@ant-design/icons';
+            DeleteOutlined, CopyOutlined, BorderOutlined, XFilled,
+            InfoCircleOutlined, BoldOutlined} from '@ant-design/icons';
 
 import Icon from '@ant-design/icons';
 
@@ -13,7 +13,7 @@ import { Handle, NodeProps, NodeToolbar, Position,
 
 import { useTranslation } from "react-i18next";
 
-import { ComponentDataType, edgePoint, type GeneralComponent, ImageDataType } from '../types';
+import { ComponentDataType, edgePoint, type GeneralComponent } from '../types';
 import { colorNameToRGBString, stripCheckAndDivideIfMiddleConnection} from '../utils/utils_functions';
 import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_functions.ts';
 import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
@@ -46,7 +46,7 @@ type PinTooltipLayout = {
     placement: 'top' | 'bottom';
 };
 
-export function GeneralComponent({id, data, selected, dragging}:NodeProps<GeneralComponent>) {
+export function GeneralComponent({id, data, selected, dragging, width, height}:NodeProps<GeneralComponent>) {
     const {t} = useTranslation(['main']);
     const [messageApi, messageContextHolder] = message.useMessage();
 
@@ -54,6 +54,8 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
     const [openComponentUpdatePopover, setOpenComponentUpdatePopover] = useState(false);
     const [pinTooltip, setPinTooltip] = useState<PinTooltipState | null>(null);
     const [pinTooltipLayout, setPinTooltipLayout] = useState<PinTooltipLayout | null>(null);
+    const [infoTextDraft, setInfoTextDraft] = useState(() => data.InfoText ?? data.infoText ?? "");
+    const infoTextFocusedRef = useRef(false);
 
     const updateNodeInternals = useUpdateNodeInternals();
 
@@ -67,12 +69,38 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
     const rotatable=compData.rotatable;
     const rotation=rotatable?compData.rotation:0;
     const checkHighlighted=Boolean(compData.checkHighlighted);
+    const isInfoNode=compData.technicalID=="InfoNode";
 
     const nodeLength=(compData?.nodeLength || 1);
 
 
     const nodeBasicSizeX=compData.image?.width || 0;
     const nodeBasicSizeY=compData.image?.height || 0;
+    const flowNodeWidth=typeof width=="number"?width:undefined;
+    const flowNodeHeight=typeof height=="number"?height:undefined;
+    const infoTextValue=isInfoNode?infoTextDraft:(compData.InfoText ?? compData.infoText ?? "");
+    const infoTextSize=compData.infoTextSize || 12;
+    const infoTextFontFamily=compData.infoTextFontFamily || "Arial, sans-serif";
+    const infoTextBold=Boolean(compData.infoTextBold);
+    const infoTextLines=infoTextValue.split(/\r?\n/);
+    const infoTextLongestLine=Math.max(1, ...infoTextLines.map((line) => line.length));
+    const infoTextMinWidth=80;
+    const infoTextMinHeight=32;
+    const infoTextPadding=18;
+    const infoTextEstimatedWidth=Math.ceil(infoTextLongestLine * infoTextSize * 0.62 + infoTextPadding);
+    const infoTextEstimatedHeight=Math.ceil(Math.max(1, infoTextLines.length) * infoTextSize * 1.25 + 14);
+    const infoTextRequiredWidth=Math.max(infoTextMinWidth, infoTextEstimatedWidth);
+    const infoTextRequiredHeight=Math.max(infoTextMinHeight, infoTextEstimatedHeight);
+    const infoNodeCurrentWidth=Math.max(flowNodeWidth || 0, nodeBasicSizeX);
+    const infoNodeCurrentHeight=Math.max(flowNodeHeight || 0, nodeBasicSizeY);
+    const infoNodeWidth=Math.max(infoNodeCurrentWidth, infoTextRequiredWidth);
+    const infoNodeHeight=Math.max(infoNodeCurrentHeight, infoTextRequiredHeight);
+    const infoTextFontOptions=[
+        {value: "Arial, sans-serif", label: "Arial"},
+        {value: "Verdana, sans-serif", label: "Verdana"},
+        {value: "Georgia, serif", label: "Georgia"},
+        {value: "'Courier New', monospace", label: "Courier"},
+    ];
 
     const rotationSwapImgWH = (rotation==90) || (rotation==270);
     //const rotatedImgWidth=rotationSwapImgWH?nodeBasicSizeY:nodeBasicSizeX;
@@ -93,6 +121,82 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
     const selectedElementsCount = useSelectedElementsCount();
     const multipleSelect = selectedElementsCount > 1;
     const componentEditActive = Boolean(selected && !multipleSelect && !dragging);
+
+    const updateInfoNodeDataAndSize = useCallback((
+        dataPatch: Partial<ComponentDataType>,
+        size?: {width: number; height: number},
+    ) => {
+        const nextWidth=size?Math.ceil(size.width):undefined;
+        const nextHeight=size?Math.ceil(size.height):undefined;
+
+        reactFlowInstance.updateNode(id, (node) => {
+            const currentData=node.data as ComponentDataType;
+            const nextData={...currentData, ...dataPatch};
+
+            if(nextWidth!=undefined && nextHeight!=undefined && currentData.image) {
+                nextData.image={
+                    ...currentData.image,
+                    ...dataPatch.image,
+                    width: nextWidth,
+                    height: nextHeight,
+                };
+            }
+
+            if(nextWidth==undefined || nextHeight==undefined) {
+                return {data: nextData};
+            }
+
+            return {
+                data: nextData,
+                width: nextWidth,
+                height: nextHeight,
+                measured: {
+                    ...node.measured,
+                    width: nextWidth,
+                    height: nextHeight,
+                },
+            };
+        });
+
+        if(nextWidth!=undefined && nextHeight!=undefined) {
+            updateNodeInternals(id);
+        }
+    }, [id, reactFlowInstance, updateNodeInternals]);
+
+    useEffect(() => {
+        if(!isInfoNode || infoTextFocusedRef.current) return;
+
+        const externalInfoText = compData.InfoText ?? compData.infoText ?? "";
+        setInfoTextDraft(externalInfoText);
+    }, [compData.InfoText, compData.infoText, isInfoNode]);
+
+    useEffect(() => {
+        if(!isInfoNode || !compData.image) return;
+        if(infoTextRequiredWidth<=infoNodeCurrentWidth && infoTextRequiredHeight<=infoNodeCurrentHeight) return;
+
+        updateInfoNodeDataAndSize({}, {
+            width: Math.max(infoNodeCurrentWidth, infoTextRequiredWidth),
+            height: Math.max(infoNodeCurrentHeight, infoTextRequiredHeight),
+        });
+    }, [
+        compData.image,
+        infoNodeCurrentHeight,
+        infoNodeCurrentWidth,
+        infoTextRequiredHeight,
+        infoTextRequiredWidth,
+        isInfoNode,
+        updateInfoNodeDataAndSize,
+    ]);
+
+    const getInfoTextSizeForValue = (value: string) => {
+        const lines=value.split(/\r?\n/);
+        const longestLine=Math.max(1, ...lines.map((line) => line.length));
+
+        return {
+            width: Math.max(infoTextMinWidth, Math.ceil(longestLine * infoTextSize * 0.62 + infoTextPadding)),
+            height: Math.max(infoTextMinHeight, Math.ceil(Math.max(1, lines.length) * infoTextSize * 1.25 + 14)),
+        };
+    };
 
     const rotateComponent = (newRotation: number) => {
         takeSnapshot('rotate component');
@@ -159,7 +263,7 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
         });
     }, [id, pinTooltip]);
 
-    const borderWidth = compData.borderWidth || 2;
+    const borderWidth = compData.borderWidth ?? 2;
     const repeatedHandleArray = compData.repeatedHandleArray || [];
 
     const combinedHandlesArray=
@@ -687,34 +791,7 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
                     </Tooltip>
                 </Popover>
             }
-            { compData.technicalID=="InfoNode" &&
-                <Tooltip
-                title={t('tooltip.enlarge')}
-                placement="bottom"
-            >
-                <button
-                    onClick={()=>{
-                        takeSnapshot('resize component');
-                        reactFlowInstance.updateNodeData(id, {nodeLength: (compData.nodeLength || 1)+1});
-                    }}
-                ><ArrowsAltOutlined rotate={45+rotation}/></button>
-            </Tooltip>
-            }
-            {(compData.technicalID=="InfoNode" && nodeLength>1)  &&
-            <Tooltip
-                title={t('tooltip.shorten')}
-                placement="bottom"
-            >
-                <button
-                    onClick={()=>{
-                        takeSnapshot('resize component');
-                        reactFlowInstance.updateNodeData(id, {nodeLength: (compData.nodeLength || 1)-1});
-                    }}
-                ><ShrinkOutlined rotate={45+rotation}/></button>
-            </Tooltip>
-            }
-
-            {resizableX && 
+            {resizableX &&
             <Tooltip
                 title={t('tooltip.enlarge')}
                 placement="bottom"
@@ -894,47 +971,92 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
                     ><XFilled /></button>
                 </Tooltip>
             }
-            { compData.technicalID=="InfoNode" &&
+            { isInfoNode &&
                 <Tooltip
-                title={t('tooltip.increaseTextSize')}
-                placement="bottom"
-            >
-                <button
-                    onClick={()=>{
-                        takeSnapshot('update text size');
-                        reactFlowInstance.updateNodeData(id, {infoTextSize: (compData.infoTextSize || 12)+2});
-                    }}
-                ><CaretUpOutlined /></button>
-            </Tooltip>
+                    title={t('tooltip.toggleBold')}
+                    placement="bottom"
+                >
+                    <button
+                        onClick={()=>{
+                            takeSnapshot('update text style');
+                            reactFlowInstance.updateNodeData(id, {infoTextBold: !infoTextBold});
+                        }}
+                        style={{
+                            backgroundColor: infoTextBold ? "#e6f4ff" : undefined,
+                        }}
+                    ><BoldOutlined /></button>
+                </Tooltip>
             }
-            { compData.technicalID=="InfoNode" && compData.infoTextSize && compData.infoTextSize>12 &&
+            { isInfoNode &&
                 <Tooltip
-                title={t('tooltip.decreaseTextSize')}
-                placement="bottom"
-            >
-                <button
-                    onClick={()=>{
-                        takeSnapshot('update text size');
-                        reactFlowInstance.updateNodeData(id, {infoTextSize: (compData.infoTextSize || 12)-2});
-                    }}
-                ><CaretDownOutlined /></button>
-            </Tooltip>
+                    title={t('tooltip.selectFont')}
+                    placement="bottom"
+                >
+                    <Select
+                        className='nopan nodrag'
+                        size='small'
+                        value={infoTextFontFamily}
+                        options={infoTextFontOptions}
+                        popupMatchSelectWidth={false}
+                        style={{
+                            minWidth: 92,
+                        }}
+                        onChange={(value)=>{
+                            takeSnapshot('update text font');
+                            reactFlowInstance.updateNodeData(id, {infoTextFontFamily: value});
+                        }}
+                    />
+                </Tooltip>
+            }
+            { isInfoNode &&
+                <Tooltip
+                    title={t('tooltip.textSize')}
+                    placement="bottom"
+                >
+                    <InputNumber
+                        className='nopan nodrag'
+                        size='small'
+                        min={8}
+                        max={72}
+                        value={infoTextSize}
+                        addonAfter="px"
+                        style={{
+                            width: 92,
+                        }}
+                        onFocus={() => {
+                            takeSnapshot('update text size');
+                        }}
+                        onChange={(value)=>{
+                            reactFlowInstance.updateNodeData(id, {infoTextSize: value || 12});
+                        }}
+                    />
+                </Tooltip>
             }
         </NodeToolbar>
         {
             compData.applyNodeResizer && <NodeResizer
-                color="#ff0071"
+                color={isInfoNode ? "#1677ff" : "#ff0071"}
                 isVisible={componentEditActive}
-                minWidth={5}
-                minHeight={5}
+                minWidth={isInfoNode ? infoTextRequiredWidth : 5}
+                minHeight={isInfoNode ? infoTextRequiredHeight : 5}
                 onResizeStart={() => {
                     takeSnapshot('resize component');
                 }}
                 onResize={(_, { width, height }) => {
-                    const img=structuredClone(compData.image) as ImageDataType;
-                    img.height=height;
-                    img.width=width;
-                    reactFlowInstance.updateNodeData(id, {image: img});
+                    if(isInfoNode) {
+                        updateInfoNodeDataAndSize({}, {width, height});
+                        return;
+                    }
+
+                    if(!compData.image) return;
+
+                    reactFlowInstance.updateNodeData(id, {
+                        image: {
+                            ...compData.image,
+                            width,
+                            height,
+                        },
+                    });
                     updateNodeInternals(id);
                 }}
             />
@@ -943,10 +1065,10 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
         className={(compData.technicalID=="SolderJoint"?"node-type_solderjoint":"")+(compData.putToBackground?" node-type_background":"")}
         style={{
             border: (selected && !compData.applyNodeResizer)?`${borderWidth}px solid #333333`:(compData.changableColor?`${borderWidth}px solid ${compData.color}`:`${borderWidth}px solid transparent`),
-            boxSizing: "content-box",
+            boxSizing: isInfoNode?"border-box":"content-box",
             boxShadow: checkHighlighted?"0 0 0 3px #faad14, 0 0 10px #faad14":undefined,
-            height: (compData.wireInfoForNodeId || (compData.technicalID=="InfoNode"))?"":(rotationSwapImgWH?(nodeLength*nodeBasicSizeX):nodeBasicSizeY),
-            width: (compData.wireInfoForNodeId)?"":(rotationSwapImgWH?nodeBasicSizeY:(nodeLength*nodeBasicSizeX)),
+            height: isInfoNode?(flowNodeHeight!=undefined?"100%":infoNodeHeight):(compData.wireInfoForNodeId?"":(rotationSwapImgWH?(nodeLength*nodeBasicSizeX):nodeBasicSizeY)),
+            width: (compData.wireInfoForNodeId)?"":(isInfoNode?(flowNodeWidth!=undefined?"100%":infoNodeWidth):(rotationSwapImgWH?nodeBasicSizeY:(nodeLength*nodeBasicSizeX))),
             //backgroundImage: `url(${backgroundImageURL})`,
             backgroundColor: (compData.changableColor && !compData.onlyBorder)?(compData.color || "black"):"transparent",
             //backgroundRepeat: bgrepeat,
@@ -1020,30 +1142,64 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
                 &#8855; = {compData.wireInfo_crosssection || "xx"}{compData.wireInfo_crosssectionUnit}<br/>
                 </div>
             }
-            { compData.technicalID=="InfoNode" && <div 
+            { isInfoNode && <div
+                    className='info-node-text-wrap'
                     style={{
-                        padding: "5px",
-                        backgroundColor: selected?"gray":"transparent",
+                        padding: "4px",
+                        backgroundColor: componentEditActive?"rgba(22, 119, 255, 0.06)":"transparent",
+                        border: componentEditActive?"1px solid rgba(22, 119, 255, 0.45)":"1px solid transparent",
+                        borderRadius: 4,
+                        boxSizing: "border-box",
+                        height: "100%",
+                        width: "100%",
                         transform: `rotate(${rotation}deg)`,
                     }}
                 >
                 <TextArea
                     placeholder="info text"
-                    autoSize
+                    autoSize={false}
                     size="small"
-                    defaultValue={compData.InfoText}
-                    className='nopan nodrag'
+                    value={infoTextValue}
+                    className='nopan nodrag info-node-textarea'
                     variant='borderless'
                     onFocus={() => {
+                        infoTextFocusedRef.current=true;
                         takeSnapshot('update info text');
                     }}
+                    onBlur={() => {
+                        infoTextFocusedRef.current=false;
+                    }}
                     onChange={(e)=>{
-                        reactFlowInstance.updateNodeData(id, {InfoText: e.target.value});
+                        const nextText=e.target.value;
+                        const nextSize=getInfoTextSizeForValue(nextText);
+                        const nextWidth=Math.max(infoNodeCurrentWidth, nextSize.width);
+                        const nextHeight=Math.max(infoNodeCurrentHeight, nextSize.height);
+                        setInfoTextDraft(nextText);
+
+                        if(nextWidth>infoNodeCurrentWidth || nextHeight>infoNodeCurrentHeight) {
+                            updateInfoNodeDataAndSize({InfoText: nextText}, {
+                                width: nextWidth,
+                                height: nextHeight,
+                            });
+                            return;
+                        }
+
+                        updateInfoNodeDataAndSize({InfoText: nextText});
                     }}
                     style={{
-                        backgroundColor: selected?"white":"transparent",
+                        backgroundColor: "transparent",
                         color: compData.changableTextColor?(compData.textColor || "black"):"black",
-                        fontSize: compData.infoTextSize,
+                        fontSize: infoTextSize,
+                        fontFamily: infoTextFontFamily,
+                        fontWeight: infoTextBold ? 700 : 400,
+                        boxSizing: "border-box",
+                        height: "100%",
+                        lineHeight: 1.25,
+                        minHeight: "100%",
+                        overflow: "hidden",
+                        padding: 2,
+                        resize: "none",
+                        width: "100%",
                     }}
                 />
                 </div>

@@ -25,7 +25,9 @@ export const InfoNode: Node = {
         noBackgroundImage: true,
         infoText: "",
         infoTextSize: 12,
-        //applyNodeResizer: true,
+        infoTextFontFamily: "Arial, sans-serif",
+        infoTextBold: false,
+        applyNodeResizer: true,
         handles: [
         ]
     } as ComponentDataType,
