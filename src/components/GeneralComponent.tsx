@@ -1,10 +1,11 @@
-import {useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent} from 'react';
 import {createPortal} from 'react-dom';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
             DeleteOutlined, CopyOutlined, BorderOutlined, XFilled,
-            InfoCircleOutlined, BoldOutlined} from '@ant-design/icons';
+            InfoCircleOutlined, BoldOutlined,
+            AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined} from '@ant-design/icons';
 
 import Icon from '@ant-design/icons';
 
@@ -13,7 +14,7 @@ import { Handle, NodeProps, NodeToolbar, Position,
 
 import { useTranslation } from "react-i18next";
 
-import { ComponentDataType, edgePoint, type GeneralComponent } from '../types';
+import { ComponentDataType, edgePoint, type GeneralComponent, type TextAlignType } from '../types';
 import { colorNameToRGBString, stripCheckAndDivideIfMiddleConnection} from '../utils/utils_functions';
 import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_functions.ts';
 import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
@@ -21,7 +22,7 @@ import { useUndoRedo } from '../utils/undoRedo.tsx';
 import { useSelectedElementsCount } from '../utils/useSelectedElementsCount.ts';
 import { rotateComponentWires } from '../utils/rotateWireRouting.ts';
 
-import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, message, Button as AntButton, Table} from 'antd';
+import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, Segmented, message, Button as AntButton, Table} from 'antd';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
 
 import ConnectionIcon from '../icons/connection.svg?react';
@@ -56,6 +57,8 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
     const [pinTooltipLayout, setPinTooltipLayout] = useState<PinTooltipLayout | null>(null);
     const [infoTextDraft, setInfoTextDraft] = useState(() => data.InfoText ?? data.infoText ?? "");
     const infoTextFocusedRef = useRef(false);
+    const infoTextMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const infoTextSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const updateNodeInternals = useUpdateNodeInternals();
 
@@ -82,15 +85,39 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
     const infoTextSize=compData.infoTextSize || 12;
     const infoTextFontFamily=compData.infoTextFontFamily || "Arial, sans-serif";
     const infoTextBold=Boolean(compData.infoTextBold);
-    const infoTextLines=infoTextValue.split(/\r?\n/);
-    const infoTextLongestLine=Math.max(1, ...infoTextLines.map((line) => line.length));
+    const infoTextAlign=compData.infoTextAlign || "left";
     const infoTextMinWidth=80;
     const infoTextMinHeight=32;
     const infoTextPadding=18;
-    const infoTextEstimatedWidth=Math.ceil(infoTextLongestLine * infoTextSize * 0.62 + infoTextPadding);
-    const infoTextEstimatedHeight=Math.ceil(Math.max(1, infoTextLines.length) * infoTextSize * 1.25 + 14);
-    const infoTextRequiredWidth=Math.max(infoTextMinWidth, infoTextEstimatedWidth);
-    const infoTextRequiredHeight=Math.max(infoTextMinHeight, infoTextEstimatedHeight);
+    const getInfoTextSizeForValue = useCallback((value: string) => {
+        const lines=value.split(/\r?\n/);
+        const fontWeight=infoTextBold ? 700 : 400;
+        let longestLineWidth=0;
+
+        if(typeof document!="undefined") {
+            const canvas=infoTextMeasureCanvasRef.current || document.createElement("canvas");
+            infoTextMeasureCanvasRef.current=canvas;
+            const context=canvas.getContext("2d");
+            if(context) {
+                context.font=`${fontWeight} ${infoTextSize}px ${infoTextFontFamily}`;
+                longestLineWidth=Math.max(1, ...lines.map((line) => context.measureText(line || " ").width));
+            }
+        }
+
+        if(longestLineWidth==0) {
+            const longestLineLength=Math.max(1, ...lines.map((line) => line.length));
+            longestLineWidth=longestLineLength * infoTextSize * (infoTextFontFamily.includes("Courier") ? 0.62 : 0.52);
+        }
+
+        return {
+            width: Math.max(infoTextMinWidth, Math.ceil(longestLineWidth + infoTextPadding)),
+            height: Math.max(infoTextMinHeight, Math.ceil(Math.max(1, lines.length) * infoTextSize * 1.25 + 14)),
+        };
+    }, [infoTextBold, infoTextFontFamily, infoTextSize]);
+    const {width: infoTextRequiredWidth, height: infoTextRequiredHeight}=useMemo(
+        () => getInfoTextSizeForValue(infoTextValue),
+        [getInfoTextSizeForValue, infoTextValue],
+    );
     const infoNodeCurrentWidth=Math.max(flowNodeWidth || 0, nodeBasicSizeX);
     const infoNodeCurrentHeight=Math.max(flowNodeHeight || 0, nodeBasicSizeY);
     const infoNodeWidth=Math.max(infoNodeCurrentWidth, infoTextRequiredWidth);
@@ -100,6 +127,11 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         {value: "Verdana, sans-serif", label: "Verdana"},
         {value: "Georgia, serif", label: "Georgia"},
         {value: "'Courier New', monospace", label: "Courier"},
+    ];
+    const infoTextAlignOptions=[
+        {value: "left", label: <AlignLeftOutlined />},
+        {value: "center", label: <AlignCenterOutlined />},
+        {value: "right", label: <AlignRightOutlined />},
     ];
 
     const rotationSwapImgWH = (rotation==90) || (rotation==270);
@@ -126,6 +158,11 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         dataPatch: Partial<ComponentDataType>,
         size?: {width: number; height: number},
     ) => {
+        if(Object.prototype.hasOwnProperty.call(dataPatch, "InfoText") && infoTextSaveTimerRef.current) {
+            clearTimeout(infoTextSaveTimerRef.current);
+            infoTextSaveTimerRef.current=null;
+        }
+
         const nextWidth=size?Math.ceil(size.width):undefined;
         const nextHeight=size?Math.ceil(size.height):undefined;
 
@@ -163,6 +200,31 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         }
     }, [id, reactFlowInstance, updateNodeInternals]);
 
+    const scheduleInfoTextUpdate = useCallback((value: string) => {
+        if(infoTextSaveTimerRef.current) {
+            clearTimeout(infoTextSaveTimerRef.current);
+        }
+
+        infoTextSaveTimerRef.current=setTimeout(() => {
+            infoTextSaveTimerRef.current=null;
+            updateInfoNodeDataAndSize({InfoText: value});
+        }, 250);
+    }, [updateInfoNodeDataAndSize]);
+
+    const flushInfoTextUpdate = useCallback((value: string) => {
+        if(infoTextSaveTimerRef.current) {
+            clearTimeout(infoTextSaveTimerRef.current);
+            infoTextSaveTimerRef.current=null;
+        }
+        updateInfoNodeDataAndSize({InfoText: value});
+    }, [updateInfoNodeDataAndSize]);
+
+    useEffect(() => () => {
+        if(infoTextSaveTimerRef.current) {
+            clearTimeout(infoTextSaveTimerRef.current);
+        }
+    }, []);
+
     useEffect(() => {
         if(!isInfoNode || infoTextFocusedRef.current) return;
 
@@ -187,16 +249,6 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         isInfoNode,
         updateInfoNodeDataAndSize,
     ]);
-
-    const getInfoTextSizeForValue = (value: string) => {
-        const lines=value.split(/\r?\n/);
-        const longestLine=Math.max(1, ...lines.map((line) => line.length));
-
-        return {
-            width: Math.max(infoTextMinWidth, Math.ceil(longestLine * infoTextSize * 0.62 + infoTextPadding)),
-            height: Math.max(infoTextMinHeight, Math.ceil(Math.max(1, lines.length) * infoTextSize * 1.25 + 14)),
-        };
-    };
 
     const rotateComponent = (newRotation: number) => {
         takeSnapshot('rotate component');
@@ -989,6 +1041,23 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
             }
             { isInfoNode &&
                 <Tooltip
+                    title={t('tooltip.textAlign')}
+                    placement="bottom"
+                >
+                    <Segmented
+                        className='nopan nodrag'
+                        size='small'
+                        value={infoTextAlign}
+                        options={infoTextAlignOptions}
+                        onChange={(value)=>{
+                            takeSnapshot('update text alignment');
+                            reactFlowInstance.updateNodeData(id, {infoTextAlign: value as TextAlignType});
+                        }}
+                    />
+                </Tooltip>
+            }
+            { isInfoNode &&
+                <Tooltip
                     title={t('tooltip.selectFont')}
                     placement="bottom"
                 >
@@ -1065,7 +1134,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         className={(compData.technicalID=="SolderJoint"?"node-type_solderjoint":"")+(compData.putToBackground?" node-type_background":"")}
         style={{
             border: (selected && !compData.applyNodeResizer)?`${borderWidth}px solid #333333`:(compData.changableColor?`${borderWidth}px solid ${compData.color}`:`${borderWidth}px solid transparent`),
-            boxSizing: isInfoNode?"border-box":"content-box",
+            boxSizing: compData.applyNodeResizer?"border-box":"content-box",
             boxShadow: checkHighlighted?"0 0 0 3px #faad14, 0 0 10px #faad14":undefined,
             height: isInfoNode?(flowNodeHeight!=undefined?"100%":infoNodeHeight):(compData.wireInfoForNodeId?"":(rotationSwapImgWH?(nodeLength*nodeBasicSizeX):nodeBasicSizeY)),
             width: (compData.wireInfoForNodeId)?"":(isInfoNode?(flowNodeWidth!=undefined?"100%":infoNodeWidth):(rotationSwapImgWH?nodeBasicSizeY:(nodeLength*nodeBasicSizeX))),
@@ -1166,8 +1235,9 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                         infoTextFocusedRef.current=true;
                         takeSnapshot('update info text');
                     }}
-                    onBlur={() => {
+                    onBlur={(e) => {
                         infoTextFocusedRef.current=false;
+                        flushInfoTextUpdate(e.currentTarget.value);
                     }}
                     onChange={(e)=>{
                         const nextText=e.target.value;
@@ -1184,7 +1254,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                             return;
                         }
 
-                        updateInfoNodeDataAndSize({InfoText: nextText});
+                        scheduleInfoTextUpdate(nextText);
                     }}
                     style={{
                         backgroundColor: "transparent",
@@ -1192,6 +1262,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                         fontSize: infoTextSize,
                         fontFamily: infoTextFontFamily,
                         fontWeight: infoTextBold ? 700 : 400,
+                        textAlign: infoTextAlign,
                         boxSizing: "border-box",
                         height: "100%",
                         lineHeight: 1.25,

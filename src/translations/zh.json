@@ -38,6 +38,7 @@
                     "textSize":  "文本大小",
                     "selectFont":  "选择字体",
                     "toggleBold":  "切换粗体",
+                    "textAlign":  "文本对齐",
                     "selectMulti":  "多选",
                     "deleteSelected":  "删除选中项",
                     "componentInfo":  "组件信息",

@@ -38,6 +38,7 @@
                     "textSize":  "Textgröße",
                     "selectFont":  "Schriftart auswählen",
                     "toggleBold":  "Fett umschalten",
+                    "textAlign":  "Textausrichtung",
                     "selectMulti":  "Mehrfachauswahl",
                     "deleteSelected":  "Auswahl löschen",
                     "componentInfo":  "Komponenten-Info anzeigen",

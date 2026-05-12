@@ -27,6 +27,7 @@ export const InfoNode: Node = {
         infoTextSize: 12,
         infoTextFontFamily: "Arial, sans-serif",
         infoTextBold: false,
+        infoTextAlign: "left",
         applyNodeResizer: true,
         handles: [
         ]

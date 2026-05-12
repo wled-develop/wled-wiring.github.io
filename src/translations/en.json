@@ -38,6 +38,7 @@
                     "textSize":  "Text size",
                     "selectFont":  "Select font",
                     "toggleBold":  "Toggle bold",
+                    "textAlign":  "Text alignment",
                     "selectMulti":  "multiple select",
                     "deleteSelected":  "delete selected",
                     "componentInfo":  "Component info",
