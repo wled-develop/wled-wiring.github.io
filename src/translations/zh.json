@@ -23,6 +23,7 @@
                     "selectWireNetwork":  "选择整个网络",
                     "clearWireNetwork":  "清除网络选择",
                     "putWireInfoNode":  "添加导线信息框",
+                    "rerouteWire":  "使用 Pathfinder 重新布线",
                     "startConnection":  "开始连接",
                     "closeConnection":  "完成连接",
                     "rotateLeft":  "向左旋转",
@@ -271,6 +272,15 @@
                                        "title":  "电流模拟",
                                        "comingSoon":  "电源分配模拟将在未来实现。敬请期待！"
                                    },
+                    "tools":  {
+                                  "title":  "工具",
+                                  "rerouteAllButton":  "重新布线全部导线",
+                                  "rerouteAllTooltip":  "使用 Pathfinder 顺序重新布线全部导线",
+                                  "rerouteAllDisabledPF":  "仅在 Auto/PF 连接模式下可用",
+                                  "rerouteAllDisabledEmpty":  "图中没有导线",
+                                  "rerouteAllDescription":  "优先布线距离较短的组件对，并保留导线 ID、连接和属性。",
+                                  "rerouteAllSuccess":  "所有导线已重新布线。"
+                              },
                     "export":  {
                                    "title":  "保存 / 导出 / 示例",
                                    "buttonSave":  "将模型保存为 JSON 文件",

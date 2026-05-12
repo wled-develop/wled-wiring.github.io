@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import {InputNumber, Flex, Tooltip, Popover, ColorPicker, ColorPickerProps, Radio, Select} from 'antd';
 
-import {DeleteOutlined, ColumnWidthOutlined, InfoCircleOutlined, ShareAltOutlined} from '@ant-design/icons'
+import {DeleteOutlined, ColumnWidthOutlined, InfoCircleOutlined, ShareAltOutlined, BranchesOutlined} from '@ant-design/icons'
 import Icon from '@ant-design/icons';
 
 import LineWidthSvg from '../icons/linewidth.svg?react';
@@ -35,6 +35,8 @@ import { snapWireSegmentAxisValue } from "../utils/wireSegmentSnap.ts";
 import { useUndoRedo } from "../utils/undoRedo.tsx";
 import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
 import { createDiagramCheckContext } from "../check/checkContext.ts";
+import { useZustandStore } from "../utils/pathfinder_functions.ts";
+import { routeWireWithPathfinder } from "../utils/rotateWireRouting.ts";
 
 const ROUNDN=1;
 const SEGMENT_DRAG_THRESHOLD = 4;
@@ -366,6 +368,7 @@ export default function EditableWire ({
 
   const reactFlowInstance=useReactFlow();
   const { takeSnapshot } = useUndoRedo();
+  const pathFindingEnabled = useZustandStore((state) => state.pathFindingEnabled);
   const edgePointDragSnapshotTakenRef = useRef(false);
   const segmentDragCleanupRef = useRef<(() => void) | null>(null);
   const suppressSegmentTouchDragUntilRef = useRef(0);
@@ -1545,6 +1548,31 @@ export default function EditableWire ({
     setSelectedNetworkEdgeIds(null);
   };
 
+  const rerouteWireWithPathfinder = () => {
+    if(selectedNetworkActive || !pathFindingEnabled) return;
+
+    const edge = reactFlowInstance.getEdge(id);
+    const edgeData = edge?.data as EdgeDataType | undefined;
+    if(!edge || !edgeData) return;
+
+    const routingEdges = reactFlowInstance.getEdges().filter((candidate) => candidate.id !== id);
+    const route = routeWireWithPathfinder(
+      reactFlowInstance.getNodes() as Node<ComponentDataType>[],
+      routingEdges,
+      edge,
+    );
+    if(!route) return;
+
+    takeSnapshot('reroute wire');
+    reactFlowInstance.updateEdge(id, {
+      ...edge,
+      data: {
+        ...edgeData,
+        ...route,
+      },
+    });
+  };
+
   const updateWireInfoNodes = (patch: Partial<ComponentDataType>) => {
     const nodes = reactFlowInstance.getNodes();
     nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
@@ -1923,6 +1951,19 @@ export default function EditableWire ({
                     }
                 }}
               ><InfoCircleOutlined /></button>
+            </Tooltip>
+          }
+          {!selectedNetworkActive && pathFindingEnabled &&
+            <Tooltip
+              title={t('tooltip.rerouteWire')}
+              placement="bottom"
+            >
+              <button
+                style={{
+                  fontSize: 14/reactFlowInstance.getZoom(),
+                }}
+                onClick={rerouteWireWithPathfinder}
+              ><BranchesOutlined /></button>
             </Tooltip>
           }
           {showWireNetworkButton &&

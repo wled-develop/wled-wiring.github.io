@@ -23,6 +23,7 @@
                     "selectWireNetwork":  "Select whole network",
                     "clearWireNetwork":  "Clear network selection",
                     "putWireInfoNode":  "Add cable info box",
+                    "rerouteWire":  "Re-route wire with Pathfinder",
                     "startConnection":  "Start connection",
                     "closeConnection":  "Finish connectionn",
                     "rotateLeft":  "Rotate left",
@@ -271,6 +272,15 @@
                                        "title":  "Simulate current flow",
                                        "comingSoon":  "Simulation of power distribution will be implemented in future. Stay tuned!"
                                    },
+                    "tools":  {
+                                  "title":  "Tools",
+                                  "rerouteAllButton":  "Re-route all wires",
+                                  "rerouteAllTooltip":  "Sequentially re-route all wires with Pathfinder",
+                                  "rerouteAllDisabledPF":  "Only available in Auto/PF connection mode",
+                                  "rerouteAllDisabledEmpty":  "There are no wires in the diagram",
+                                  "rerouteAllDescription":  "Routes short component pairs first and keeps wire IDs, connections, and properties.",
+                                  "rerouteAllSuccess":  "All wires were re-routed."
+                              },
                     "export":  {
                                    "title":  "Save / export / examples",
                                    "buttonSave":  "Save model as JSON file",

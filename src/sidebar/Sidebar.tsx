@@ -8,6 +8,7 @@ import { Collapse, theme } from 'antd';
 import {ComponentPage} from './ComponentPage';
 import {ImportExportPage} from './ImportExportPage';
 import {DiagramCheckPage} from './DiagramCheckPage';
+import {ToolsPage} from './ToolsPage';
 
 const Sidebar = () => {
   const {t} = useTranslation(['main']);
@@ -49,6 +50,12 @@ const Sidebar = () => {
     key: '4',
     label: <span>{t('sidebar.simulation.title')}</span>,
     children: <div>{t('sidebar.simulation.comingSoon')}</div>,
+    style: panelStyle,
+  },
+  {
+    key: '5',
+    label: <span>{t('sidebar.tools.title')}</span>,
+    children: <ToolsPage />,
     style: panelStyle,
   },
 ];

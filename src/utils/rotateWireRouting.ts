@@ -28,6 +28,23 @@ type RotateComponentWiresParams = {
   pathFindingEnabled: boolean;
 };
 
+type RerouteWireItem = {
+  edge: Edge;
+  originalIndex: number;
+  sourcePoint: XYPoint;
+  targetPoint: XYPoint;
+  distance: number;
+  pairKey: string;
+};
+
+type RerouteWireGroup = {
+  pairKey: string;
+  items: RerouteWireItem[];
+  originalIndex: number;
+  minDistance: number;
+  averageDistance: number;
+};
+
 const pointFromEdgePoint = (point: edgePoint): XYPoint => ({x: point.x, y: point.y});
 
 const edgePointFromPoint = (point: XYPoint): edgePoint => ({
@@ -190,7 +207,90 @@ const nodeIsSolderJoint = (node: Node | undefined) => (
   getNodeData(node)?.technicalID === 'SolderJoint'
 );
 
-const routeWithPathfinder = (
+const distanceBetweenPoints = (a: XYPoint, b: XYPoint) => (
+  Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+);
+
+const componentPairKey = (edge: Edge) => (
+  [edge.source, edge.target].sort().join('::')
+);
+
+const handleSortValue = (item: RerouteWireItem, nodeId: string, axis: 'x' | 'y') => {
+  const point = item.edge.source === nodeId ? item.sourcePoint : item.targetPoint;
+  return point[axis];
+};
+
+const groupSortAxis = (items: RerouteWireItem[], nodeId: string): 'x' | 'y' => {
+  const valuesX = items.map((item) => handleSortValue(item, nodeId, 'x'));
+  const valuesY = items.map((item) => handleSortValue(item, nodeId, 'y'));
+  const spreadX = Math.max(...valuesX) - Math.min(...valuesX);
+  const spreadY = Math.max(...valuesY) - Math.min(...valuesY);
+  return spreadX >= spreadY ? 'x' : 'y';
+};
+
+const sortGroupItems = (group: RerouteWireGroup) => {
+  const [firstNodeId, secondNodeId] = group.pairKey.split('::');
+  const firstAxis = groupSortAxis(group.items, firstNodeId);
+  const secondAxis = groupSortAxis(group.items, secondNodeId);
+
+  return [...group.items].sort((a, b) => (
+    handleSortValue(a, firstNodeId, firstAxis) - handleSortValue(b, firstNodeId, firstAxis) ||
+    handleSortValue(a, secondNodeId, secondAxis) - handleSortValue(b, secondNodeId, secondAxis) ||
+    a.distance - b.distance ||
+    a.originalIndex - b.originalIndex
+  ));
+};
+
+const getRerouteWireItems = (nodes: Node[], edges: Edge[]) => (
+  edges.flatMap((edge, originalIndex): RerouteWireItem[] => {
+    const edgeData = edge.data as EdgeDataType | undefined;
+    if(edge.type !== 'editable-wire-type' || !edgeData || !edge.sourceHandle || !edge.targetHandle) return [];
+
+    const sourceNode = nodes.find((node) => node.id === edge.source);
+    const targetNode = nodes.find((node) => node.id === edge.target);
+    if(!sourceNode || !targetNode) return [];
+
+    const sourcePoint = getHandleConnectionPoint(sourceNode, edge.sourceHandle);
+    const targetPoint = getHandleConnectionPoint(targetNode, edge.targetHandle);
+    if(!sourcePoint || !targetPoint) return [];
+
+    return [{
+      edge,
+      originalIndex,
+      sourcePoint,
+      targetPoint,
+      distance: distanceBetweenPoints(sourcePoint, targetPoint),
+      pairKey: componentPairKey(edge),
+    }];
+  })
+);
+
+const getSortedRerouteWireItems = (nodes: Node[], edges: Edge[]) => {
+  const items = getRerouteWireItems(nodes, edges);
+  const groupByPairKey = new Map<string, RerouteWireItem[]>();
+
+  items.forEach((item) => {
+    groupByPairKey.set(item.pairKey, [...(groupByPairKey.get(item.pairKey) ?? []), item]);
+  });
+
+  const groups = Array.from(groupByPairKey.entries()).map(([pairKey, groupItems]): RerouteWireGroup => ({
+    pairKey,
+    items: groupItems,
+    originalIndex: Math.min(...groupItems.map((item) => item.originalIndex)),
+    minDistance: Math.min(...groupItems.map((item) => item.distance)),
+    averageDistance: groupItems.reduce((sum, item) => sum + item.distance, 0) / groupItems.length,
+  }));
+
+  return groups
+    .sort((a, b) => (
+      a.minDistance - b.minDistance ||
+      a.averageDistance - b.averageDistance ||
+      a.originalIndex - b.originalIndex
+    ))
+    .flatMap(sortGroupItems);
+};
+
+export const routeWireWithPathfinder = (
   nodes: Node[],
   edges: Edge[],
   edge: Edge,
@@ -247,6 +347,36 @@ const routeWithPathfinder = (
     endXY: targetPoint,
     edgePoints: path.slice(1, -1).map(edgePointFromPoint),
   };
+};
+
+export const rerouteAllWiresWithPathfinder = (
+  nodes: Node[],
+  edges: Edge[],
+) => {
+  const sortedItems = getSortedRerouteWireItems(nodes, edges);
+  const updatedEdgeById = new Map<string, Edge>();
+  let workingRoutingEdges: Edge[] = [];
+
+  sortedItems.forEach(({edge}) => {
+    const edgeData = edge.data as EdgeDataType | undefined;
+    if(!edgeData) return;
+
+    const route = routeWireWithPathfinder(nodes, workingRoutingEdges, edge);
+    const updatedEdge = route
+      ? {
+        ...edge,
+        data: {
+          ...edgeData,
+          ...route,
+        },
+      }
+      : edge;
+
+    updatedEdgeById.set(edge.id, updatedEdge);
+    workingRoutingEdges = [...workingRoutingEdges, updatedEdge];
+  });
+
+  return edges.map((edge) => updatedEdgeById.get(edge.id) ?? edge);
 };
 
 const routeWithStubs = (
@@ -367,7 +497,7 @@ export const rotateComponentWires = ({
       if(!currentEdge || !currentEdgeData) return;
 
       const routingEdges = workingEdges.filter((edge) => edge.id !== edgeId);
-      const route = routeWithPathfinder(updatedNodes, routingEdges, currentEdge)
+      const route = routeWireWithPathfinder(updatedNodes, routingEdges, currentEdge)
         ?? (ROTATE_WIRE_PIN_STUB_ENABLED
           ? routeWithStubs(updatedNodes, currentEdge, currentEdgeData, nodeId, oldRotation, newRotation, shiftBendsActive)
           : undefined);
