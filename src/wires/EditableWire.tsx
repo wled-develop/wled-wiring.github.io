@@ -803,7 +803,7 @@ export default function EditableWire ({
 
     const new_edge=reactFlowInstance.getEdge(id);
     if(new_edge?.data != null) {
-      const snaparea=4;
+      const snaparea=5;
       if(Math.abs(position.x-edgeSegmentsArray[index].segmentSourceX)<snaparea) {
         position.x=edgeSegmentsArray[index].segmentSourceX;
       }

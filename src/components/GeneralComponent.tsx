@@ -19,6 +19,7 @@ import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_f
 import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
 import { useUndoRedo } from '../utils/undoRedo.tsx';
 import { useSelectedElementsCount } from '../utils/useSelectedElementsCount.ts';
+import { rotateComponentWires } from '../utils/rotateWireRouting.ts';
 
 import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, message, Button as AntButton, Table} from 'antd';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
@@ -92,6 +93,20 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
     const selectedElementsCount = useSelectedElementsCount();
     const multipleSelect = selectedElementsCount > 1;
     const componentEditActive = Boolean(selected && !multipleSelect && !dragging);
+
+    const rotateComponent = (newRotation: number) => {
+        takeSnapshot('rotate component');
+        reactFlowInstance.updateNodeData(id, {rotation: newRotation});
+        reactFlowInstance.setEdges((edges) => rotateComponentWires({
+            nodes: reactFlowInstance.getNodes(),
+            edges,
+            nodeId: id,
+            oldRotation: rotation,
+            newRotation,
+            pathFindingEnabled: useZustandStore.getState().pathFindingEnabled,
+        }));
+        updateNodeInternals(id);
+    };
 
     const showPinTooltip = (event: MouseEvent<HTMLDivElement>, text: string) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -574,9 +589,7 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
                 >
                     <button
                         onClick={()=>{
-                            takeSnapshot('rotate component');
-                            reactFlowInstance.updateNodeData(id, {rotation: ( ((rotation) +90+180) % 360)});
-                            updateNodeInternals(id);
+                            rotateComponent(((rotation) +90+180) % 360);
                         }}
                     ><RotateLeftOutlined/></button>
                 </Tooltip>
@@ -588,9 +601,7 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
                 >
                     <button
                         onClick={()=>{
-                            takeSnapshot('rotate component');
-                            reactFlowInstance.updateNodeData(id, {rotation: ( ((rotation) +90) % 360)});
-                            updateNodeInternals(id);
+                            rotateComponent(((rotation) +90) % 360);
                         }}
                     ><RotateRightOutlined/></button>
                 </Tooltip>

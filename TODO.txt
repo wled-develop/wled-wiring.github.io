@@ -10,3 +10,8 @@
 10) [DONE] Wenn diagramm leer ist, erscheint "Beginne mit dem Ziehen von Komponenten auf die Arbeitsfläche oder lade ein Beispiel". Dabei soll dazu noch direkt hier die Auswahlmöglichkeit erscheinen ein Beispiel zu laden. Ansonste muss der neue Nutzer es erst in Sidebar suchen.
 1) [DONE] Kreuzung zwei wires, radius adaptiv
 8) [DONE] Die Position von Toolbox beim Netzauswahl ist aktuell statisch und kann außerhalb vom sichbaren Bereich liegen beim Zoom. Es soll dynamisch sein und so liegen, dass sie nicht die Bedienelemente vom Wire (Eckpunkte, Mittelpunkt) überdeckt. Aktuell weil es überdeckungen möglich, ist toolbox auch nich tganz vorne. dann kann es ganz forne in Z liegen.
+13) [Done] Snap bereich etwas erhöhen (nodeMoveSnap.ts (Zeilen 8-9), wireSegmentSnap.ts (Zeilen 4-5), EditableWire.tsx (snaparea))
+
+
+
+
