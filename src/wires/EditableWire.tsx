@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import {InputNumber, Flex, Tooltip, Popover, ColorPicker, ColorPickerProps, Radio, Select} from 'antd';
 
-import {DeleteOutlined, ColumnWidthOutlined, InfoCircleOutlined} from '@ant-design/icons'
+import {DeleteOutlined, ColumnWidthOutlined, InfoCircleOutlined, ShareAltOutlined} from '@ant-design/icons'
 import Icon from '@ant-design/icons';
 
 import LineWidthSvg from '../icons/linewidth.svg?react';
@@ -34,6 +34,7 @@ import { applySolderJointSegmentMove } from "../utils/solderJointSegmentMove.ts"
 import { snapWireSegmentAxisValue } from "../utils/wireSegmentSnap.ts";
 import { useUndoRedo } from "../utils/undoRedo.tsx";
 import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
+import { createDiagramCheckContext } from "../check/checkContext.ts";
 
 const ROUNDN=1;
 const SEGMENT_DRAG_THRESHOLD = 4;
@@ -342,6 +343,7 @@ export default function EditableWire ({
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(-1);
   const [segmentDragDebugMessage, setSegmentDragDebugMessage] = useState('');
   const [wireToolbarAnchor, setWireToolbarAnchor] = useState<WireToolbarAnchor | null>(null);
+  const [selectedNetworkEdgeIds, setSelectedNetworkEdgeIds] = useState<string[] | null>(null);
 
   const reactFlowInstance=useReactFlow();
   const { takeSnapshot } = useUndoRedo();
@@ -1315,11 +1317,226 @@ export default function EditableWire ({
     reactFlowInstance.setEdges(collapseResult.edges);
   };
 
+  const findElementaryNetForWire = () => {
+    const context = createDiagramCheckContext(
+      reactFlowInstance.getNodes() as Node<ComponentDataType>[],
+      reactFlowInstance.getEdges() as Edge<EdgeDataType>[],
+    );
+
+    return context.elementaryNets.find((net) => net.edges.some((edge) => edge.id === id));
+  };
+
+  const selectWireNetwork = () => {
+    const net = findElementaryNetForWire();
+    if(!net) return;
+
+    const networkEdgeIds = new Set(net.edges.map((edge) => edge.id));
+    setSelectedNetworkEdgeIds(Array.from(networkEdgeIds));
+    reactFlowInstance.setNodes((nodes) => nodes.map((node) => (
+      node.data.checkHighlighted
+        ? {
+          ...node,
+          data: {
+            ...node.data,
+            checkHighlighted: false,
+          },
+        }
+        : node
+    )));
+    reactFlowInstance.setEdges((edges) => edges.map((edge) => ({
+      ...edge,
+      data: {
+        ...(edge.data as EdgeDataType),
+        checkHighlighted: networkEdgeIds.has(edge.id),
+      },
+    })));
+  };
+
+  const clearSelectedWireNetwork = () => {
+    setSelectedNetworkEdgeIds(null);
+    reactFlowInstance.setNodes((nodes) => nodes.map((node) => (
+      node.data.checkHighlighted
+        ? {
+          ...node,
+          data: {
+            ...node.data,
+            checkHighlighted: false,
+          },
+        }
+        : node
+    )));
+    reactFlowInstance.setEdges((edges) => edges.map((edge) => (
+      edge.data?.checkHighlighted
+        ? {
+          ...edge,
+          data: {
+            ...(edge.data as EdgeDataType),
+            checkHighlighted: false,
+          },
+        }
+        : edge
+    )));
+  };
+
+  const getSolderJointHandleIdsForEdges = (
+    nodes: Node<ComponentDataType>[],
+    edges: Edge<EdgeDataType>[],
+  ) => {
+    const solderJointIds = new Set(
+      nodes
+        .filter((node) => node.data.technicalID === "SolderJoint")
+        .map((node) => node.id),
+    );
+    const handleIdsByNodeId = new Map<string, Set<string> | null>();
+
+    const addHandle = (nodeId: string, handleId?: string | null) => {
+      if(!solderJointIds.has(nodeId)) return;
+      if(!handleId) {
+        handleIdsByNodeId.set(nodeId, null);
+        return;
+      }
+
+      const existingHandleIds = handleIdsByNodeId.get(nodeId);
+      if(existingHandleIds===null) return;
+
+      const nextHandleIds = existingHandleIds ?? new Set<string>();
+      nextHandleIds.add(handleId);
+      handleIdsByNodeId.set(nodeId, nextHandleIds);
+    };
+
+    edges.forEach((edge) => {
+      addHandle(edge.source, edge.sourceHandle);
+      addHandle(edge.target, edge.targetHandle);
+    });
+
+    return handleIdsByNodeId;
+  };
+
+  const updateSelectedNetworkWireData = (
+    patch: Partial<EdgeDataType>,
+    wireInfoPatch?: Partial<ComponentDataType>,
+  ) => {
+    const networkEdgeIds = new Set(selectedNetworkEdgeIds ?? []);
+    if(networkEdgeIds.size === 0) {
+      updateWireDataAndCollapseIfPossible(patch, wireInfoPatch);
+      return;
+    }
+
+    takeSnapshot('update wire network');
+    const flowNodes = reactFlowInstance.getNodes() as Node<ComponentDataType>[];
+    const currentEdges = reactFlowInstance.getEdges() as Edge<EdgeDataType>[];
+    const networkEdges = currentEdges.filter((edge) => networkEdgeIds.has(edge.id));
+    const solderJointHandleIds = getSolderJointHandleIdsForEdges(flowNodes, networkEdges);
+    const wireColorPatch = typeof patch.color === 'string' ? patch.color : undefined;
+
+    const nodes = flowNodes.map((node) => {
+      const nextData: Partial<ComponentDataType> = {};
+
+      if(wireInfoPatch && node.data.technicalID==="WireInfoNode" && networkEdgeIds.has(String(node.data.wireInfoForNodeId))) {
+        Object.assign(nextData, wireInfoPatch);
+      }
+
+      const selectedSolderJointHandleIds = solderJointHandleIds.get(node.id);
+      if(wireColorPatch && node.data.technicalID==="SolderJoint" && selectedSolderJointHandleIds!==undefined) {
+        nextData.handles = node.data.handles.map((handle) => (
+          selectedSolderJointHandleIds===null || selectedSolderJointHandleIds.has(handle.hid)
+            ? {
+              ...handle,
+              borderColor: wireColorPatch,
+            }
+            : handle
+        ));
+      }
+
+      if(Object.keys(nextData).length===0) return node;
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          ...nextData,
+        },
+      };
+    });
+    const changedEdges: Edge[] = [];
+    const nextEdges = currentEdges.map((edge) => {
+      if(!networkEdgeIds.has(edge.id)) return edge;
+
+      const changedEdge = {
+        ...edge,
+        data: {
+          ...(edge.data as EdgeDataType),
+          ...patch,
+          checkHighlighted: true,
+        },
+      };
+      changedEdges.push(changedEdge);
+      return changedEdge;
+    });
+    const candidateSolderJointIds = Array.from(new Set(
+      changedEdges.flatMap((edge) => getSolderJointEndpointIds(nodes, edge)),
+    ));
+    const collapseResult = collapseMergeableSolderJoints({
+      nodes,
+      edges: nextEdges,
+      candidateSolderJointIds,
+    });
+
+    reactFlowInstance.setNodes(collapseResult.nodes);
+    reactFlowInstance.setEdges(collapseResult.edges);
+    setSelectedNetworkEdgeIds(
+      collapseResult.edges
+        .filter((edge) => edge.data?.checkHighlighted)
+        .map((edge) => edge.id),
+    );
+  };
+
+  const deleteSelectedNetwork = () => {
+    const networkEdgeIds = selectedNetworkEdgeIds ?? [];
+    if(networkEdgeIds.length === 0) {
+      reactFlowInstance.deleteElements({ edges: [{id}] });
+      return;
+    }
+
+    const networkEdgeIdSet = new Set(networkEdgeIds);
+    const flowNodes = reactFlowInstance.getNodes() as Node<ComponentDataType>[];
+    const currentEdges = reactFlowInstance.getEdges() as Edge<EdgeDataType>[];
+    const networkEdges = currentEdges.filter((edge) => networkEdgeIdSet.has(edge.id));
+    const solderJointHandleIds = getSolderJointHandleIdsForEdges(flowNodes, networkEdges);
+    const networkSolderJointIds = Array.from(solderJointHandleIds.keys());
+    const deletableSolderJointIds = networkSolderJointIds.filter((solderJointId) => (
+      currentEdges
+        .filter((edge) => edge.source === solderJointId || edge.target === solderJointId)
+        .every((edge) => networkEdgeIdSet.has(edge.id))
+    ));
+
+    reactFlowInstance.deleteElements({
+      edges: networkEdgeIds.map((edgeId) => ({id: edgeId})),
+      nodes: deletableSolderJointIds.map((nodeId) => ({id: nodeId})),
+    });
+    setSelectedNetworkEdgeIds(null);
+  };
+
   const updateWireInfoNodes = (patch: Partial<ComponentDataType>) => {
     const nodes = reactFlowInstance.getNodes();
     nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").map((node)=>{
       reactFlowInstance.updateNodeData(node.id, patch);
     });
+  };
+
+  const selectedNetworkActive = Boolean(selectedNetworkEdgeIds?.length);
+  const selectableNetworkEdgeCount = findElementaryNetForWire()?.edges.length ?? 0;
+  const showWireNetworkButton = selectedNetworkActive || selectableNetworkEdgeCount > 1;
+  const updateActiveWireScope = (
+    patch: Partial<EdgeDataType>,
+    wireInfoPatch?: Partial<ComponentDataType>,
+    shouldTakeSnapshot = true,
+  ) => {
+    if(selectedNetworkActive) {
+      updateSelectedNetworkWireData(patch, wireInfoPatch);
+    } else {
+      updateWireDataAndCollapseIfPossible(patch, wireInfoPatch, shouldTakeSnapshot);
+    }
   };
 
   const contentPhysLineLength = (
@@ -1330,9 +1547,16 @@ export default function EditableWire ({
       defaultValue={(edgeData.physLength || 0.1) as number}
       min={0.1} max={100}
       onChange={(value)=>{
-        takeSnapshot('update wire length');
-        reactFlowInstance.updateEdgeData(id, {physLength: value});
-        updateWireInfoNodes({wireInfo_length: value});
+        if(selectedNetworkActive) {
+          updateSelectedNetworkWireData(
+            {physLength: value},
+            {wireInfo_length: value},
+          );
+        } else {
+          takeSnapshot('update wire length');
+          reactFlowInstance.updateEdgeData(id, {physLength: value});
+          updateWireInfoNodes({wireInfo_length: value});
+        }
         //console.log(reactFlowInstance.getZoom())
       }}
     />
@@ -1351,7 +1575,7 @@ export default function EditableWire ({
         { value: 6, label: "6px" },
       ]}
       onChange={(e)=>{
-        updateWireDataAndCollapseIfPossible({width: e.target.value});
+        updateActiveWireScope({width: e.target.value});
       }}
     />
     </>
@@ -1369,7 +1593,7 @@ export default function EditableWire ({
       options={(typeof(edgeData.physCrosssectionUnit)==="string"?(edgeData.physCrosssectionUnit==="mm2"?crosssectionsMM2:crosssectionsAWG):crosssectionsMM2).map(val=>({label: String(val), value: val}))}
       style={{width:100}}
       onChange={(value)=>{
-        updateWireDataAndCollapseIfPossible(
+        updateActiveWireScope(
           {physCrosssection: value},
           {wireInfo_crosssection: value},
         );
@@ -1388,7 +1612,7 @@ export default function EditableWire ({
       style={{width:70}}
       onChange={(value)=>{
         const physCrosssectionvalue=(value==="mm2"?crosssectionsMM2[3]:crosssectionsAWG[3]);
-        updateWireDataAndCollapseIfPossible(
+        updateActiveWireScope(
           {physCrosssection: physCrosssectionvalue, physCrosssectionUnit: value},
           {wireInfo_crosssectionUnit: value, wireInfo_crosssection: physCrosssectionvalue},
         );
@@ -1406,6 +1630,12 @@ export default function EditableWire ({
   useEffect(() => {
     setNotMooved(Boolean(selected));
   }, [selected]);
+
+  useEffect(() => {
+    if(!selected && selectedNetworkEdgeIds) {
+      clearSelectedWireNetwork();
+    }
+  }, [selected, selectedNetworkEdgeIds]);
 
   useEffect(() => () => {
     if(segmentDragRef.current) {
@@ -1548,7 +1778,7 @@ export default function EditableWire ({
                 fontSize: 14/reactFlowInstance.getZoom(),
               }}
               onClick={()=>{
-                  reactFlowInstance.deleteElements({ edges: [{id: id}] });
+                  deleteSelectedNetwork();
               }}
             ><DeleteOutlined/></button>
           </Tooltip>
@@ -1575,7 +1805,7 @@ export default function EditableWire ({
               }}
               //format={"rgb"}
               onChange={(_,color)=>{
-                updateWireDataAndCollapseIfPossible(
+                updateActiveWireScope(
                   {color: color, color_selected: color},
                   {wireInfo_color: color},
                   false,
@@ -1585,22 +1815,24 @@ export default function EditableWire ({
               style={{zoom: 1/Math.min(reactFlowInstance.getZoom(), 1.6)}}
             />
           </Tooltip>
-          <Popover
-            content={contentPhysLineLength}
-            title={t('popover.selectWireLength')}
-            trigger="click"
-          >
-            <Tooltip
-              title={t('tooltip.selectWireLength')}
-              placement="bottom"
+          {!selectedNetworkActive &&
+            <Popover
+              content={contentPhysLineLength}
+              title={t('popover.selectWireLength')}
+              trigger="click"
             >
-              <button
-                  style={{
-                    fontSize: 14/reactFlowInstance.getZoom(),
-                  }}
-                ><ColumnWidthOutlined/></button>
-            </Tooltip>
-          </Popover>
+              <Tooltip
+                title={t('tooltip.selectWireLength')}
+                placement="bottom"
+              >
+                <button
+                    style={{
+                      fontSize: 14/reactFlowInstance.getZoom(),
+                    }}
+                  ><ColumnWidthOutlined/></button>
+              </Tooltip>
+            </Popover>
+          }
           <Popover
             content={contentLineWidth}
             title={t('popover.selectWireWidth')}
@@ -1635,34 +1867,56 @@ export default function EditableWire ({
                 ><Icon component={CrosssectionSvg} /></button>
             </Tooltip>
           </Popover>
-          <Tooltip
-            title={t('tooltip.putWireInfoNode')}
-            placement="bottom"
-          >
-            <button
-              style={{
-                fontSize: 14/reactFlowInstance.getZoom(),
-              }}
-              onClick={()=>{
-                  //reactFlowInstance.deleteElements({ edges: [{id: id}] });
-                  //add node WireInfoNode
-                  const nodes=reactFlowInstance.getNodes();
-                  if(nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").length==0) {
-                    takeSnapshot('add wire info');
-                    const newNode = structuredClone(WireInfoNode);
-                    newNode.id = String(Math.random());
-                    newNode.position = {x: edgeButtonsPosition.x+20, y: edgeButtonsPosition.y-20};
-                    newNode.data.wireInfoForNodeId = id;
-                    newNode.data.wireInfo_length = edgeData.physLength;
-                    newNode.data.wireInfo_crosssection = edgeData.physCrosssection;
-                    newNode.data.wireInfo_crosssectionUnit = edgeData.physCrosssectionUnit;
-                    newNode.data.wireInfo_color = edgeData.color;
-                    //console.log(edgeData.physLength, edgeData.physCrosssection, edgeData.physCrosssectionUnit);
-                    reactFlowInstance.addNodes(newNode);
+          {!selectedNetworkActive &&
+            <Tooltip
+              title={t('tooltip.putWireInfoNode')}
+              placement="bottom"
+            >
+              <button
+                style={{
+                  fontSize: 14/reactFlowInstance.getZoom(),
+                }}
+                onClick={()=>{
+                    //reactFlowInstance.deleteElements({ edges: [{id: id}] });
+                    //add node WireInfoNode
+                    const nodes=reactFlowInstance.getNodes();
+                    if(nodes.filter((node)=>node.data.wireInfoForNodeId==id && node.data.technicalID=="WireInfoNode").length==0) {
+                      takeSnapshot('add wire info');
+                      const newNode = structuredClone(WireInfoNode);
+                      newNode.id = String(Math.random());
+                      newNode.position = {x: edgeButtonsPosition.x+20, y: edgeButtonsPosition.y-20};
+                      newNode.data.wireInfoForNodeId = id;
+                      newNode.data.wireInfo_length = edgeData.physLength;
+                      newNode.data.wireInfo_crosssection = edgeData.physCrosssection;
+                      newNode.data.wireInfo_crosssectionUnit = edgeData.physCrosssectionUnit;
+                      newNode.data.wireInfo_color = edgeData.color;
+                      //console.log(edgeData.physLength, edgeData.physCrosssection, edgeData.physCrosssectionUnit);
+                      reactFlowInstance.addNodes(newNode);
+                    }
+                }}
+              ><InfoCircleOutlined /></button>
+            </Tooltip>
+          }
+          {showWireNetworkButton &&
+            <Tooltip
+              title={t(selectedNetworkActive ? 'tooltip.clearWireNetwork' : 'tooltip.selectWireNetwork')}
+              placement="bottom"
+            >
+              <button
+                style={{
+                  fontSize: 14/reactFlowInstance.getZoom(),
+                  backgroundColor: selectedNetworkActive ? "#e6f4ff" : undefined,
+                }}
+                onClick={() => {
+                  if(selectedNetworkActive) {
+                    clearSelectedWireNetwork();
+                  } else {
+                    selectWireNetwork();
                   }
-              }}
-            ><InfoCircleOutlined /></button>
-          </Tooltip>
+                }}
+              ><ShareAltOutlined /></button>
+            </Tooltip>
+          }
           </Flex>
         </div>
     </EdgeLabelRenderer>

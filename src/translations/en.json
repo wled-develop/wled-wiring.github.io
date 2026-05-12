@@ -20,6 +20,8 @@
                     "selectWireLength":  "Select wire length (physically)",
                     "selectWireCrossSection":  "Select wire cross section (physically)",
                     "selectWireWidth":  "Select wire width (for drawing)",
+                    "selectWireNetwork":  "Select whole network",
+                    "clearWireNetwork":  "Clear network selection",
                     "putWireInfoNode":  "Add cable info box",
                     "startConnection":  "Start connection",
                     "closeConnection":  "Finish connectionn",

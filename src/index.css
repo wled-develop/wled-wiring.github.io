@@ -143,6 +143,18 @@ html, body {
   color: #fff;
 }
 
+.component-node-toolbar {
+  align-items: center;
+  display: flex;
+}
+
+.component-node-toolbar button,
+.component-node-toolbar .ant-color-picker-trigger {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
 .react-flow__handle {
   display: inline-flex;
   transition: box-shadow 0.2s ease;

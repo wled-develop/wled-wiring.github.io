@@ -1,5 +1,5 @@
 2) Neue Art der Wire ziehen (durch Punkte markieren mit klick)
-7) Beim Klick auf wire soll es Funktionen Löschen, Farbe ändern, Querschnitt ändern, Kabelbreite ändern (Zeichnung) zusätzlich für das ganze elementare Netz (layer elementary aus checks) geben. Am besten vermutlich erst im Toolbox nur ein button "Netz wählen" und erst wenn man drauf klickt, dann erscheint das gesamte Netz als selektiert (ggf. kann bereits vorhandene highlight für Netze aus checks genutzt werden) und dann Funktionen für das gesamte Netz zeigen.
+7) [DONE] Beim Klick auf wire soll es Funktionen Löschen, Farbe ändern, Querschnitt ändern, Kabelbreite ändern (Zeichnung) zusätzlich für das ganze elementare Netz (layer elementary aus checks) geben. Am besten vermutlich erst im Toolbox nur ein button "Netz wählen" und erst wenn man drauf klickt, dann erscheint das gesamte Netz als selektiert (ggf. kann bereits vorhandene highlight für Netze aus checks genutzt werden) und dann Funktionen für das gesamte Netz zeigen.
 9) [DONE] Aktuell is es versucht die Breite der Sidebar so zu gestalten, dass dort zwei Komponenten nebeneinander erscheinen. Das funktioniert auch in Firefox. In Chrome aber wird nur eine Komponente pro zeile angezeigt und der Rest der Fläche rechts davon ist leer.
 11) Setup testing concept...
 12) Handling von angebundenen wires beim Drehen der Komponente

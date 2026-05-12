@@ -20,6 +20,8 @@
                     "selectWireLength":  "Kabellänge auswählen (physikalisch)",
                     "selectWireCrossSection":  "Kabelquerschnitt auswählen (physikalisch)",
                     "selectWireWidth":  "Kabelbreite auswählen (für Zeichnung)",
+                    "selectWireNetwork":  "Ganzes Netz auswählen",
+                    "clearWireNetwork":  "Netzauswahl aufheben",
                     "putWireInfoNode":  "Kabel Infobox hinzufügen",
                     "startConnection":  "Verbindung starten",
                     "closeConnection":  "Verbindung abschliessen",

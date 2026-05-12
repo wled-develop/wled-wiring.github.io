@@ -20,6 +20,8 @@
                     "selectWireLength":  "选择导线长度（物理尺寸）",
                     "selectWireCrossSection":  "选择导线横截面积（物理尺寸）",
                     "selectWireWidth":  "选择导线宽度（用于绘制）",
+                    "selectWireNetwork":  "选择整个网络",
+                    "clearWireNetwork":  "清除网络选择",
                     "putWireInfoNode":  "添加导线信息框",
                     "startConnection":  "开始连接",
                     "closeConnection":  "完成连接",

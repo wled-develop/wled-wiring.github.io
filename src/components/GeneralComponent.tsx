@@ -565,6 +565,7 @@ export function GeneralComponent({id, data, selected, dragging}:NodeProps<Genera
             isVisible={componentEditActive}
             position={Position.Top}
             align={"center"}
+            className="component-node-toolbar"
         >
             {rotatable &&
                 <Tooltip
