@@ -149,7 +149,24 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
 
     // build path itself from the result
     const edges=reactFlow.getEdges();
-    const myPath = buildPath(edges, result, matrix, x_arr, y_arr, fromXadapted, fromYadapted, toXadapted, toYadapted, start_matrix_index_x, start_matrix_index_y);
+    const myPath = buildPath(
+      edges,
+      result,
+      matrix,
+      x_arr,
+      y_arr,
+      fromXadapted,
+      fromYadapted,
+      toXadapted,
+      toYadapted,
+      start_matrix_index_x,
+      start_matrix_index_y,
+      {
+        obstacleRects: rev.obstacleRects,
+        sourceNodeId: connection.fromNode?.id,
+        targetNodeId: connection.toNode?.id,
+      },
+    );
     //console.log("ConnLine myPath: ", myPath);
 
     // build PathStroke for ConnectionLine

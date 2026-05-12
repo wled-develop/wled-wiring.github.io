@@ -404,7 +404,7 @@ export const routeWireWithPathfinder = (
     targetHandle?.prefferedLineDirection,
     (targetNode.data as ComponentDataType).rotation,
   );
-  const {x_arr, y_arr, matrix} = createMatrix(nodes);
+  const {x_arr, y_arr, matrix, obstacleRects} = createMatrix(nodes);
   const pathResult = getPathResult(
     matrix,
     x_arr,
@@ -430,6 +430,11 @@ export const routeWireWithPathfinder = (
     targetPoint.y,
     pathResult.start_matrix_index_x,
     pathResult.start_matrix_index_y,
+    {
+      obstacleRects,
+      sourceNodeId: sourceNode.id,
+      targetNodeId: targetNode.id,
+    },
   );
   const edgeData = edge.data as EdgeDataType | undefined;
   const anchoredPath = bindPathfinderPathToRenderedEndpoints(
