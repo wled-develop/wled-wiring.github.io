@@ -10,6 +10,7 @@ export const ItemTypes = {
 export type HandleAlignType=("start" | "end");
 export type HandlePostype=("centered" | "top" | "bottom" | "left" | "right");
 export type DirectionType=("up" | "down" | "left" | "right" | undefined);
+export type TextAlignType=("left" | "center" | "right");
 export type HandleRepeatedType=("yes" | "no");
 export type HandleRepeatAtFirstType=("yes" | "no");
 
@@ -142,9 +143,13 @@ export type HandleDataType = {
     color?: string;
     // for Info Node
     InfoText?: string;
+    infoText?: string;
     changableTextColor?: boolean;
     textColor?: string;
     infoTextSize?: number;
+    infoTextFontFamily?: string;
+    infoTextBold?: boolean;
+    infoTextAlign?: TextAlignType;
     // these variables are for node that ahs some input fields like PSU node
     inputFieldsBox?: CompInputFieldsBoxType;
     inputFields?: CompInputFieldDataType[];
@@ -206,6 +211,13 @@ export type HandleDataType = {
     ys1: number;
     xs2: number;
     ys2: number;
+    radius: number;
+    bridgePath: string;
+    bridgeStartDistance: number;
+    bridgeEndDistance: number;
+    bridgeHeight: number;
+    shouldDrawHalo: boolean;
+    distanceFromSegmentStart: number;
   };
   
   export type segmentData = {

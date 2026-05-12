@@ -33,6 +33,21 @@ html, body {
   min-width: 300px;
 }
 
+#componentPageFlexDiv {
+  display: flex;
+  flex-direction: column;
+}
+
+.component-group-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.component-group-grid > .ant-card {
+  min-width: 0;
+}
+
 @media (max-width: 600px) {
   #reactflowDiv {
     border-bottom-style: solid;
@@ -113,6 +128,48 @@ html, body {
   z-index: 100;
 }
 
+.react-flow--multiselect .react-flow__pane,
+.react-flow--multiselect .react-flow__selectionpane {
+  cursor: crosshair !important;
+}
+
+.react-flow__controls-button.control-button--active {
+  background: #1677ff;
+  color: #fff;
+}
+
+.react-flow__controls-button.control-button--active:hover {
+  background: #4096ff;
+  color: #fff;
+}
+
+.component-node-toolbar {
+  align-items: center;
+  display: flex;
+}
+
+.component-node-toolbar button,
+.component-node-toolbar .ant-color-picker-trigger {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.component-node-toolbar .ant-select,
+.component-node-toolbar .ant-input-number-group-wrapper {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.info-node-text-wrap {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.info-node-textarea textarea,
+textarea.info-node-textarea {
+  box-shadow: none !important;
+}
+
 .react-flow__handle {
   display: inline-flex;
   transition: box-shadow 0.2s ease;
@@ -124,40 +181,47 @@ html, body {
   box-shadow: 0 0 2px 5px currentColor;
 }
 
-.react-flow__handle .tooltiptext {
+.pin-tooltip-floating {
   background-color: #333;
   border-radius: 4px;
-  /*top: calc( 100% + 0.6em + 4px );*/
   box-shadow: 0px 2px 4px #07172258;
   color: #fff;
   font-size: 0.68rem;
-  justify-content: center;
   line-height: 1.35em;
-  padding: 0.5em 0.7em;
-  position: absolute;
-  text-align: center;
-  min-width: 7rem;
-  display: flex;
+  max-width: min(28rem, calc(100vw - 16px));
+  min-width: 3.5rem;
   opacity: 0;
-  transition: all 0.2s ease-in;
+  overflow-wrap: anywhere;
+  padding: 0.5em 0.7em;
+  pointer-events: none;
+  position: fixed;
+  text-align: center;
+  top: 0;
   visibility: hidden;
-  white-space:nowrap;
+  white-space: normal;
+  width: max-content;
+  z-index: 10000;
 }
 
-.react-flow__handle:hover .tooltiptext {
-  opacity: 1;
-  visibility: visible;
-}
-
-.react-flow__handle:hover .tooltiptext::before {
-  border-width: 0.6em 0.8em 0;
+.pin-tooltip-floating__arrow {
   border-color: transparent;
-  border-top-color: #333;
+  border-style: solid;
   content: "";
   display: block;
-  border-style: solid;
   position: absolute;
+  transform: translateX(-50%);
+}
+
+.pin-tooltip-floating--top .pin-tooltip-floating__arrow {
+  border-top-color: #333;
+  border-width: 0.6em 0.8em 0;
   top: 100%;
+}
+
+.pin-tooltip-floating--bottom .pin-tooltip-floating__arrow {
+  border-bottom-color: #333;
+  border-width: 0 0.8em 0.6em;
+  bottom: 100%;
 }
 
 /* row data */

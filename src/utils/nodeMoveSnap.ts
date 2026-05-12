@@ -3,10 +3,10 @@ import type { Edge, Node } from '@xyflow/react';
 import type { ComponentDataType, EdgeDataType, XYPoint, edgePoint } from '../types';
 import type { OrthogonalWireDragSnapshot } from './orthogonalWireRouting';
 
-const DEFAULT_COMPONENT_SNAP_DISTANCE_PX = 6;
-const DEFAULT_COMPONENT_MIN_SEGMENT_LENGTH_PX = 8;
-const DEFAULT_SOLDER_JOINT_SNAP_DISTANCE_PX = 8;
-const DEFAULT_SOLDER_JOINT_MIN_SEGMENT_LENGTH_PX = 10;
+const DEFAULT_COMPONENT_SNAP_DISTANCE_PX = 4;
+const DEFAULT_COMPONENT_MIN_SEGMENT_LENGTH_PX = 5;
+const DEFAULT_SOLDER_JOINT_SNAP_DISTANCE_PX = 4;
+const DEFAULT_SOLDER_JOINT_MIN_SEGMENT_LENGTH_PX = 5;
 
 type Axis = 'x' | 'y';
 

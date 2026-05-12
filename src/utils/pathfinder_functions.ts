@@ -1,5 +1,5 @@
 import {type Node, type Edge, ReactFlowInstance} from '@xyflow/react';
-import {ComponentDataType, type edgePoint, type EdgeDataType, ImageDataType, DirectionType} from '../types';
+import {ComponentDataType, type edgePoint, type EdgeDataType, ImageDataType, DirectionType, XYPoint} from '../types';
 
 import {Graph, astar, GridNode} from "../utils/astar.ts"
 import { create } from 'zustand';
@@ -106,10 +106,281 @@ export function getMatrixIndexForNodeHandle(nodeDim: {x:number, y:number, w:numb
 
 type optm = {
   x0: number,
-  y0: number, 
+  y0: number,
   x1: number,
   y1: number,
 }
+
+type ObstacleRect = optm & {
+  nodeId: string;
+};
+
+type PathPoint = XYPoint & {
+  xm?: number;
+  ym?: number;
+};
+
+type BuildPathOptions = {
+  obstacleRects?: ObstacleRect[];
+  sourceNodeId?: string;
+  targetNodeId?: string;
+};
+
+const EPSILON = 0.001;
+const ROUTE_LENGTH_WEIGHT = 0.01;
+const ROUTE_CORNER_PENALTY = 30;
+const ROUTE_INTERSECTION_PENALTY = 80;
+const ROUTE_REPEATED_PARTNER_CROSSING_PENALTY = 160;
+const ROUTE_OVERLAP_PENALTY = 120;
+
+const sameNumber = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
+
+const samePoint = (a: XYPoint, b: XYPoint) => sameNumber(a.x, b.x) && sameNumber(a.y, b.y);
+
+const isHorizontal = (a: XYPoint, b: XYPoint) => sameNumber(a.y, b.y);
+
+const isVertical = (a: XYPoint, b: XYPoint) => sameNumber(a.x, b.x);
+
+const isOrthogonalSegment = (a: XYPoint, b: XYPoint) => isHorizontal(a, b) || isVertical(a, b);
+
+const pointDistance = (a: XYPoint, b: XYPoint) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+
+const rangesOverlap = (a1: number, a2: number, b1: number, b2: number) => (
+  Math.max(Math.min(a1, a2), Math.min(b1, b2)) < Math.min(Math.max(a1, a2), Math.max(b1, b2)) - EPSILON
+);
+
+const segmentIntersectsRect = (from: XYPoint, to: XYPoint, rect: optm) => {
+  if(isVertical(from, to)) {
+    return (
+      from.x > rect.x0 + EPSILON &&
+      from.x < rect.x1 - EPSILON &&
+      rangesOverlap(from.y, to.y, rect.y0, rect.y1)
+    );
+  }
+
+  if(isHorizontal(from, to)) {
+    return (
+      from.y > rect.y0 + EPSILON &&
+      from.y < rect.y1 - EPSILON &&
+      rangesOverlap(from.x, to.x, rect.x0, rect.x1)
+    );
+  }
+
+  return true;
+};
+
+const segmentAllowed = (
+  from: XYPoint,
+  to: XYPoint,
+  options: BuildPathOptions,
+  ignoredNodeIds: Set<string>,
+) => (
+  isOrthogonalSegment(from, to) &&
+  !(options.obstacleRects ?? []).some((rect) => (
+    !ignoredNodeIds.has(rect.nodeId) &&
+    segmentIntersectsRect(from, to, rect)
+  ))
+);
+
+const edgeSegments = (edge: Edge) => {
+  const edgeData = edge.data as EdgeDataType | undefined;
+  if(!edgeData?.startXY || !edgeData.endXY) return [];
+
+  const points = [
+    edgeData.startXY,
+    ...(edgeData.edgePoints ?? []),
+    edgeData.endXY,
+  ];
+
+  return points.slice(0, -1).map((point, index) => ({
+    id: edge.id,
+    from: point,
+    to: points[index + 1],
+  }));
+};
+
+const pathSegments = (points: XYPoint[]) => (
+  points.slice(0, -1).map((point, index) => ({
+    from: point,
+    to: points[index + 1],
+  }))
+);
+
+const orthogonalSegmentsCross = (
+  a: {from: XYPoint; to: XYPoint},
+  b: {from: XYPoint; to: XYPoint},
+) => {
+  const aVertical = isVertical(a.from, a.to);
+  const bVertical = isVertical(b.from, b.to);
+  if(aVertical === bVertical) return false;
+
+  const vertical = aVertical ? a : b;
+  const horizontal = aVertical ? b : a;
+  const x = vertical.from.x;
+  const y = horizontal.from.y;
+
+  return (
+    x > Math.min(horizontal.from.x, horizontal.to.x) + EPSILON &&
+    x < Math.max(horizontal.from.x, horizontal.to.x) - EPSILON &&
+    y > Math.min(vertical.from.y, vertical.to.y) + EPSILON &&
+    y < Math.max(vertical.from.y, vertical.to.y) - EPSILON
+  );
+};
+
+const orthogonalSegmentsOverlap = (
+  a: {from: XYPoint; to: XYPoint},
+  b: {from: XYPoint; to: XYPoint},
+) => {
+  if(isVertical(a.from, a.to) && isVertical(b.from, b.to) && sameNumber(a.from.x, b.from.x)) {
+    return rangesOverlap(a.from.y, a.to.y, b.from.y, b.to.y);
+  }
+
+  if(isHorizontal(a.from, a.to) && isHorizontal(b.from, b.to) && sameNumber(a.from.y, b.from.y)) {
+    return rangesOverlap(a.from.x, a.to.x, b.from.x, b.to.x);
+  }
+
+  return false;
+};
+
+const isProtectedEndpointStubIndex = (points: XYPoint[], index: number) => (
+  points.length > 2 &&
+  (index === 1 || index === points.length - 2)
+);
+
+const compactPathPoints = <T extends XYPoint>(points: T[], preserveEndpointStubs = false): T[] => {
+  const withoutDuplicates = points.filter((point, index) => (
+    index === 0 || !samePoint(point, points[index - 1])
+  ));
+
+  const compacted = [...withoutDuplicates];
+  let changed = true;
+  while(changed) {
+    changed = false;
+    for(let index = 1; index < compacted.length - 1; index += 1) {
+      if(preserveEndpointStubs && isProtectedEndpointStubIndex(compacted, index)) continue;
+
+      const prev = compacted[index - 1];
+      const point = compacted[index];
+      const next = compacted[index + 1];
+      if(
+        (sameNumber(prev.x, point.x) && sameNumber(point.x, next.x)) ||
+        (sameNumber(prev.y, point.y) && sameNumber(point.y, next.y))
+      ) {
+        compacted.splice(index, 1);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return compacted;
+};
+
+const pathIsAllowed = (points: XYPoint[], options: BuildPathOptions) => (
+  pathSegments(points).every((segment, index) => {
+    const ignoredNodeIds = new Set<string>();
+    if(index === 0 && options.sourceNodeId) ignoredNodeIds.add(options.sourceNodeId);
+    if(index === points.length - 2 && options.targetNodeId) ignoredNodeIds.add(options.targetNodeId);
+    return segmentAllowed(segment.from, segment.to, options, ignoredNodeIds);
+  })
+);
+
+const routeScore = (points: XYPoint[], edges: Edge[]) => {
+  const segments = pathSegments(points);
+  const existingSegments = edges.flatMap(edgeSegments);
+  const crossingCountsByPartner = new Map<string, number>();
+  let intersections = 0;
+  let overlaps = 0;
+
+  segments.forEach((segment) => {
+    existingSegments.forEach((existingSegment) => {
+      if(orthogonalSegmentsCross(segment, existingSegment)) {
+        intersections += 1;
+        crossingCountsByPartner.set(
+          existingSegment.id,
+          (crossingCountsByPartner.get(existingSegment.id) ?? 0) + 1,
+        );
+      } else if(orthogonalSegmentsOverlap(segment, existingSegment)) {
+        overlaps += 1;
+      }
+    });
+  });
+
+  const repeatedPartnerCrossings = Array.from(crossingCountsByPartner.values())
+    .reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+  const length = segments.reduce((sum, segment) => sum + pointDistance(segment.from, segment.to), 0);
+  const corners = Math.max(0, points.length - 2);
+
+  return (
+    length * ROUTE_LENGTH_WEIGHT +
+    corners * ROUTE_CORNER_PENALTY +
+    intersections * ROUTE_INTERSECTION_PENALTY +
+    repeatedPartnerCrossings * ROUTE_REPEATED_PARTNER_CROSSING_PENALTY +
+    overlaps * ROUTE_OVERLAP_PENALTY
+  );
+};
+
+const shortcutCandidates = (from: XYPoint, to: XYPoint): XYPoint[][] => {
+  if(isOrthogonalSegment(from, to)) return [[from, to]];
+
+  return [
+    [from, {x: to.x, y: from.y}, to],
+    [from, {x: from.x, y: to.y}, to],
+  ];
+};
+
+const simplifyOrthogonalPath = (
+  points: PathPoint[],
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  if(points.length < 3 || !options.obstacleRects?.length) return compactPathPoints(points, true);
+
+  let bestPath = compactPathPoints(points, true);
+  let bestScore = routeScore(bestPath, edges);
+  let changed = true;
+
+  while(changed) {
+    changed = false;
+    const firstOptimizableIndex = bestPath.length > 2 ? 1 : 0;
+    const lastOptimizableIndex = bestPath.length > 2 ? bestPath.length - 2 : bestPath.length - 1;
+
+    for(let startIndex = firstOptimizableIndex; startIndex < lastOptimizableIndex - 1; startIndex += 1) {
+      let acceptedPath: PathPoint[] | undefined;
+      let acceptedScore = bestScore;
+
+      for(let endIndex = lastOptimizableIndex; endIndex >= startIndex + 2; endIndex -= 1) {
+        const from = bestPath[startIndex];
+        const to = bestPath[endIndex];
+
+        for(const candidate of shortcutCandidates(from, to)) {
+          const compactCandidate = compactPathPoints(candidate as PathPoint[]);
+          const routeCandidate = compactPathPoints([
+            ...bestPath.slice(0, startIndex),
+            ...compactCandidate,
+            ...bestPath.slice(endIndex + 1),
+          ], true);
+          if(!pathIsAllowed(routeCandidate, options)) continue;
+
+          const candidateScore = routeScore(routeCandidate, edges);
+          if(candidateScore + EPSILON < acceptedScore) {
+            acceptedPath = routeCandidate;
+            acceptedScore = candidateScore;
+          }
+        }
+      }
+
+      if(acceptedPath) {
+        bestPath = acceptedPath;
+        bestScore = acceptedScore;
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return bestPath;
+};
 
 function getOptionImgXY(option_x: number, option_y:number, node_position_x: number,
           node_position_y:number,opt_img_width: number, opt_img_height: number,
@@ -148,10 +419,11 @@ function getOptionImgXY(option_x: number, option_y:number, node_position_x: numb
   
 }
 
-export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], matrix:number[][]} {
+export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], matrix:number[][], obstacleRects: ObstacleRect[]} {
   let x_arr=[] as number[];
   let y_arr=[] as number[];
   let matrix=Array(2).fill(null).map(() => Array(2).fill(1));
+  const obstacleRects = [] as ObstacleRect[];
 
   const MARGIN=5;
   let x_arr_1=[] as number[];
@@ -164,6 +436,7 @@ export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], mat
       const y0=Math.round((node.position.y-MARGIN)*32)/32;
       const x1=Math.round((node.position.x+(node.measured?.width || node.width || 0)+MARGIN)*32)/32;
       const y1=Math.round((node.position.y+(node.measured?.height || node.height || 0)+MARGIN)*32)/32;
+      obstacleRects.push({x0, y0, x1, y1, nodeId: node.id});
       if(!x_arr_1.includes(x0)) x_arr_1.push(x0);
       if(!y_arr_1.includes(y0)) y_arr_1.push(y0);
       if(!x_arr_1.includes(x1)) x_arr_1.push(x1);
@@ -186,6 +459,7 @@ export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], mat
 
             // get option Image coord considering margin and node rotation
             const optm=getOptionImgXY((option?.x || 0), (option?.y || 0), node.position.x, node.position.y, opt_img_width, opt_img_height, nodeLength, nodeBasicSizeX, nodeBasicSizeY, nodeRotation, MARGIN);
+            obstacleRects.push({...optm, nodeId: node.id});
             // add only if not already there and if it is not inside of the parent node
             // to avoid not needed lines
             if(!x_arr_1.includes(optm.x0) && !(optm.x0>x0 && optm.x0<x1 && optm.y0>y0 && optm.y1<y1)) x_arr_1.push(optm.x0);
@@ -235,9 +509,9 @@ export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], mat
       //console.log("idx: ", first_x_index, last_x_index, first_y_index, last_y_index);
       if(first_x_index>=0 && last_x_index>=0 && first_y_index>=0 && last_y_index>=0) {
         for(let i=0; i<x_arr.length; i++) { // i is x dimension
-          for(let j=0; j<x_arr.length; j++) { // j is 
+          for(let j=0; j<y_arr.length; j++) { // j is y dimension
             if (i>=first_x_index && i<=last_x_index && j>=first_y_index && j<=last_y_index) {
-              matrix[i][j]=0;
+              if(matrix[i]?.[j]!==undefined) matrix[i][j]=0;
             }
           }
         }
@@ -264,9 +538,9 @@ export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], mat
             //console.log("idx: ", first_x_index, last_x_index, first_y_index, last_y_index);
             if(first_x_index>=0 && last_x_index>=0 && first_y_index>=0 && last_y_index>=0) {
               for(let i=0; i<x_arr.length; i++) { // i is x dimension
-                for(let j=0; j<x_arr.length; j++) { // j is 
+                for(let j=0; j<y_arr.length; j++) { // j is y dimension
                   if (i>=first_x_index && i<=last_x_index && j>=first_y_index && j<=last_y_index) {
-                    matrix[i][j]=0;
+                    if(matrix[i]?.[j]!==undefined) matrix[i][j]=0;
                   }
                 }
               }
@@ -278,7 +552,7 @@ export function createMatrix(nodes:Node[]):{x_arr: number[], y_arr:number[], mat
     }
   })
 
-  return {x_arr, y_arr, matrix};
+  return {x_arr, y_arr, matrix, obstacleRects};
 }
 
 export function getPathResult(matrix: number[][], x_arr: number[], y_arr: number[], fromNode:Node|undefined, toNode:Node|undefined, fromXadapted:number, fromYadapted:number, toXadapted: number, toYadapted:number, fromHandle_prefferedLineDirectionRotated: DirectionType, toHandle_prefferedLineDirectionRotated: DirectionType) {
@@ -317,34 +591,37 @@ export function getPathResult(matrix: number[][], x_arr: number[], y_arr: number
   return {result, start_matrix_index_x, start_matrix_index_y, end_matrix_index_x, end_matrix_index_y};
 }
 
-export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: number[][], x_arr: number[], y_arr: number[], fromXadapted:number, fromYadapted:number, toXadapted: number, toYadapted:number, start_matrix_index_x:number, start_matrix_index_y:number ){
-  const myPath = [{x:fromXadapted, y:fromYadapted, xm: findLastIndex(x_arr, (element)=>element<=fromXadapted), ym: findLastIndex(y_arr, (element)=>element<=fromYadapted)}];
+export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: number[][], x_arr: number[], y_arr: number[], fromXadapted:number, fromYadapted:number, toXadapted: number, toYadapted:number, start_matrix_index_x:number, start_matrix_index_y:number, options: BuildPathOptions = {} ){
+  const myPath = [{x:fromXadapted, y:fromYadapted, xm: findLastIndex(x_arr, (element)=>element<=fromXadapted), ym: findLastIndex(y_arr, (element)=>element<=fromYadapted)}] as PathPoint[];
   //console.log(result);
   const STEPXY=15;
 
   if(result) {
-    if(myPath[0].xm!=start_matrix_index_x || myPath[0].ym!=start_matrix_index_y) {
+    const startPathPoint = myPath[0];
+    const startPathMatrixX = startPathPoint.xm ?? 0;
+    const startPathMatrixY = startPathPoint.ym ?? 0;
+    if(startPathMatrixX!=start_matrix_index_x || startPathMatrixY!=start_matrix_index_y) {
       let next_x=0;
       let next_y=0;
-      if(start_matrix_index_x>myPath[0].xm) {
+      if(start_matrix_index_x>startPathMatrixX) {
         // step from left to the right: keep y, define x
         next_y=myPath[0].y;
         next_x=(x_arr[start_matrix_index_x] + x_arr[start_matrix_index_x+1])/2;
         next_x=Math.min(x_arr[start_matrix_index_x] + STEPXY, next_x);
       }
-      if(start_matrix_index_x<myPath[0].xm) {
+      if(start_matrix_index_x<startPathMatrixX) {
         // step from right to the left: keep y, define x
         next_y=myPath[0].y;
         next_x=(x_arr[start_matrix_index_x] + x_arr[start_matrix_index_x+1])/2;
         next_x=Math.max(x_arr[start_matrix_index_x+1] - STEPXY, next_x);
       }
-      if(start_matrix_index_y>myPath[0].ym) {
+      if(start_matrix_index_y>startPathMatrixY) {
         // step top-down: keep x, define y
         next_x=myPath[0].x;
         next_y=(y_arr[start_matrix_index_y] + y_arr[start_matrix_index_y+1])/2;
         next_y=Math.min(y_arr[start_matrix_index_y] + STEPXY, next_y);
       }
-      if(start_matrix_index_y<myPath[0].ym) {
+      if(start_matrix_index_y<startPathMatrixY) {
         // step bottom-up: keep x, define y
         next_x=myPath[0].x;
         next_y=(y_arr[start_matrix_index_y] + y_arr[start_matrix_index_y+1])/2;
@@ -416,7 +693,11 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
   while(i<myPath.length-2) {
     let deleted=true;
     while(deleted && i<myPath.length-2)
-    if(myPath[i].x==myPath[i+1].x && myPath[i+1].x==myPath[i+2].x){
+    if(
+      myPath[i].x==myPath[i+1].x &&
+      myPath[i+1].x==myPath[i+2].x &&
+      !isProtectedEndpointStubIndex(myPath, i + 1)
+    ){
       myPath.splice(i+1,1);
     } else {
       deleted=false;
@@ -428,7 +709,11 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
   while(i<myPath.length-2) {
     let deleted=true;
     while(deleted && i<myPath.length-2)
-    if(myPath[i].y==myPath[i+1].y && myPath[i+1].y==myPath[i+2].y){
+    if(
+      myPath[i].y==myPath[i+1].y &&
+      myPath[i+1].y==myPath[i+2].y &&
+      !isProtectedEndpointStubIndex(myPath, i + 1)
+    ){
       myPath.splice(i+1,1);
     } else {
       deleted=false;
@@ -450,8 +735,9 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
       if(covering) {
         // define in what direction there is more space
         let direction=1; // positive direction per default
-        let distanceInOtherDir=tx1-x_arr[myPath[i].xm];
-        let distanceInMainDir=x_arr[myPath[i].xm+1]-tx1;
+        const matrixX = myPath[i].xm ?? findLastIndex(x_arr, (element)=>element<=tx1);
+        let distanceInOtherDir=tx1-x_arr[matrixX];
+        let distanceInMainDir=x_arr[matrixX+1]-tx1;
         if(distanceInOtherDir>distanceInMainDir) {
           // change direction and swap distances
           direction=-1;
@@ -499,8 +785,9 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
       if(covering) {
         // define in what direction there is more space
         let direction=1; // positive direction per default
-        let distanceInOtherDir=ty1-y_arr[myPath[i].ym];
-        let distanceInMainDir=y_arr[myPath[i].ym+1]-ty1;
+        const matrixY = myPath[i].ym ?? findLastIndex(y_arr, (element)=>element<=ty1);
+        let distanceInOtherDir=ty1-y_arr[matrixY];
+        let distanceInMainDir=y_arr[matrixY+1]-ty1;
         if(distanceInOtherDir>distanceInMainDir) {
           // change direction and swap distances
           direction=-1;
@@ -543,7 +830,7 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
     }
 
   }
-  return myPath;
+  return simplifyOrthogonalPath(myPath, edges, options);
 }
 
 function checkCoveringVertical(tx: number, ty1:number, ty2: number, TOL: number, edges: Edge[]):boolean {
@@ -701,7 +988,24 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
 
     // build path itself from the result
     const edges=reactFlow.getEdges();
-    const myPath = buildPath(edges, result, matrix, x_arr, y_arr, fromXadapted, fromYadapted, toXadapted, toYadapted, start_matrix_index_x, start_matrix_index_y);
+    const myPath = buildPath(
+      edges,
+      result,
+      matrix,
+      x_arr,
+      y_arr,
+      fromXadapted,
+      fromYadapted,
+      toXadapted,
+      toYadapted,
+      start_matrix_index_x,
+      start_matrix_index_y,
+      {
+        obstacleRects: rev.obstacleRects,
+        sourceNodeId: fromNodeId,
+        targetNodeId: toNodeId,
+      },
+    );
     //console.log("ConnLine myPath: ", myPath);
 
     const edgePoints=[] as edgePoint[];

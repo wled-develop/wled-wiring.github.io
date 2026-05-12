@@ -20,7 +20,10 @@
                     "selectWireLength":  "Kabellänge auswählen (physikalisch)",
                     "selectWireCrossSection":  "Kabelquerschnitt auswählen (physikalisch)",
                     "selectWireWidth":  "Kabelbreite auswählen (für Zeichnung)",
+                    "selectWireNetwork":  "Ganzes Netz auswählen",
+                    "clearWireNetwork":  "Netzauswahl aufheben",
                     "putWireInfoNode":  "Kabel Infobox hinzufügen",
+                    "rerouteWire":  "Wire mit Pathfinder neu routen",
                     "startConnection":  "Verbindung starten",
                     "closeConnection":  "Verbindung abschliessen",
                     "rotateLeft":  "Nach Links drehen",
@@ -32,6 +35,10 @@
                     "switchFilled":  "Befüllt / nur mit Rand",
                     "increaseTextSize":  "Text vergrößern",
                     "decreaseTextSize":  "Text verkleinern",
+                    "textSize":  "Textgröße",
+                    "selectFont":  "Schriftart auswählen",
+                    "toggleBold":  "Fett umschalten",
+                    "textAlign":  "Textausrichtung",
                     "selectMulti":  "Mehrfachauswahl",
                     "deleteSelected":  "Auswahl löschen",
                     "componentInfo":  "Komponenten-Info anzeigen",
@@ -269,6 +276,15 @@
                                        "title":  "Stromfluss simulieren",
                                        "comingSoon":  "Simulation der Stromverteilung wird später implementiert. Stay tuned!"
                                    },
+                    "tools":  {
+                                  "title":  "Tools",
+                                  "rerouteAllButton":  "Alle Wires neu routen",
+                                  "rerouteAllTooltip":  "Alle Wires sequenziell mit Pathfinder neu routen",
+                                  "rerouteAllDisabledPF":  "Nur im Auto/PF-Verbindungsmodus verfügbar",
+                                  "rerouteAllDisabledEmpty":  "Keine Wires im Diagramm",
+                                  "rerouteAllDescription":  "Routet kurze Komponentenpaare zuerst und behält Wire-IDs, Verbindungen und Eigenschaften bei.",
+                                  "rerouteAllSuccess":  "Alle Wires wurden neu geroutet."
+                              },
                     "export":  {
                                    "title":  "Speichern / Export / Beispiele",
                                    "buttonSave":  "Modell als JSON Datei speichern",

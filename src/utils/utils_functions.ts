@@ -62,6 +62,47 @@ function colorStringToRgbString(color: string):  string | undefined {
     return colorMap[color] || undefined;
   }
 
+  const rgbColorToCanonicalString = (color: string): string | undefined => {
+    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)$/);
+    if(!match) return undefined;
+
+    const [, r, g, b] = match;
+    return `rgb(${Number(r)},${Number(g)},${Number(b)})`;
+  };
+
+  const hexColorToCanonicalString = (color: string): string | undefined => {
+    const match = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(!match) return undefined;
+
+    const hex = match[1].length === 3
+      ? match[1].split('').map((char) => char + char).join('')
+      : match[1];
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+
+    return `rgb(${r},${g},${b})`;
+  };
+
+  export function canonicalizeColorForCompare(color: unknown): string {
+    if(typeof color !== 'string') return '';
+
+    const normalizedColor = color.trim().toLowerCase();
+    if(!normalizedColor) return '';
+
+    const mappedColor = colorStringToRgbString(normalizedColor) || normalizedColor;
+    const parsedMappedColor = rgbColorToCanonicalString(mappedColor) || hexColorToCanonicalString(mappedColor);
+    if(parsedMappedColor) return parsedMappedColor;
+
+    const browserParsedColor = typeof document !== 'undefined'
+      ? colorNameToRGBString(normalizedColor)
+      : normalizedColor;
+
+    return rgbColorToCanonicalString(browserParsedColor)
+      || hexColorToCanonicalString(browserParsedColor)
+      || normalizedColor;
+  }
+
   export function rectToRotatedRect(rect:Rect, rotation:number) {
       const rotatedRect = {} as Rect;
       rotatedRect.x=rect.x+rect.width/2- ((rotation==0 || rotation==180)?rect.width/2:rect.height/2);
