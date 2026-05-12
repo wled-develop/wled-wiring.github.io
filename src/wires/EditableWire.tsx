@@ -1788,7 +1788,23 @@ export default function EditableWire ({
           />
         </g>
       ))}
-      {/* add circle at the end */}
+      {edgePoints.map(({x, y}, index) => (
+        <circle
+          key={`edge${id}_corner${index}`}
+          cx={x}
+          cy={y}
+          r={(checkHighlighted ? edgeData.width + 3 : edgeData.width) / 2}
+          fill={selected ? `${edgeData.color_selected}` : `${edgeData.color}`}
+          stroke={selected ? `${edgeData.color_selected}` : `${edgeData.color}`}
+          strokeWidth={0}
+          pointerEvents="none"
+          style={{
+            filter: checkHighlighted
+              ? "drop-shadow(0px 0px 4px #faad14)"
+              : (edgeData.correspondingInfoNodeSelected ? "drop-shadow(0px 0px 2px)" : ""),
+          }}
+        />
+      ))}
 
     {selected && !multipleSelect && segmentDragDebugEnabled && <EdgeLabelRenderer>
         <div
@@ -2188,32 +2204,6 @@ export default function EditableWire ({
             </div>
           </div>
         </EdgeLabelRenderer>
-      ))
-    }
-
-    { !selected && edgePoints.length>0 && 
-      edgePoints.map(({x, y}, index) => (
-        <EdgeLabelRenderer
-          key={`edge${id}_smootherendererend${index}`}
-        >
-          <div
-          key={`edge${id}_smoothediv${index}`}
-          style = {{
-            transform: `translate(-50%, -50%) translate(${x}px,${y}px)`,
-            position: "absolute",
-            backgroundColor: `${edgeData.color}`,
-            padding: "0px",
-            cursor: "pointer",
-            borderRadius: "50%",
-            borderColor: `${edgeData.color}`,
-            borderWidth: edgeData.width/2,
-            borderStyle: "solid",
-          }}
-          >
-
-          </div>
-        </EdgeLabelRenderer>
-
       ))
     }
 

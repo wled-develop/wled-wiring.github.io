@@ -18,6 +18,7 @@ export const ROTATE_WIRE_PATHFINDER_ENABLED = true;
 
 const ROTATE_WIRE_PIN_STUB_LENGTH = 12;
 const EPSILON = 0.001;
+const PATHFINDER_ENDPOINT_ANCHOR_TOLERANCE = 32;
 
 type RotateComponentWiresParams = {
   nodes: Node[];
@@ -57,6 +58,12 @@ const sameNumber = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
 
 const isHorizontalOrVertical = (a: XYPoint, b: XYPoint) => (
   sameNumber(a.x, b.x) || sameNumber(a.y, b.y)
+);
+
+const isFinitePoint = (point: XYPoint | undefined): point is XYPoint => (
+  Boolean(point) &&
+  Number.isFinite(point?.x) &&
+  Number.isFinite(point?.y)
 );
 
 const isCollinear = (a: XYPoint, b: XYPoint, c: XYPoint) => (
@@ -211,6 +218,90 @@ const distanceBetweenPoints = (a: XYPoint, b: XYPoint) => (
   Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 );
 
+const getRenderedEndpointAnchor = (
+  renderedPoint: XYPoint | undefined,
+  pathfinderPoint: XYPoint,
+) => (
+  isFinitePoint(renderedPoint) &&
+  distanceBetweenPoints(renderedPoint, pathfinderPoint) <= PATHFINDER_ENDPOINT_ANCHOR_TOLERANCE
+    ? renderedPoint
+    : pathfinderPoint
+);
+
+const segmentAxis = (from: XYPoint, to: XYPoint): 'horizontal' | 'vertical' => {
+  if(sameNumber(from.x, to.x)) return 'vertical';
+  if(sameNumber(from.y, to.y)) return 'horizontal';
+
+  return Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
+    ? 'horizontal'
+    : 'vertical';
+};
+
+const forcePointOntoEndpointAxis = (
+  point: XYPoint,
+  endpoint: XYPoint,
+  axis: 'horizontal' | 'vertical',
+) => (
+  axis === 'vertical'
+    ? {...point, x: endpoint.x}
+    : {...point, y: endpoint.y}
+);
+
+const makeRoutePathOrthogonal = (points: XYPoint[]) => {
+  const orthogonalPoints: XYPoint[] = [];
+
+  points.forEach((point, index) => {
+    if(index === 0) {
+      orthogonalPoints.push(point);
+      return;
+    }
+
+    const previous = orthogonalPoints[orthogonalPoints.length - 1];
+    if(!previous || isHorizontalOrVertical(previous, point)) {
+      orthogonalPoints.push(point);
+      return;
+    }
+
+    const next = points[index + 1];
+    const viaX = {x: point.x, y: previous.y};
+    const viaY = {x: previous.x, y: point.y};
+    const via = next && isHorizontalOrVertical(viaY, next) ? viaY : viaX;
+
+    orthogonalPoints.push(via, point);
+  });
+
+  return removeRedundantPoints(orthogonalPoints);
+};
+
+const bindPathfinderPathToRenderedEndpoints = (
+  points: XYPoint[],
+  renderedStart: XYPoint | undefined,
+  renderedEnd: XYPoint | undefined,
+) => {
+  if(points.length < 2) return points;
+
+  const nextPoints = points.map((point) => ({...point}));
+  const startAnchor = getRenderedEndpointAnchor(renderedStart, nextPoints[0]);
+  const endAnchor = getRenderedEndpointAnchor(renderedEnd, nextPoints[nextPoints.length - 1]);
+  if(nextPoints.length === 2) {
+    return makeRoutePathOrthogonal([startAnchor, endAnchor]);
+  }
+
+  const startAxis = segmentAxis(nextPoints[0], nextPoints[1]);
+  const endAxis = segmentAxis(nextPoints[nextPoints.length - 2], nextPoints[nextPoints.length - 1]);
+
+  nextPoints[0] = startAnchor;
+  nextPoints[1] = forcePointOntoEndpointAxis(nextPoints[1], startAnchor, startAxis);
+  nextPoints[nextPoints.length - 1] = endAnchor;
+  nextPoints[nextPoints.length - 2] = forcePointOntoEndpointAxis(
+    nextPoints[nextPoints.length - 2],
+    endAnchor,
+    endAxis,
+  );
+
+  return makeRoutePathOrthogonal(nextPoints);
+};
+
 const componentPairKey = (edge: Edge) => (
   [edge.source, edge.target].sort().join('::')
 );
@@ -340,12 +431,18 @@ export const routeWireWithPathfinder = (
     pathResult.start_matrix_index_x,
     pathResult.start_matrix_index_y,
   );
-  if(path.length < 2) return undefined;
+  const edgeData = edge.data as EdgeDataType | undefined;
+  const anchoredPath = bindPathfinderPathToRenderedEndpoints(
+    path,
+    edgeData?.startXY,
+    edgeData?.endXY,
+  );
+  if(anchoredPath.length < 2) return undefined;
 
   return {
-    startXY: sourcePoint,
-    endXY: targetPoint,
-    edgePoints: path.slice(1, -1).map(edgePointFromPoint),
+    startXY: anchoredPath[0],
+    endXY: anchoredPath[anchoredPath.length - 1],
+    edgePoints: anchoredPath.slice(1, -1).map(edgePointFromPoint),
   };
 };
 
