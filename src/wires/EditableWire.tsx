@@ -278,6 +278,43 @@ const isWireRenderedAbove = (edgeId: string, otherEdge: Edge, edges: Edge[]) => 
   return edgeIndex > otherEdgeIndex;
 };
 
+const POINT_LINE_EPSILON = 0.001;
+
+const arePointsCollinear = (a: XYPoint, b: XYPoint, c: XYPoint) => (
+  Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) <= POINT_LINE_EPSILON
+);
+
+const closestPointOnLine = (point: XYPoint, lineStart: XYPoint, lineEnd: XYPoint) => {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if(lengthSquared <= POINT_LINE_EPSILON) return undefined;
+
+  const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lengthSquared;
+  return {
+    x: lineStart.x + t * dx,
+    y: lineStart.y + t * dy,
+  };
+};
+
+const distanceBetweenPoints = (a: XYPoint, b: XYPoint) => (
+  Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+);
+
+const snapPointToLine = (
+  point: XYPoint,
+  lineStart: XYPoint,
+  lineEnd: XYPoint,
+  snapDistance: number,
+) => {
+  const closestPoint = closestPointOnLine(point, lineStart, lineEnd);
+  if(!closestPoint) return point;
+
+  return distanceBetweenPoints(point, closestPoint) <= snapDistance
+    ? closestPoint
+    : point;
+};
+
 export default function EditableWire ({
   id,
   sourceX,
@@ -301,32 +338,14 @@ export default function EditableWire ({
 
   // if edge is not selected, check if some edge points can be removed since they are on a straight line
   if(!selected && edgeData.startXY && edgeData.endXY) {
-      // check if a straigh line consist af many steps, delete inbetween points
-      // in y direction (the same x coordinate one three edge points i, i+1, i+2)
       let i=-1;
       while(i<edgePoints.length-1) {
         let deleted=true;
         while(deleted && i<edgePoints.length-1) {
-          const x0=(i==-1)?(edgeData.startXY?.x || 0):edgePoints[i].x;
-          const x1=edgePoints[i+1].x;
-          const x2=(i==edgePoints.length-2)?(edgeData.endXY?.x || 0):edgePoints[i+2].x;
-          if(x0==x1 && x1==x2){
-            edgePoints.splice(i+1,1);
-          } else {
-            deleted=false;
-            i=i+1;
-          }
-        }
-      }
-      // in x direction (the same y coordinate one three edge points i, i+1, i+2)
-      i=-1;
-      while(i<edgePoints.length-1) {
-        let deleted=true;
-        while(deleted && i<edgePoints.length-1) {
-          const y0=(i==-1)?(edgeData.startXY?.y || 0):edgePoints[i].y;
-          const y1=edgePoints[i+1].y;
-          const y2=(i==edgePoints.length-2)?(edgeData.endXY?.y || 0):edgePoints[i+2].y;
-          if(y0==y1 && y1==y2){
+          const p0=(i==-1)?edgeData.startXY:edgePoints[i];
+          const p1=edgePoints[i+1];
+          const p2=(i==edgePoints.length-2)?edgeData.endXY:edgePoints[i+2];
+          if(arePointsCollinear(p0, p1, p2)){
             edgePoints.splice(i+1,1);
           } else {
             deleted=false;
@@ -797,9 +816,18 @@ export default function EditableWire ({
       if(Math.abs(position.y-edgeSegmentsArray[index+1].segmentTargetY)<snaparea) {
         position.y=edgeSegmentsArray[index+1].segmentTargetY;
       }
+      const previousPoint = {
+        x: edgeSegmentsArray[index].segmentSourceX,
+        y: edgeSegmentsArray[index].segmentSourceY,
+      };
+      const nextPoint = {
+        x: edgeSegmentsArray[index+1].segmentTargetX,
+        y: edgeSegmentsArray[index+1].segmentTargetY,
+      };
+      const snappedPosition = snapPointToLine(position, previousPoint, nextPoint, snaparea);
       (new_edge.data?.edgePoints  as Array<edgePoint>)[index] = {
-        x: position.x,
-        y: position.y,
+        x: snappedPosition.x,
+        y: snappedPosition.y,
         active: activeEdge,
       };
       reactFlowInstance.updateEdge(id, new_edge);

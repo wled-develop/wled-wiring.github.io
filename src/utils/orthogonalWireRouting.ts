@@ -155,6 +155,28 @@ const lastSegmentAxis = (
   return 'horizontal';
 };
 
+const leavesMovedPinOrthogonally = (
+  edgeData: EdgeDataType,
+  sourceDelta?: Delta,
+  targetDelta?: Delta,
+) => {
+  if (!edgeData.startXY || !edgeData.endXY) return false;
+
+  const oldStart = pointFromEdgePoint(edgeData.startXY);
+  const oldEnd = pointFromEdgePoint(edgeData.endXY);
+  const oldInnerPoints = (edgeData.edgePoints || []).map(pointFromEdgePoint);
+
+  if (sourceDelta && !isOrthogonalSegment(oldStart, oldInnerPoints[0] || oldEnd)) {
+    return false;
+  }
+
+  if (targetDelta && !isOrthogonalSegment(oldInnerPoints[oldInnerPoints.length - 1] || oldStart, oldEnd)) {
+    return false;
+  }
+
+  return true;
+};
+
 const adjustSourceSide = (
   points: XYPoint[],
   oldStart: XYPoint,
@@ -290,6 +312,7 @@ export const adjustOrthogonalWiresForMovedNodes = (
     const sourceDelta = nodeDeltaById.get(edge.source);
     const targetDelta = nodeDeltaById.get(edge.target);
     if (!sourceDelta && !targetDelta) return cloneEdge(edge);
+    if (!leavesMovedPinOrthogonally(edge.data as EdgeDataType, sourceDelta, targetDelta)) return cloneEdge(edge);
 
     const nextEdge = cloneEdge(edge);
     nextEdge.data = routeMovedEdge(nextEdge.data as EdgeDataType, sourceDelta, targetDelta);

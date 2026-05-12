@@ -488,11 +488,13 @@ const FlowApp = () => {
       setNodes(snapResult.nodes);
     }
 
-    setEdges(adjustOrthogonalWiresForMovedNodes(
-      snapshot,
-      snapResult.nodes,
-    ));
-  }, [getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
+    if(PFEnabled) {
+      setEdges(adjustOrthogonalWiresForMovedNodes(
+        snapshot,
+        snapResult.nodes,
+      ));
+    }
+  }, [PFEnabled, getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
 
   const onNodeDragStop: OnNodeDrag = useCallback((_, __, draggedNodes) => {
     const snapshot = orthogonalWireDragSnapshotRef.current;
@@ -507,13 +509,15 @@ const FlowApp = () => {
       setNodes(snapResult.nodes);
     }
 
-    setEdges(adjustOrthogonalWiresForMovedNodes(
-      snapshot,
-      snapResult.nodes,
-    ));
+    if(PFEnabled) {
+      setEdges(adjustOrthogonalWiresForMovedNodes(
+        snapshot,
+        snapResult.nodes,
+      ));
+    }
     orthogonalWireDragSnapshotRef.current = null;
     SetTriggerState((value) => value + 1);
-  }, [getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
+  }, [PFEnabled, getNodesWithDraggedPositions, reactFlow, setEdges, setNodes]);
 
   const onBeforeDelete: OnBeforeDelete = useCallback(async ({ nodes, edges }) => {
     if (nodes.length > 0 || edges.length > 0) {
