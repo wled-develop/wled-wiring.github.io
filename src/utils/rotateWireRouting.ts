@@ -325,9 +325,9 @@ const sortGroupItems = (group: RerouteWireGroup) => {
   const secondAxis = groupSortAxis(group.items, secondNodeId);
 
   return [...group.items].sort((a, b) => (
+    a.distance - b.distance ||
     handleSortValue(a, firstNodeId, firstAxis) - handleSortValue(b, firstNodeId, firstAxis) ||
     handleSortValue(a, secondNodeId, secondAxis) - handleSortValue(b, secondNodeId, secondAxis) ||
-    a.distance - b.distance ||
     a.originalIndex - b.originalIndex
   ));
 };

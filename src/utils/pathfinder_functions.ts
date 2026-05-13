@@ -132,6 +132,8 @@ const ROUTE_CORNER_PENALTY = 30;
 const ROUTE_INTERSECTION_PENALTY = 80;
 const ROUTE_REPEATED_PARTNER_CROSSING_PENALTY = 160;
 const ROUTE_OVERLAP_PENALTY = 120;
+const WIRE_PARALLEL_SPACING_TOL = 7;
+const WIRE_SHIFT_STEP = 2;
 
 const sameNumber = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
 
@@ -231,11 +233,11 @@ const orthogonalSegmentsOverlap = (
   a: {from: XYPoint; to: XYPoint},
   b: {from: XYPoint; to: XYPoint},
 ) => {
-  if(isVertical(a.from, a.to) && isVertical(b.from, b.to) && sameNumber(a.from.x, b.from.x)) {
+  if(isVertical(a.from, a.to) && isVertical(b.from, b.to) && Math.abs(a.from.x - b.from.x) <= WIRE_PARALLEL_SPACING_TOL) {
     return rangesOverlap(a.from.y, a.to.y, b.from.y, b.to.y);
   }
 
-  if(isHorizontal(a.from, a.to) && isHorizontal(b.from, b.to) && sameNumber(a.from.y, b.from.y)) {
+  if(isHorizontal(a.from, a.to) && isHorizontal(b.from, b.to) && Math.abs(a.from.y - b.from.y) <= WIRE_PARALLEL_SPACING_TOL) {
     return rangesOverlap(a.from.x, a.to.x, b.from.x, b.to.x);
   }
 
@@ -284,6 +286,406 @@ const pathIsAllowed = (points: XYPoint[], options: BuildPathOptions) => (
     return segmentAllowed(segment.from, segment.to, options, ignoredNodeIds);
   })
 );
+
+const routeConflictMetrics = (points: XYPoint[], edges: Edge[]) => {
+  const segments = pathSegments(points);
+  const existingSegments = edges.flatMap(edgeSegments);
+  let intersections = 0;
+  let overlaps = 0;
+
+  segments.forEach((segment) => {
+    existingSegments.forEach((existingSegment) => {
+      if(orthogonalSegmentsCross(segment, existingSegment)) {
+        intersections += 1;
+      } else if(orthogonalSegmentsOverlap(segment, existingSegment)) {
+        overlaps += 1;
+      }
+    });
+  });
+
+  return {intersections, overlaps};
+};
+
+const routeConflictMetricsAreBetter = (
+  candidate: {intersections: number; overlaps: number},
+  current: {intersections: number; overlaps: number},
+) => (
+  candidate.overlaps < current.overlaps ||
+  (
+    candidate.overlaps === current.overlaps &&
+    candidate.intersections < current.intersections
+  )
+);
+
+const clampIndex = (index: number, min: number, max: number) => Math.min(Math.max(index, min), max);
+
+const segmentMatrixIndexes = (arr: number[], from: number, to: number, maxIndex: number) => {
+  const minValue = Math.min(from, to);
+  const maxValue = Math.max(from, to);
+  const indexes = [] as number[];
+
+  for(let index = 0; index < maxIndex; index += 1) {
+    if(rangesOverlap(arr[index], arr[index + 1], minValue, maxValue)) {
+      indexes.push(index);
+    }
+  }
+
+  if(indexes.length > 0) return indexes;
+
+  const middle = (minValue + maxValue) / 2;
+  return [clampIndex(findLastIndex(arr, (element) => element <= middle), 0, maxIndex - 1)];
+};
+
+const verticalCorridorCellIsFree = (matrix: number[][], matrixX: number, matrixYs: number[]) => (
+  matrixX >= 0 &&
+  matrixX < matrix.length &&
+  matrixYs.every((matrixY) => matrix[matrixX]?.[matrixY] === 1)
+);
+
+const horizontalCorridorCellIsFree = (matrix: number[][], matrixXs: number[], matrixY: number) => (
+  matrixY >= 0 &&
+  matrix[0] !== undefined &&
+  matrixY < matrix[0].length &&
+  matrixXs.every((matrixX) => matrix[matrixX]?.[matrixY] === 1)
+);
+
+const verticalFreeCorridor = (
+  matrix: number[][],
+  x_arr: number[],
+  y_arr: number[],
+  x: number,
+  y1: number,
+  y2: number,
+) => {
+  const matrixYs = segmentMatrixIndexes(y_arr, y1, y2, matrix[0]?.length ?? 0);
+  const baseMatrixX = clampIndex(findLastIndex(x_arr, (element) => element <= x), 0, matrix.length - 1);
+  if(!verticalCorridorCellIsFree(matrix, baseMatrixX, matrixYs)) return undefined;
+
+  let firstMatrixX = baseMatrixX;
+  let lastMatrixX = baseMatrixX;
+  while(firstMatrixX > 0 && verticalCorridorCellIsFree(matrix, firstMatrixX - 1, matrixYs)) {
+    firstMatrixX -= 1;
+  }
+  while(lastMatrixX < matrix.length - 1 && verticalCorridorCellIsFree(matrix, lastMatrixX + 1, matrixYs)) {
+    lastMatrixX += 1;
+  }
+
+  return {
+    min: x_arr[firstMatrixX],
+    max: x_arr[lastMatrixX + 1],
+  };
+};
+
+const horizontalFreeCorridor = (
+  matrix: number[][],
+  x_arr: number[],
+  y_arr: number[],
+  y: number,
+  x1: number,
+  x2: number,
+) => {
+  const matrixXs = segmentMatrixIndexes(x_arr, x1, x2, matrix.length);
+  const baseMatrixY = clampIndex(findLastIndex(y_arr, (element) => element <= y), 0, (matrix[0]?.length ?? 1) - 1);
+  if(!horizontalCorridorCellIsFree(matrix, matrixXs, baseMatrixY)) return undefined;
+
+  let firstMatrixY = baseMatrixY;
+  let lastMatrixY = baseMatrixY;
+  while(firstMatrixY > 0 && horizontalCorridorCellIsFree(matrix, matrixXs, firstMatrixY - 1)) {
+    firstMatrixY -= 1;
+  }
+  while(matrix[0] !== undefined && lastMatrixY < matrix[0].length - 1 && horizontalCorridorCellIsFree(matrix, matrixXs, lastMatrixY + 1)) {
+    lastMatrixY += 1;
+  }
+
+  return {
+    min: y_arr[firstMatrixY],
+    max: y_arr[lastMatrixY + 1],
+  };
+};
+
+const shiftCandidateOffsets = (coord: number, minCoord: number, maxCoord: number) => {
+  const leftSpace = coord - minCoord;
+  const rightSpace = maxCoord - coord;
+  const preferredDirection = rightSpace >= leftSpace ? 1 : -1;
+  const maxDistance = Math.max(leftSpace, rightSpace);
+  const offsets = [] as number[];
+
+  for(let distance = WIRE_SHIFT_STEP; distance <= maxDistance + EPSILON; distance += WIRE_SHIFT_STEP) {
+    [preferredDirection, preferredDirection * -1].forEach((direction) => {
+      const candidate = coord + distance * direction;
+      if(candidate > minCoord + EPSILON && candidate < maxCoord - EPSILON) {
+        offsets.push(Number((candidate - coord).toFixed(3)));
+      }
+    });
+  }
+
+  return [...new Set(offsets)];
+};
+
+const shiftedPathCandidate = (
+  points: PathPoint[],
+  segmentIndex: number,
+  axis: 'x' | 'y',
+  coord: number,
+) => {
+  const candidate = points.map((point) => ({...point}));
+  candidate[segmentIndex][axis] = coord;
+  candidate[segmentIndex + 1][axis] = coord;
+  return candidate;
+};
+
+const expandedRange = (
+  min: number,
+  max: number,
+  segmentMin: number,
+  segmentMax: number,
+  padding = WIRE_SHIFT_STEP,
+) => ({
+  min: Math.max(segmentMin, min - padding),
+  max: Math.min(segmentMax, max + padding),
+});
+
+const mergeRanges = (ranges: {min: number; max: number}[]) => {
+  const sortedRanges = ranges
+    .filter((range) => range.max >= range.min - EPSILON)
+    .sort((a, b) => a.min - b.min);
+  const merged = [] as {min: number; max: number}[];
+
+  sortedRanges.forEach((range) => {
+    const lastRange = merged[merged.length - 1];
+    if(!lastRange || range.min > lastRange.max + EPSILON) {
+      merged.push({...range});
+      return;
+    }
+
+    lastRange.max = Math.max(lastRange.max, range.max);
+  });
+
+  return merged;
+};
+
+const segmentConflictRanges = (
+  segment: {from: XYPoint; to: XYPoint},
+  edges: Edge[],
+) => {
+  const segmentVertical = isVertical(segment.from, segment.to);
+  const segmentMin = segmentVertical
+    ? Math.min(segment.from.y, segment.to.y)
+    : Math.min(segment.from.x, segment.to.x);
+  const segmentMax = segmentVertical
+    ? Math.max(segment.from.y, segment.to.y)
+    : Math.max(segment.from.x, segment.to.x);
+  const ranges = [] as {min: number; max: number}[];
+
+  edges.flatMap(edgeSegments).forEach((existingSegment) => {
+    if(orthogonalSegmentsOverlap(segment, existingSegment)) {
+      const overlapMin = segmentVertical
+        ? Math.max(Math.min(segment.from.y, segment.to.y), Math.min(existingSegment.from.y, existingSegment.to.y))
+        : Math.max(Math.min(segment.from.x, segment.to.x), Math.min(existingSegment.from.x, existingSegment.to.x));
+      const overlapMax = segmentVertical
+        ? Math.min(Math.max(segment.from.y, segment.to.y), Math.max(existingSegment.from.y, existingSegment.to.y))
+        : Math.min(Math.max(segment.from.x, segment.to.x), Math.max(existingSegment.from.x, existingSegment.to.x));
+      ranges.push(expandedRange(overlapMin, overlapMax, segmentMin, segmentMax));
+      return;
+    }
+
+    if(orthogonalSegmentsCross(segment, existingSegment)) {
+      const crossValue = segmentVertical ? existingSegment.from.y : existingSegment.from.x;
+      ranges.push(expandedRange(crossValue, crossValue, segmentMin, segmentMax));
+    }
+  });
+
+  return mergeRanges(ranges);
+};
+
+const partiallyShiftedPathCandidate = (
+  points: PathPoint[],
+  segmentIndex: number,
+  axis: 'x' | 'y',
+  coord: number,
+  range: {min: number; max: number},
+) => {
+  const from = points[segmentIndex];
+  const to = points[segmentIndex + 1];
+  const spanAxis = axis === 'x' ? 'y' : 'x';
+  const segmentStart = from[spanAxis];
+  const segmentEnd = to[spanAxis];
+  const segmentMin = Math.min(segmentStart, segmentEnd);
+  const segmentMax = Math.max(segmentStart, segmentEnd);
+  const rangeMin = Math.max(segmentMin, range.min);
+  const rangeMax = Math.min(segmentMax, range.max);
+
+  if(rangeMin <= segmentMin + EPSILON && rangeMax >= segmentMax - EPSILON) return undefined;
+
+  const entry = segmentStart <= segmentEnd ? rangeMin : rangeMax;
+  const exit = segmentStart <= segmentEnd ? rangeMax : rangeMin;
+  const originalEntry = {...from, [spanAxis]: entry};
+  const shiftedEntry = {...originalEntry, [axis]: coord};
+  const shiftedExit = {...from, [axis]: coord, [spanAxis]: exit};
+  const originalExit = {...from, [spanAxis]: exit};
+
+  return compactPathPoints([
+    ...points.slice(0, segmentIndex + 1),
+    originalEntry,
+    shiftedEntry,
+    shiftedExit,
+    originalExit,
+    ...points.slice(segmentIndex + 1),
+  ], true);
+};
+
+const segmentHasExistingWireConflict = (
+  segment: {from: XYPoint; to: XYPoint},
+  edges: Edge[],
+) => (
+  edges.flatMap(edgeSegments).some((existingSegment) => (
+    orthogonalSegmentsCross(segment, existingSegment) ||
+    orthogonalSegmentsOverlap(segment, existingSegment)
+  ))
+);
+
+const selectBestShiftedSegmentPath = (
+  myPath: PathPoint[],
+  segmentIndex: number,
+  axis: 'x' | 'y',
+  corridor: {min: number; max: number},
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  const currentSegment = {
+    from: myPath[segmentIndex],
+    to: myPath[segmentIndex + 1],
+  };
+
+  if(!segmentHasExistingWireConflict(currentSegment, edges)) return undefined;
+
+  const coord = myPath[segmentIndex][axis];
+  let bestPath = myPath;
+  let bestMetrics = routeConflictMetrics(myPath, edges);
+  let bestScore = routeScore(myPath, edges);
+
+  for(const offset of shiftCandidateOffsets(coord, corridor.min, corridor.max)) {
+    const candidateCoord = coord + offset;
+    const candidatePath = shiftedPathCandidate(myPath, segmentIndex, axis, candidateCoord);
+    if(!pathIsAllowed(candidatePath, options)) continue;
+
+    const candidateMetrics = routeConflictMetrics(candidatePath, edges);
+    const candidateScore = routeScore(candidatePath, edges);
+    if(
+      routeConflictMetricsAreBetter(candidateMetrics, bestMetrics) ||
+      (
+        candidateMetrics.overlaps === bestMetrics.overlaps &&
+        candidateMetrics.intersections === bestMetrics.intersections &&
+        candidateScore + EPSILON < bestScore
+      )
+    ) {
+      bestPath = candidatePath;
+      bestMetrics = candidateMetrics;
+      bestScore = candidateScore;
+    }
+  }
+
+  return bestPath === myPath ? undefined : bestPath;
+};
+
+const selectBestPartiallyShiftedSegmentPath = (
+  myPath: PathPoint[],
+  segmentIndex: number,
+  axis: 'x' | 'y',
+  matrix: number[][],
+  x_arr: number[],
+  y_arr: number[],
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  const currentSegment = {
+    from: myPath[segmentIndex],
+    to: myPath[segmentIndex + 1],
+  };
+  const conflictRanges = segmentConflictRanges(currentSegment, edges);
+  if(conflictRanges.length === 0) return undefined;
+
+  const coord = myPath[segmentIndex][axis];
+  let bestPath = myPath;
+  let bestMetrics = routeConflictMetrics(myPath, edges);
+  let bestScore = routeScore(myPath, edges);
+
+  for(const range of conflictRanges) {
+    const corridor = axis === 'x'
+      ? verticalFreeCorridor(matrix, x_arr, y_arr, coord, range.min, range.max)
+      : horizontalFreeCorridor(matrix, x_arr, y_arr, coord, range.min, range.max);
+    if(!corridor) continue;
+
+    for(const offset of shiftCandidateOffsets(coord, corridor.min, corridor.max)) {
+      const candidateCoord = coord + offset;
+      const candidatePath = partiallyShiftedPathCandidate(myPath, segmentIndex, axis, candidateCoord, range);
+      if(!candidatePath || !pathIsAllowed(candidatePath, options)) continue;
+
+      const candidateMetrics = routeConflictMetrics(candidatePath, edges);
+      const candidateScore = routeScore(candidatePath, edges);
+      if(
+        routeConflictMetricsAreBetter(candidateMetrics, bestMetrics) ||
+        (
+          candidateMetrics.overlaps === bestMetrics.overlaps &&
+          candidateMetrics.intersections === bestMetrics.intersections &&
+          candidateScore + EPSILON < bestScore
+        )
+      ) {
+        bestPath = candidatePath;
+        bestMetrics = candidateMetrics;
+        bestScore = candidateScore;
+      }
+    }
+  }
+
+  return bestPath === myPath ? undefined : bestPath;
+};
+
+const shiftVerticalSegmentAwayFromCovering = (
+  myPath: PathPoint[],
+  segmentIndex: number,
+  matrix: number[][],
+  x_arr: number[],
+  y_arr: number[],
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  const tx = myPath[segmentIndex].x;
+  const ty1 = myPath[segmentIndex].y;
+  const ty2 = myPath[segmentIndex + 1].y;
+
+  const corridor = verticalFreeCorridor(matrix, x_arr, y_arr, tx, ty1, ty2);
+  const bestPath = (corridor
+    ? selectBestShiftedSegmentPath(myPath, segmentIndex, 'x', corridor, edges, options)
+    : undefined)
+    ?? selectBestPartiallyShiftedSegmentPath(myPath, segmentIndex, 'x', matrix, x_arr, y_arr, edges, options);
+  if(!bestPath) return;
+
+  myPath.splice(0, myPath.length, ...bestPath);
+};
+
+const shiftHorizontalSegmentAwayFromCovering = (
+  myPath: PathPoint[],
+  segmentIndex: number,
+  matrix: number[][],
+  x_arr: number[],
+  y_arr: number[],
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  const ty = myPath[segmentIndex].y;
+  const tx1 = myPath[segmentIndex].x;
+  const tx2 = myPath[segmentIndex + 1].x;
+
+  const corridor = horizontalFreeCorridor(matrix, x_arr, y_arr, ty, tx1, tx2);
+  const bestPath = (corridor
+    ? selectBestShiftedSegmentPath(myPath, segmentIndex, 'y', corridor, edges, options)
+    : undefined)
+    ?? selectBestPartiallyShiftedSegmentPath(myPath, segmentIndex, 'y', matrix, x_arr, y_arr, edges, options);
+  if(!bestPath) return;
+
+  myPath.splice(0, myPath.length, ...bestPath);
+};
 
 const routeScore = (points: XYPoint[], edges: Edge[]) => {
   const segments = pathSegments(points);
@@ -337,6 +739,7 @@ const simplifyOrthogonalPath = (
   if(points.length < 3 || !options.obstacleRects?.length) return compactPathPoints(points, true);
 
   let bestPath = compactPathPoints(points, true);
+  let bestMetrics = routeConflictMetrics(bestPath, edges);
   let bestScore = routeScore(bestPath, edges);
   let changed = true;
 
@@ -347,6 +750,7 @@ const simplifyOrthogonalPath = (
 
     for(let startIndex = firstOptimizableIndex; startIndex < lastOptimizableIndex - 1; startIndex += 1) {
       let acceptedPath: PathPoint[] | undefined;
+      let acceptedMetrics = bestMetrics;
       let acceptedScore = bestScore;
 
       for(let endIndex = lastOptimizableIndex; endIndex >= startIndex + 2; endIndex -= 1) {
@@ -363,8 +767,17 @@ const simplifyOrthogonalPath = (
           if(!pathIsAllowed(routeCandidate, options)) continue;
 
           const candidateScore = routeScore(routeCandidate, edges);
-          if(candidateScore + EPSILON < acceptedScore) {
+          const candidateMetrics = routeConflictMetrics(routeCandidate, edges);
+          if(
+            routeConflictMetricsAreBetter(candidateMetrics, bestMetrics) ||
+            (
+              candidateMetrics.overlaps === bestMetrics.overlaps &&
+              candidateMetrics.intersections === bestMetrics.intersections &&
+              candidateScore + EPSILON < acceptedScore
+            )
+          ) {
             acceptedPath = routeCandidate;
+            acceptedMetrics = candidateMetrics;
             acceptedScore = candidateScore;
           }
         }
@@ -372,6 +785,7 @@ const simplifyOrthogonalPath = (
 
       if(acceptedPath) {
         bestPath = acceptedPath;
+        bestMetrics = acceptedMetrics;
         bestScore = acceptedScore;
         changed = true;
         break;
@@ -721,197 +1135,25 @@ export function buildPath(edges:Edge[], result:GridNode[]|undefined, matrix: num
     }
   }
 
-  // for all segments execpt the first and the last check if the segment would cover already existing another edge segment, then shift this line a little bit
-  // cylce over 1...
+  // for all segments except the first and the last check if the segment would cover or cross another edge segment.
+  // If needed, shift it inside the whole free corridor, including neighboring grid elements.
   for(let i=1; i<myPath.length-2; i++) {
     const tx1=myPath[i].x;
     const tx2=myPath[i+1].x;
     const ty1=myPath[i].y;
     const ty2=myPath[i+1].y;
-    // if x coordinates of the segment the same, then it is a vertical line
+
     if(tx1==tx2) {
-      let covering=checkCoveringVertical(tx1, ty1, ty2, 3, edges);
-      //console.log("Check Segment", tx1, ty1, ty2, covering);
-      if(covering) {
-        // define in what direction there is more space
-        let direction=1; // positive direction per default
-        const matrixX = myPath[i].xm ?? findLastIndex(x_arr, (element)=>element<=tx1);
-        let distanceInOtherDir=tx1-x_arr[matrixX];
-        let distanceInMainDir=x_arr[matrixX+1]-tx1;
-        if(distanceInOtherDir>distanceInMainDir) {
-          // change direction and swap distances
-          direction=-1;
-          const temp=distanceInMainDir;
-          distanceInMainDir=distanceInOtherDir;
-          distanceInOtherDir=temp;
-        }
-        // make steps array (steps to try the shift)
-        // first with bigger step
-        let StepSize=8;
-        let stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        let steps=[];
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        let stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        // second with smaller step
-        StepSize=4;
-        stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        // third with very small step
-        StepSize=2;
-        stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        //remove duplicates
-        //console.log(steps);
-        steps = [...new Set(steps)];
-        //console.log(steps);
-        for(let step_index=0; step_index<steps.length; step_index++) {
-          covering=checkCoveringVertical(tx1+steps[step_index], ty1, ty2, 3, edges);
-          if(!covering) {
-            myPath[i].x=tx1+steps[step_index];
-            myPath[i+1].x=myPath[i].x;
-            break;
-          }
-        }
-      }
+      shiftVerticalSegmentAwayFromCovering(myPath, i, matrix, x_arr, y_arr, edges, options);
     }
-    // if y coordinates of the segment the same, then it is a horizontal line
+
     if(ty1==ty2) {
-      let covering=checkCoveringHorizontal(ty1, tx1, tx2, 3, edges);
-      if(covering) {
-        // define in what direction there is more space
-        let direction=1; // positive direction per default
-        const matrixY = myPath[i].ym ?? findLastIndex(y_arr, (element)=>element<=ty1);
-        let distanceInOtherDir=ty1-y_arr[matrixY];
-        let distanceInMainDir=y_arr[matrixY+1]-ty1;
-        if(distanceInOtherDir>distanceInMainDir) {
-          // change direction and swap distances
-          direction=-1;
-          const temp=distanceInMainDir;
-          distanceInMainDir=distanceInOtherDir;
-          distanceInOtherDir=temp;
-        }
-        // make steps array
-        // first with bigger step
-        let StepSize=8;
-        let stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        let steps=[];
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        let stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        // second with smaller step
-        StepSize=4;
-        stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        // third with very small step
-        StepSize=2;
-        stepsInMainDir=Math.floor(distanceInMainDir/StepSize);
-        for(let j=1; j<=stepsInMainDir; j++) steps.push(j*StepSize*direction);
-        stepsInOtherDir=Math.max((Math.floor(distanceInOtherDir/StepSize)-1),0);
-        for(let j=1; j<=stepsInOtherDir; j++) steps.push(j*StepSize*direction*(-1));
-        //remove duplicates
-        steps = [...new Set(steps)];
-        for(let step_index=0; step_index<steps.length; step_index++) {
-          covering=checkCoveringHorizontal(ty1+steps[step_index], tx1, tx2, 3, edges);
-          if(!covering) {
-            myPath[i].y=ty1+steps[step_index];
-            myPath[i+1].y=myPath[i].y;
-            //console.log("Step applied step, index: ", steps[step_index], step_index);
-            break;
-          }
-        }
-      }
+      shiftHorizontalSegmentAwayFromCovering(myPath, i, matrix, x_arr, y_arr, edges, options);
     }
 
   }
   return simplifyOrthogonalPath(myPath, edges, options);
 }
-
-function checkCoveringVertical(tx: number, ty1:number, ty2: number, TOL: number, edges: Edge[]):boolean {
-  for(let e=0; e<edges.length; e++) {
-    // build edge segments
-    const edge=edges[e];
-    const edgeData = edge.data as EdgeDataType;
-    const edgePoints = edgeData.edgePoints ?? [];
-    const edgeSegmentsCount = edgePoints.length + 1;
-    for (let i = 0; i < edgeSegmentsCount; i++) {
-        let segmentSourceX: number, segmentSourceY: number, segmentTargetX: number, segmentTargetY: number;
-        if (i === 0) {
-          segmentSourceX = edgeData.startXY?.x || 0;
-          segmentSourceY = edgeData.startXY?.y || 0;
-        } else {
-          const edgePoint = edgePoints[i - 1];
-          segmentSourceX = edgePoint.x;
-          segmentSourceY = edgePoint.y;
-        }
-        if (i === edgeSegmentsCount - 1) {
-          segmentTargetX = edgeData.endXY?.x || 0;
-          segmentTargetY = edgeData.endXY?.y || 0;
-        } else {
-          const edgePoint = edgePoints[i];
-          segmentTargetX = edgePoint.x;
-          segmentTargetY = edgePoint.y;
-        }
-        // if almost vertical line
-        if(Math.abs(segmentSourceX-segmentTargetX)<=2) {
-          const minx=Math.min(segmentSourceX,segmentTargetX);
-          const maxx=Math.max(segmentSourceX,segmentTargetX);
-          if(tx>=minx-TOL && tx<=maxx+TOL && !(Math.max(ty1,ty2)<Math.min(segmentSourceY, segmentTargetY) || Math.min(ty1,ty2)>Math.max(segmentSourceY, segmentTargetY))) {
-            return true;
-          }
-
-        }
-        
-      }
-
-  }
-  return false;
-}
-
-function checkCoveringHorizontal(ty: number, tx1:number, tx2: number, TOL: number, edges: Edge[]):boolean {
-  for(let e=0; e<edges.length; e++) {
-    // build edge segments
-    const edge=edges[e];
-    const edgeData = edge.data as EdgeDataType;
-    const edgePoints = edgeData.edgePoints ?? [];
-    const edgeSegmentsCount = edgePoints.length + 1;
-    for (let i = 0; i < edgeSegmentsCount; i++) {
-        let segmentSourceX: number, segmentSourceY: number, segmentTargetX: number, segmentTargetY: number;
-        if (i === 0) {
-          segmentSourceX = edgeData.startXY?.x || 0;
-          segmentSourceY = edgeData.startXY?.y || 0;
-        } else {
-          const edgePoint = edgePoints[i - 1];
-          segmentSourceX = edgePoint.x;
-          segmentSourceY = edgePoint.y;
-        }
-        if (i === edgeSegmentsCount - 1) {
-          segmentTargetX = edgeData.endXY?.x || 0;
-          segmentTargetY = edgeData.endXY?.y || 0;
-        } else {
-          const edgePoint = edgePoints[i];
-          segmentTargetX = edgePoint.x;
-          segmentTargetY = edgePoint.y;
-        }
-        // if almost vertical line
-        if(Math.abs(segmentSourceY-segmentTargetY)<=2) {
-          const miny=Math.min(segmentSourceY,segmentTargetY);
-          const maxy=Math.max(segmentSourceY,segmentTargetY);
-          if(ty>=miny-TOL && ty<=maxy+TOL && !(Math.max(tx1,tx2)<Math.min(segmentSourceX, segmentTargetX) || Math.min(tx1,tx2)>Math.max(segmentSourceX, segmentTargetX))) {
-            return true;
-          }
-        }
-      }
-  }
-  return false;
-}
-
 
 export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeId: string, fromHandleId: string, toNodeId:string, toHandleId:string):edgePoint[] {
   const nodes = reactFlow.getNodes();

@@ -34,7 +34,7 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
 
   const PFEnabled=useZustandStore((state)=>state.pathFindingEnabled);
 
-  const DEBUGMODE=false;
+  const DEBUGMODE=true;
   let myPathStroke="";
   let x_arr=[] as number[];
   let y_arr=[] as number[];
