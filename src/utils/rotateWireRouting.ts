@@ -4,13 +4,12 @@ import type { ComponentDataType, DirectionType, EdgeDataType, XYPoint, edgePoint
 import {
   buildPath,
   createMatrix,
+  endpointLineDirection,
   getPathResult,
 } from './pathfinder_functions';
 import {
   getHandleMiddleRealPosition,
   postypeToAdjustedXYConn,
-  rotatePostypeToLineDirection,
-  rotatePrefferedLineDirection,
 } from './utils_functions';
 
 export const ROTATE_WIRE_PIN_STUB_ENABLED = true;
@@ -215,17 +214,6 @@ const nodeIsSolderJoint = (node: Node | undefined) => (
   getNodeData(node)?.technicalID === 'SolderJoint'
 );
 
-const endpointLineDirection = (
-  node: Node,
-  handle: ReturnType<typeof getHandle>,
-) => {
-  if(nodeIsSolderJoint(node)) return undefined;
-
-  const rotation = (node.data as ComponentDataType).rotation;
-  return rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation)
-    ?? rotatePostypeToLineDirection(handle?.postype, rotation);
-};
-
 const distanceBetweenPoints = (a: XYPoint, b: XYPoint) => (
   Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 );
@@ -408,8 +396,8 @@ export const routeWireWithPathfinder = (
 
   const sourceHandle = getHandle(sourceNode, edge.sourceHandle);
   const targetHandle = getHandle(targetNode, edge.targetHandle);
-  const sourceDirection = endpointLineDirection(sourceNode, sourceHandle);
-  const targetDirection = endpointLineDirection(targetNode, targetHandle);
+  const sourceDirection = endpointLineDirection(sourceNode, sourceHandle, sourcePoint.x, sourcePoint.y);
+  const targetDirection = endpointLineDirection(targetNode, targetHandle, targetPoint.x, targetPoint.y);
   const {x_arr, y_arr, matrix, obstacleRects} = createMatrix(nodes);
   const pathResult = getPathResult(
     matrix,

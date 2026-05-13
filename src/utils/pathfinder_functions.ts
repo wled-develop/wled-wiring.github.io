@@ -4,7 +4,7 @@ import {ComponentDataType, type edgePoint, type EdgeDataType, ImageDataType, Dir
 import {Graph, astar, GridNode} from "../utils/astar.ts"
 import { create } from 'zustand';
 
-import { pDistance, type nearestPoint, postypeToAdjustedXYConn, rotatePostypeToLineDirection, rotatePrefferedLineDirection, getHandleMiddleRealPosition} from './utils_functions.ts';
+import { pDistance, type nearestPoint, postypeToAdjustedXYConn, rotatePrefferedLineDirection, getHandleMiddleRealPosition} from './utils_functions.ts';
 
 // ZustandStore  is used to save the state of pathFindingEnabled switch and pass data from ConnectionLine
 // to onConnectEnd()
@@ -40,6 +40,31 @@ export function findLastIndex<T>(array: Array<T>, predicate: (value: T, index: n
     return -1;
 }
 
+const clampMatrixIndex = (index: number, maxIndex: number) => Math.min(Math.max(index, 0), Math.max(maxIndex, 0));
+
+const walkToFreeMatrixIndex = (
+  matrix: number[][],
+  matrix_index_x: number,
+  matrix_index_y: number,
+  step_x: number,
+  step_y: number,
+) => {
+  const max_x = matrix.length - 1;
+  const max_y = (matrix[0]?.length ?? 1) - 1;
+  let next_x = clampMatrixIndex(matrix_index_x, max_x);
+  let next_y = clampMatrixIndex(matrix_index_y, max_y);
+
+  while(matrix[next_x]?.[next_y] === 0) {
+    const candidate_x = next_x + step_x;
+    const candidate_y = next_y + step_y;
+    if(candidate_x < 0 || candidate_x > max_x || candidate_y < 0 || candidate_y > max_y) break;
+    next_x = candidate_x;
+    next_y = candidate_y;
+  }
+
+  return [next_x, next_y];
+};
+
 export function getMatrixIndexForNodeHandle(nodeDim: {x:number, y:number, w:number, h:number}, nodeTechnicalId: string, x:number, y:number, x_arr: number[], y_arr: number[], prefferedLineDirection: DirectionType, matrix: number[][]) {
   const x0 = nodeDim.x;
   const y0 = nodeDim.y;
@@ -73,33 +98,27 @@ export function getMatrixIndexForNodeHandle(nodeDim: {x:number, y:number, w:numb
     matrix_index_x = findLastIndex(x_arr, (element)=>element<=Math.min(x0,x))-1;
     if(matrix_index_x<0) matrix_index_x=0;
     matrix_index_y = findLastIndex(y_arr, (element)=>element<=y);
-    while(matrix[matrix_index_x][matrix_index_y]==0) {
-      matrix_index_x=matrix_index_x-1;
-    }
+    [matrix_index_x, matrix_index_y] = walkToFreeMatrixIndex(matrix, matrix_index_x, matrix_index_y, -1, 0);
   } else if(dist_right<dist_top && dist_right<dist_bottom) {
     // right is smallest distance
     matrix_index_x = x_arr.findIndex((element)=>element>Math.max(x,x1));
+    if(matrix_index_x<0) matrix_index_x=matrix.length-1;
     matrix_index_y = findLastIndex(y_arr, (element)=>element<=y);
     if(matrix_index_x>=matrix.length) matrix_index_x=matrix.length-1;
     //console.log("matrix_index_x, matrix_index_y:", matrix_index_x, matrix_index_y);
     //console.log(matrix.length, matrix[0].length);
-    while(matrix[matrix_index_x][matrix_index_y]==0) {
-      matrix_index_x=matrix_index_x+1;
-    }
+    [matrix_index_x, matrix_index_y] = walkToFreeMatrixIndex(matrix, matrix_index_x, matrix_index_y, 1, 0);
   } else if(dist_top<dist_bottom) {
     // top is smallest distance
     matrix_index_x = findLastIndex(x_arr, (element)=>element<=x);
     matrix_index_y = findLastIndex(y_arr, (element)=>element<=Math.min(y0,y))-1;
-    while(matrix[matrix_index_x][matrix_index_y]==0) {
-      matrix_index_y=matrix_index_y-1;
-    }
+    [matrix_index_x, matrix_index_y] = walkToFreeMatrixIndex(matrix, matrix_index_x, matrix_index_y, 0, -1);
   } else {
     // bottom is smallest distance
     matrix_index_x = findLastIndex(x_arr, (element)=>element<=x);
     matrix_index_y = y_arr.findIndex((element)=>element>Math.max(y,y1));
-    while(matrix[matrix_index_x][matrix_index_y]==0) {
-      matrix_index_y=matrix_index_y+1;
-    }
+    if(matrix_index_y<0) matrix_index_y=(matrix[0]?.length ?? 1)-1;
+    [matrix_index_x, matrix_index_y] = walkToFreeMatrixIndex(matrix, matrix_index_x, matrix_index_y, 0, 1);
   }
   return [matrix_index_x, matrix_index_y]
 }
@@ -171,15 +190,48 @@ const directionFromPoints = (from: XYPoint, to: XYPoint): DirectionType => {
   return undefined;
 };
 
-const endpointLineDirection = (
+const closestNodeBorderDirection = (
+  nodeDim: {x:number, y:number, w:number, h:number},
+  x: number,
+  y: number,
+): DirectionType => {
+  const x0 = nodeDim.x;
+  const y0 = nodeDim.y;
+  const x1 = nodeDim.x + nodeDim.w;
+  const y1 = nodeDim.y + nodeDim.h;
+
+  const dist_left = pDistance(x, y, x0, y0, x0, y1)[0];
+  const dist_right = pDistance(x, y, x1, y0, x1, y1)[0];
+  const dist_top = pDistance(x, y, x0, y0, x1, y0)[0];
+  const dist_bottom = pDistance(x, y, x0, y1, x1, y1)[0];
+
+  if(dist_left < dist_right && dist_left < dist_top && dist_left < dist_bottom) return "left";
+  if(dist_right < dist_top && dist_right < dist_bottom) return "right";
+  if(dist_top < dist_bottom) return "up";
+  return "down";
+};
+
+export const endpointLineDirection = (
   node: Node | undefined,
-  handle: {prefferedLineDirection?: DirectionType; postype?: string} | undefined,
-) => {
+  handle: {prefferedLineDirection?: DirectionType} | undefined,
+  x: number,
+  y: number,
+): DirectionType => {
   if(!node || (node.data as ComponentDataType | undefined)?.technicalID === "SolderJoint") return undefined;
 
   const rotation = (node.data as ComponentDataType).rotation;
-  return rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation)
-    ?? rotatePostypeToLineDirection(handle?.postype, rotation);
+  const prefferedLineDirection = rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation);
+  if(prefferedLineDirection) return prefferedLineDirection;
+
+  const nodeWidth = node.measured?.width || node.width || 0;
+  const nodeHeight = node.measured?.height || node.height || 0;
+  if(nodeWidth <= 0 || nodeHeight <= 0) return undefined;
+
+  return closestNodeBorderDirection(
+    {x: node.position.x, y: node.position.y, w: nodeWidth, h: nodeHeight},
+    x,
+    y,
+  );
 };
 
 const rangesOverlap = (a1: number, a2: number, b1: number, b2: number) => (
@@ -1299,7 +1351,7 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
     );
   //console.log("fromXadapted, fromYadapted", fromXadapted, fromYadapted);
 
-    let fromHandle_prefferedLineDirectionRotated=endpointLineDirection(fromNode, startHandle);
+    let fromHandle_prefferedLineDirectionRotated=endpointLineDirection(fromNode, startHandle, fromXadapted, fromYadapted);
 
     const XYpoint1 = getHandleMiddleRealPosition(toNode, toHandleId);
     toX=XYpoint1.x + toNode.position.x + (toNode.data as ComponentDataType).borderWidth;
@@ -1319,7 +1371,7 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
       (toNode.data as ComponentDataType).rotation
     );
 
-    let toHandle_prefferedLineDirectionRotated=endpointLineDirection(toNode, endHandle);
+    let toHandle_prefferedLineDirectionRotated=endpointLineDirection(toNode, endHandle, toXadapted, toYadapted);
 
     //find path using modified A-Star algorithm (return areas on the matrix)
     const rev1=getPathResult(matrix, x_arr, y_arr, fromNode, toNode, fromXadapted, fromYadapted, toXadapted, toYadapted, fromHandle_prefferedLineDirectionRotated, toHandle_prefferedLineDirectionRotated);
