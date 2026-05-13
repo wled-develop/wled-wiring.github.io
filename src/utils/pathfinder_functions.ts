@@ -4,7 +4,7 @@ import {ComponentDataType, type edgePoint, type EdgeDataType, ImageDataType, Dir
 import {Graph, astar, GridNode} from "../utils/astar.ts"
 import { create } from 'zustand';
 
-import { pDistance, type nearestPoint, postypeToAdjustedXYConn, rotatePrefferedLineDirection, getHandleMiddleRealPosition} from './utils_functions.ts';
+import { pDistance, type nearestPoint, postypeToAdjustedXYConn, rotatePostypeToLineDirection, rotatePrefferedLineDirection, getHandleMiddleRealPosition} from './utils_functions.ts';
 
 // ZustandStore  is used to save the state of pathFindingEnabled switch and pass data from ConnectionLine
 // to onConnectEnd()
@@ -124,6 +124,8 @@ type BuildPathOptions = {
   obstacleRects?: ObstacleRect[];
   sourceNodeId?: string;
   targetNodeId?: string;
+  sourceDirection?: DirectionType;
+  targetDirection?: DirectionType;
 };
 
 const EPSILON = 0.001;
@@ -146,6 +148,39 @@ const isVertical = (a: XYPoint, b: XYPoint) => sameNumber(a.x, b.x);
 const isOrthogonalSegment = (a: XYPoint, b: XYPoint) => isHorizontal(a, b) || isVertical(a, b);
 
 const pointDistance = (a: XYPoint, b: XYPoint) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+
+const oppositeDirection = (direction: DirectionType): DirectionType => {
+  if(direction === 'left') return 'right';
+  if(direction === 'right') return 'left';
+  if(direction === 'up') return 'down';
+  if(direction === 'down') return 'up';
+  return undefined;
+};
+
+const directionFromPoints = (from: XYPoint, to: XYPoint): DirectionType => {
+  if(isHorizontal(from, to)) {
+    if(to.x > from.x + EPSILON) return 'right';
+    if(to.x < from.x - EPSILON) return 'left';
+  }
+
+  if(isVertical(from, to)) {
+    if(to.y > from.y + EPSILON) return 'down';
+    if(to.y < from.y - EPSILON) return 'up';
+  }
+
+  return undefined;
+};
+
+const endpointLineDirection = (
+  node: Node | undefined,
+  handle: {prefferedLineDirection?: DirectionType; postype?: string} | undefined,
+) => {
+  if(!node || (node.data as ComponentDataType | undefined)?.technicalID === "SolderJoint") return undefined;
+
+  const rotation = (node.data as ComponentDataType).rotation;
+  return rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation)
+    ?? rotatePostypeToLineDirection(handle?.postype, rotation);
+};
 
 const rangesOverlap = (a1: number, a2: number, b1: number, b2: number) => (
   Math.max(Math.min(a1, a2), Math.min(b1, b2)) < Math.min(Math.max(a1, a2), Math.max(b1, b2)) - EPSILON
@@ -731,6 +766,70 @@ const shortcutCandidates = (from: XYPoint, to: XYPoint): XYPoint[][] => {
   ];
 };
 
+const pathMatchesEndpointDirections = (points: XYPoint[], options: BuildPathOptions) => {
+  if(points.length < 2) return false;
+
+  if(
+    options.sourceDirection &&
+    directionFromPoints(points[0], points[1]) !== options.sourceDirection
+  ) {
+    return false;
+  }
+
+  if(
+    options.targetDirection &&
+    directionFromPoints(points[points.length - 2], points[points.length - 1]) !== oppositeDirection(options.targetDirection)
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+const routeIsBetter = (
+  candidateMetrics: {intersections: number; overlaps: number},
+  currentMetrics: {intersections: number; overlaps: number},
+  candidateScore: number,
+  currentScore: number,
+) => (
+  routeConflictMetricsAreBetter(candidateMetrics, currentMetrics) ||
+  (
+    candidateMetrics.overlaps === currentMetrics.overlaps &&
+    candidateMetrics.intersections === currentMetrics.intersections &&
+    candidateScore + EPSILON < currentScore
+  )
+);
+
+const simplifyEndpointShortcuts = (
+  points: PathPoint[],
+  edges: Edge[],
+  options: BuildPathOptions,
+) => {
+  if(points.length < 3) return points;
+
+  let bestPath = points;
+  let bestMetrics = routeConflictMetrics(bestPath, edges);
+  let bestScore = routeScore(bestPath, edges);
+  const start = points[0];
+  const end = points[points.length - 1];
+
+  for(const candidate of shortcutCandidates(start, end)) {
+    const routeCandidate = compactPathPoints(candidate as PathPoint[], true);
+    if(!pathMatchesEndpointDirections(routeCandidate, options)) continue;
+    if(!pathIsAllowed(routeCandidate, options)) continue;
+
+    const candidateMetrics = routeConflictMetrics(routeCandidate, edges);
+    const candidateScore = routeScore(routeCandidate, edges);
+    if(routeIsBetter(candidateMetrics, bestMetrics, candidateScore, bestScore)) {
+      bestPath = routeCandidate;
+      bestMetrics = candidateMetrics;
+      bestScore = candidateScore;
+    }
+  }
+
+  return bestPath;
+};
+
 const simplifyOrthogonalPath = (
   points: PathPoint[],
   edges: Edge[],
@@ -793,7 +892,7 @@ const simplifyOrthogonalPath = (
     }
   }
 
-  return bestPath;
+  return simplifyEndpointShortcuts(bestPath, edges, options);
 };
 
 function getOptionImgXY(option_x: number, option_y:number, node_position_x: number,
@@ -1200,7 +1299,7 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
     );
   //console.log("fromXadapted, fromYadapted", fromXadapted, fromYadapted);
 
-    let fromHandle_prefferedLineDirectionRotated=rotatePrefferedLineDirection(startHandle?.prefferedLineDirection, (fromNode.data as ComponentDataType).rotation);
+    let fromHandle_prefferedLineDirectionRotated=endpointLineDirection(fromNode, startHandle);
 
     const XYpoint1 = getHandleMiddleRealPosition(toNode, toHandleId);
     toX=XYpoint1.x + toNode.position.x + (toNode.data as ComponentDataType).borderWidth;
@@ -1220,7 +1319,7 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
       (toNode.data as ComponentDataType).rotation
     );
 
-    let toHandle_prefferedLineDirectionRotated=rotatePrefferedLineDirection(endHandle?.prefferedLineDirection, (toNode.data as ComponentDataType).rotation);
+    let toHandle_prefferedLineDirectionRotated=endpointLineDirection(toNode, endHandle);
 
     //find path using modified A-Star algorithm (return areas on the matrix)
     const rev1=getPathResult(matrix, x_arr, y_arr, fromNode, toNode, fromXadapted, fromYadapted, toXadapted, toYadapted, fromHandle_prefferedLineDirectionRotated, toHandle_prefferedLineDirectionRotated);
@@ -1246,6 +1345,8 @@ export function findPathBetweenTwoHandles(reactFlow:ReactFlowInstance, fromNodeI
         obstacleRects: rev.obstacleRects,
         sourceNodeId: fromNodeId,
         targetNodeId: toNodeId,
+        sourceDirection: fromHandle_prefferedLineDirectionRotated,
+        targetDirection: toHandle_prefferedLineDirectionRotated,
       },
     );
     //console.log("ConnLine myPath: ", myPath);

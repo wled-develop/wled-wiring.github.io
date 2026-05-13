@@ -369,6 +369,14 @@ function colorStringToRgbString(color: string):  string | undefined {
     return undefined;
   }
 
+  export function rotatePostypeToLineDirection(postype: string | undefined, rotation: number): DirectionType {
+    if(!postype || postype === "centered") return undefined;
+
+    const dirArray = ["left", "up", "right", "down", "left", "up", "right", "down"] as DirectionType[];
+    const dirIndex = (postype === "left") ? 0 : ((postype === "top") ? 1 : ((postype === "right") ? 2 : 3));
+    return dirArray[dirIndex + rotation / 90];
+  }
+
   export function stripCheckAndDivideIfMiddleConnection(reactFlow: ReactFlowInstance, handleAndNodeArray: Array<{thisParamsNodeID:string, thisParamsHandleID:string}>){
     (handleAndNodeArray).map(({thisParamsNodeID, thisParamsHandleID})=>{
     const thisNode=reactFlow.getNode(thisParamsNodeID);

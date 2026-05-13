@@ -9,6 +9,7 @@ import {
 import {
   getHandleMiddleRealPosition,
   postypeToAdjustedXYConn,
+  rotatePostypeToLineDirection,
   rotatePrefferedLineDirection,
 } from './utils_functions';
 
@@ -214,6 +215,17 @@ const nodeIsSolderJoint = (node: Node | undefined) => (
   getNodeData(node)?.technicalID === 'SolderJoint'
 );
 
+const endpointLineDirection = (
+  node: Node,
+  handle: ReturnType<typeof getHandle>,
+) => {
+  if(nodeIsSolderJoint(node)) return undefined;
+
+  const rotation = (node.data as ComponentDataType).rotation;
+  return rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation)
+    ?? rotatePostypeToLineDirection(handle?.postype, rotation);
+};
+
 const distanceBetweenPoints = (a: XYPoint, b: XYPoint) => (
   Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 );
@@ -396,14 +408,8 @@ export const routeWireWithPathfinder = (
 
   const sourceHandle = getHandle(sourceNode, edge.sourceHandle);
   const targetHandle = getHandle(targetNode, edge.targetHandle);
-  const sourceDirection = rotatePrefferedLineDirection(
-    sourceHandle?.prefferedLineDirection,
-    (sourceNode.data as ComponentDataType).rotation,
-  );
-  const targetDirection = rotatePrefferedLineDirection(
-    targetHandle?.prefferedLineDirection,
-    (targetNode.data as ComponentDataType).rotation,
-  );
+  const sourceDirection = endpointLineDirection(sourceNode, sourceHandle);
+  const targetDirection = endpointLineDirection(targetNode, targetHandle);
   const {x_arr, y_arr, matrix, obstacleRects} = createMatrix(nodes);
   const pathResult = getPathResult(
     matrix,
@@ -434,6 +440,8 @@ export const routeWireWithPathfinder = (
       obstacleRects,
       sourceNodeId: sourceNode.id,
       targetNodeId: targetNode.id,
+      sourceDirection,
+      targetDirection,
     },
   );
   const edgeData = edge.data as EdgeDataType | undefined;

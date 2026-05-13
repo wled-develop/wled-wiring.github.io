@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { ConnectionLineComponentProps, useConnection, useReactFlow} from '@xyflow/react';
 import { ComponentDataType, edgePoint, DirectionType} from '../types';
 
-import {postypeToAdjustedXYConn, getNearestEdgePoint, nearestPoint, rotatePrefferedLineDirection} from "../utils/utils_functions.ts";
+import {postypeToAdjustedXYConn, getNearestEdgePoint, nearestPoint, rotatePostypeToLineDirection, rotatePrefferedLineDirection} from "../utils/utils_functions.ts";
 
 import {createMatrix, getPathResult, buildPath, useZustandStore} from "../utils/pathfinder_functions.ts";
 
@@ -65,7 +65,10 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
     );
   //console.log(fromXadapted, fromYadapted);
 
-  let fromHandle_prefferedLineDirectionRotated=rotatePrefferedLineDirection(sourceHandle?.prefferedLineDirection, fromNodeData.rotation);
+  let fromHandle_prefferedLineDirectionRotated=fromNodeData.technicalID==="SolderJoint"
+    ? undefined
+    : rotatePrefferedLineDirection(sourceHandle?.prefferedLineDirection, fromNodeData.rotation)
+      ?? rotatePostypeToLineDirection(sourceHandle?.postype, fromNodeData.rotation);
   let toHandle_prefferedLineDirectionRotated=undefined as DirectionType;
 
   if(connection.toNode) {
@@ -84,7 +87,10 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
       targetHandle?.height || 0,
       toNodeData.rotation
     );
-    toHandle_prefferedLineDirectionRotated=rotatePrefferedLineDirection(targetHandle?.prefferedLineDirection, toNodeData.rotation);
+    toHandle_prefferedLineDirectionRotated=toNodeData.technicalID==="SolderJoint"
+      ? undefined
+      : rotatePrefferedLineDirection(targetHandle?.prefferedLineDirection, toNodeData.rotation)
+        ?? rotatePostypeToLineDirection(targetHandle?.postype, toNodeData.rotation);
   }
 
   let retval={pType: undefined, x:0, y:0, edgeID:"",  segmentNumber: 0, distance: 1000,  color: ""} as nearestPoint;
@@ -165,6 +171,8 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
         obstacleRects: rev.obstacleRects,
         sourceNodeId: connection.fromNode?.id,
         targetNodeId: connection.toNode?.id,
+        sourceDirection: fromHandle_prefferedLineDirectionRotated,
+        targetDirection: toHandle_prefferedLineDirectionRotated,
       },
     );
     //console.log("ConnLine myPath: ", myPath);
