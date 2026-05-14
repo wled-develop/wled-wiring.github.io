@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useReactFlow } from '@xyflow/react';
-import { Alert, Button, Collapse, Empty, Flex, List, Space, Tag, Typography, theme, type CollapseProps } from 'antd';
-import { SafetyCertificateOutlined } from '@ant-design/icons';
+import { Alert, Button, Collapse, Empty, Flex, List, Modal, Space, Tag, Typography, theme, type CollapseProps } from 'antd';
+import { SafetyCertificateOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import type { CheckNet } from '../check/checkContext';
 import { createDiagramCheckContextFromJson, runDiagramCheck } from '../check/runDiagramCheck';
 import type { DiagramCheckIssue, DiagramCheckSeverity, DiagramCheckTarget } from '../check/diagramCheckTypes';
 import { createDiagramExportJson } from '../utils/exportModel';
+import { getDiagramCheckRuleInfos } from '../check/rules';
 
 const severityColor: Record<DiagramCheckSeverity, string> = {
   error: 'red',
@@ -60,6 +61,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   const [issues, setIssues] = useState<DiagramCheckIssue[] | null>(null);
   const [netDebugNets, setNetDebugNets] = useState<CheckNet[] | null>(null);
   const [activeIssueKeys, setActiveIssueKeys] = useState<string[]>([]);
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const previousLanguageRef = useRef(i18n.resolvedLanguage);
 
   const clearHighlights = useCallback(() => {
@@ -195,6 +197,34 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     }))
   ), [issues, t, token.colorBorder]);
 
+  const ruleInfos = getDiagramCheckRuleInfos();
+  const ruleInfoItems: CollapseProps['items'] = ruleInfos.map((rule) => ({
+    key: rule.id,
+    label: (
+      <Space size={6} align="start">
+        <Typography.Text strong>{rule.title}</Typography.Text>
+        <Tag>{rule.checks.length}</Tag>
+      </Space>
+    ),
+    children: (
+      <Flex gap="small" vertical>
+        <Typography.Text type="secondary">{rule.description}</Typography.Text>
+        <List
+          size="small"
+          dataSource={rule.checks}
+          renderItem={(check) => (
+            <List.Item>
+              <Flex gap={2} vertical>
+                <Typography.Text>{check.title}</Typography.Text>
+                <Typography.Text type="secondary">{check.description}</Typography.Text>
+              </Flex>
+            </List.Item>
+          )}
+        />
+      </Flex>
+    ),
+  }));
+
   const netDebugItems: CollapseProps['items'] = useMemo(() => (
     netDebugNets?.map((net) => ({
       key: net.id,
@@ -259,7 +289,33 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
         showIcon
         message={t('sidebar.check.betaNoticeTitle')}
         description={t('sidebar.check.betaNoticeDescription')}
+        action={
+          <Button
+            size="small"
+            icon={<UnorderedListOutlined />}
+            onClick={() => setRulesModalOpen(true)}
+          >
+            {t('sidebar.check.rulesButton')}
+          </Button>
+        }
       />
+
+      <Modal
+        title={t('sidebar.check.rulesModalTitle')}
+        open={rulesModalOpen}
+        onCancel={() => setRulesModalOpen(false)}
+        footer={null}
+      >
+        <Flex gap="small" vertical>
+          <Typography.Text type="secondary">
+            {t('sidebar.check.rulesModalDescription')}
+          </Typography.Text>
+          <Collapse
+            defaultActiveKey={ruleInfos.map((rule) => rule.id)}
+            items={ruleInfoItems}
+          />
+        </Flex>
+      </Modal>
 
       <Button
         type="primary"

@@ -42,8 +42,7 @@
                     "selectMulti":  "multiple select",
                     "deleteSelected":  "delete selected",
                     "componentInfo":  "Component info",
-                    "switchConnLineType":  "change connection type",
-                    "switchConnLineTypeHINT":  "TIP: change connection type"
+                    "switchConnLineType":  "change connection type"
                 },
     "popover":  {
                     "selectWireLength":  "Select wire length (physically):",
@@ -105,7 +104,10 @@
                                   "betaNoticeDescription":  "This diagram check is still under development. Issue detection may be incomplete or incorrect.",
                                   "notChecked":  "No check has been run yet.",
                                   "noIssuesTitle":  "No issues found",
-                                  "noIssuesDescription":  "The current placeholder check did not find any hints.",
+                                  "noIssuesDescription":  "The current diagram check did not find any issues.",
+                                  "rulesButton":  "Rules",
+                                  "rulesModalTitle":  "Applied check rules",
+                                  "rulesModalDescription":  "These rules are currently applied when checking the wiring diagram.",
                                   "issueCount":  "{{count}} result(s) found",
                                   "recommendation":  "Recommendation",
                                   "affectedElements":  "Affected elements",
@@ -140,6 +142,10 @@
                                                            "line":  "line",
                                                            "neutral":  "neutral",
                                                            "pe":  "PE"
+                                                       },
+                                  "rulePlaceholders":  {
+                                                           "signal":  "signal",
+                                                           "mainsInput":  "mains"
                                                        },
                                   "issues":  {
                                                  "diagramEmpty":  {

@@ -11,7 +11,19 @@ export type DiagramCheckRule = {
   id: string;
   title: string;
   description: string;
+  issueKeys: string[];
   check: (context: DiagramCheckContext) => DiagramCheckIssue[];
+};
+
+export type DiagramCheckRuleInfo = {
+  id: string;
+  title: string;
+  description: string;
+  checks: {
+    id: string;
+    title: string;
+    description: string;
+  }[];
 };
 
 type TranslationValues = Record<string, number | string | undefined>;
@@ -30,6 +42,32 @@ const issueText = (
   field: 'title' | 'shortDescription' | 'description' | 'recommendation',
   values?: TranslationValues,
 ) => checkText(`rules.${ruleId}.issues.${issueKey}.${field}`, values);
+
+const ruleOverviewValues = (issueKey: string): TranslationValues | undefined => {
+  if(issueKey === 'signalSinkWithoutSource' || issueKey === 'multipleSignalSources') {
+    return {signal: checkText('rulePlaceholders.signal')};
+  }
+
+  if(issueKey === 'mainsInputMissing') {
+    return {label: checkText('rulePlaceholders.mainsInput')};
+  }
+
+  return undefined;
+};
+
+const ruleInfo = (rule: DiagramCheckRule): DiagramCheckRuleInfo => ({
+  id: rule.id,
+  title: rule.title,
+  description: rule.description,
+  checks: rule.issueKeys.map((issueKey) => {
+    const values = ruleOverviewValues(issueKey);
+    return {
+      id: `${rule.id}.${issueKey}`,
+      title: issueText(rule.id, issueKey, 'title', values),
+      description: issueText(rule.id, issueKey, 'shortDescription', values),
+    };
+  }),
+});
 
 const nodeTarget = (node: Node<ComponentDataType>): DiagramCheckTarget => ({
   type: 'node',
@@ -835,12 +873,36 @@ export const diagramCheckRules: DiagramCheckRule[] = [
     id: 'network-rules',
     get title() { return ruleText('network-rules', 'title'); },
     get description() { return ruleText('network-rules', 'description'); },
+    issueKeys: [
+      'groundMissing',
+      'groundMultiple',
+      'mainsLowVoltageMixed',
+      'peActiveMixed',
+      'rs485Mixed',
+      'mixedClassifications',
+      'multipleSupplySources',
+      'signalSinkWithoutSource',
+      'digitalSignalVoltageMismatch',
+      'multipleSignalSources',
+      'supplyInputWithoutSource',
+      'supplySourceWithoutConsumer',
+      'supplyVoltageMismatch',
+    ],
     check: runNetworkRules,
   },
   {
     id: 'component-rules',
     get title() { return ruleText('component-rules', 'title'); },
     get description() { return ruleText('component-rules', 'description'); },
+    issueKeys: [
+      'requiredPinUnconnected',
+      'groundMissing',
+      'powerMissing',
+      'mainsInputMissing',
+      'sn74Ahct125nUsedChannelInputMissing',
+    ],
     check: runComponentRules,
   },
 ];
+
+export const getDiagramCheckRuleInfos = () => diagramCheckRules.map(ruleInfo);

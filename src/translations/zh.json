@@ -42,8 +42,7 @@
                     "selectMulti":  "多选",
                     "deleteSelected":  "删除选中项",
                     "componentInfo":  "组件信息",
-                    "switchConnLineType":  "更改连接类型",
-                    "switchConnLineTypeHINT":  "提示：更改连接类型"
+                    "switchConnLineType":  "更改连接类型"
                 },
     "popover":  {
                     "selectWireLength":  "选择导线长度（物理尺寸）：",
@@ -105,7 +104,10 @@
                                   "betaNoticeDescription":  "This diagram check is still under development. Issue detection may be incomplete or incorrect.",
                                   "notChecked":  "No check has been run yet.",
                                   "noIssuesTitle":  "No issues found",
-                                  "noIssuesDescription":  "The current placeholder check did not find any hints.",
+                                  "noIssuesDescription":  "当前图纸检查未发现任何问题。",
+                                  "rulesButton":  "规则",
+                                  "rulesModalTitle":  "已应用的检查规则",
+                                  "rulesModalDescription":  "检查布线图时当前会应用以下规则。",
                                   "issueCount":  "{{count}} result(s) found",
                                   "recommendation":  "Recommendation",
                                   "affectedElements":  "Affected elements",
@@ -140,6 +142,10 @@
                                                            "line":  "火线",
                                                            "neutral":  "零线",
                                                            "pe":  "PE"
+                                                       },
+                                  "rulePlaceholders":  {
+                                                           "signal":  "信号",
+                                                           "mainsInput":  "市电"
                                                        },
                                   "issues":  {
                                                  "diagramEmpty":  {

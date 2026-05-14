@@ -758,6 +758,10 @@ export const rotateComponentWires = ({
     pathFindingEnabled
   );
 
+  if(!pathFindingEnabled) {
+    return edges;
+  }
+
   if(pathfinderActive) {
     let workingEdges = [...edges];
     const affectedEdgeIds = edges

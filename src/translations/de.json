@@ -42,8 +42,7 @@
                     "selectMulti":  "Mehrfachauswahl",
                     "deleteSelected":  "Auswahl löschen",
                     "componentInfo":  "Komponenten-Info anzeigen",
-                    "switchConnLineType":  "Verbindungstyp umschalten",
-                    "switchConnLineTypeHINT":  "TIPP: Verbindungstyp umschalten"
+                    "switchConnLineType":  "Verbindungstyp umschalten"
                 },
     "popover":  {
                     "selectWireLength":  "Kabellänge auswählen (physikalisch):",
@@ -105,7 +104,10 @@
                                   "betaNoticeDescription":  "Diese Diagrammpruefung ist noch in Entwicklung. Fehlerkennungen koennen unvollstaendig oder falsch sein.",
                                   "notChecked":  "Noch keine Pruefung ausgefuehrt.",
                                   "noIssuesTitle":  "Keine Probleme gefunden",
-                                  "noIssuesDescription":  "Die aktuelle Platzhalter-Pruefung hat keine Hinweise gefunden.",
+                                  "noIssuesDescription":  "Die aktuelle Diagrammpruefung hat keine Hinweise gefunden.",
+                                  "rulesButton":  "Regeln",
+                                  "rulesModalTitle":  "Verwendete Pruefregeln",
+                                  "rulesModalDescription":  "Diese Regeln werden aktuell bei der Diagrammpruefung angewendet.",
                                   "issueCount":  "{{count}} Ergebnis(se) gefunden",
                                   "recommendation":  "Empfehlung",
                                   "affectedElements":  "Betroffene Elemente",
@@ -140,6 +142,10 @@
                                                            "line":  "Line",
                                                            "neutral":  "Neutral",
                                                            "pe":  "PE"
+                                                       },
+                                  "rulePlaceholders":  {
+                                                           "signal":  "Signal",
+                                                           "mainsInput":  "Netzspannungs"
                                                        },
                                   "issues":  {
                                                  "diagramEmpty":  {

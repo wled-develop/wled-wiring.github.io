@@ -847,18 +847,6 @@ const FlowApp = () => {
                   title={t('tooltip.switchConnLineType')}
                 >
                   {PFEnabled?<ConnectionPFIcon/>:<ConnectionIcon/>}
-                  { nodes.length === 0 && 
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 30,
-                        whiteSpace: "nowrap",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      &larr; {t('tooltip.switchConnLineTypeHINT')}
-                    </div>
-                  }
                 </ControlButton>
               </Controls>
 
