@@ -45,11 +45,108 @@ export type ComponentSimulationElementType =
   | "digitalLed"
   | "dcdcConverter";
 
-export type ComponentSimulationElementUse = {
+type ComponentSimulationElementBase<
+  TypeName extends ComponentSimulationElementType,
+  Terminals extends Record<string, string>,
+  Parameters extends Record<string, SimulationParameterRef> | undefined,
+> = {
   id: string;
-  type: ComponentSimulationElementType;
-  terminals: Record<string, string>;
-  parameters?: Record<string, SimulationParameterRef>;
+  type: TypeName;
+  terminals: Terminals;
+} & (Parameters extends undefined ? {parameters?: undefined} : {parameters: Parameters});
+
+export type ResistorSimulationElementUse = ComponentSimulationElementBase<
+  "resistor",
+  {a: string; b: string},
+  {resistanceOhm: SimulationParameterRef}
+>;
+
+export type ShortBridgeSimulationElementUse = ComponentSimulationElementBase<
+  "shortBridge",
+  {a: string; b: string},
+  undefined
+>;
+
+export type VoltageSourceSimulationElementUse = ComponentSimulationElementBase<
+  "voltageSource",
+  {positive: string; negative: string},
+  {
+    voltageV: SimulationParameterRef;
+    currentLimitA: SimulationParameterRef;
+    voltageDropPctAt150Current?: SimulationParameterRef;
+  }
+>;
+
+export type CurrentSourceSimulationElementUse = ComponentSimulationElementBase<
+  "currentSource",
+  {positive: string; negative: string},
+  {currentA: SimulationParameterRef}
+>;
+
+export type ConstantPowerSinkSimulationElementUse = ComponentSimulationElementBase<
+  "constantPowerSink",
+  {positive: string; negative: string},
+  {
+    powerW: SimulationParameterRef;
+    minVoltageV?: SimulationParameterRef;
+  }
+>;
+
+export type FuseSimulationElementUse = ComponentSimulationElementBase<
+  "fuse",
+  {a: string; b: string},
+  {
+    resistanceOhm: SimulationParameterRef;
+    nominalCurrentA?: SimulationParameterRef;
+  }
+>;
+
+export type DigitalLedSimulationElementUse = ComponentSimulationElementBase<
+  "digitalLed",
+  {supplyIn: string; supplyOut: string; gndIn: string; gndOut: string},
+  {
+    supplyResistanceOhm: SimulationParameterRef;
+    gndResistanceOhm: SimulationParameterRef;
+    ledType: SimulationParameterRef;
+    ledsPerMeter: SimulationParameterRef;
+    currentLookup: SimulationParameterRef;
+  }
+>;
+
+export type DcdcConverterSimulationElementUse = ComponentSimulationElementBase<
+  "dcdcConverter",
+  {
+    inPositive: string;
+    inNegative: string;
+    outPositive: string;
+    outNegative: string;
+  },
+  {
+    outputVoltageV: SimulationParameterRef;
+    efficiency: SimulationParameterRef;
+    outputCurrentLimitA?: SimulationParameterRef;
+    voltageDropPctAt150Current?: SimulationParameterRef;
+  }
+>;
+
+export type ComponentSimulationElementUse =
+  | ResistorSimulationElementUse
+  | ShortBridgeSimulationElementUse
+  | VoltageSourceSimulationElementUse
+  | CurrentSourceSimulationElementUse
+  | ConstantPowerSinkSimulationElementUse
+  | FuseSimulationElementUse
+  | DigitalLedSimulationElementUse
+  | DcdcConverterSimulationElementUse;
+
+export type ComponentSimulationElementTerminalMap = ComponentSimulationElementUse["terminals"];
+
+export type ComponentSimulationElementParameterMap = NonNullable<
+  ComponentSimulationElementUse["parameters"]
+>;
+
+export type ComponentSimulationElementUseByType = {
+  [ElementUse in ComponentSimulationElementUse as ElementUse["type"]]: ElementUse;
 };
 
 export type ComponentSimulationDefinition = {
