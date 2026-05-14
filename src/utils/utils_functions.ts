@@ -242,7 +242,7 @@ function colorStringToRgbString(color: string):  string | undefined {
     return [Math.round(sourceXadjusted/ROUNDN)*ROUNDN, Math.round(sourceYadjusted/ROUNDN)*ROUNDN];
   }
 
-  // for connection different function, sinc eit always starts in the middle pr default
+  // for connection different function, since it always starts in the middle per default
    export function postypeToAdjustedXYConn(postype: string, sourceX:number, sourceY:number, handleWidth:number, handleHeight:number, rotation:number) {
     const ROUNDN=1;
     let sourceXadjusted=sourceX;

@@ -8,23 +8,54 @@ import {createMatrix, getPathResult, buildPath, endpointLineDirection, useZustan
 
 import {GridNode} from "../utils/astar.ts";
 
+const sameNumber = (a: number | undefined, b: number | undefined) => (
+  Object.is(a, b)
+);
+
 const sameNearestPoint = (a: nearestPoint, b: nearestPoint) => (
   a.pType === b.pType &&
-  a.x === b.x &&
-  a.y === b.y &&
+  sameNumber(a.x, b.x) &&
+  sameNumber(a.y, b.y) &&
   a.edgeID === b.edgeID &&
   a.segmentNumber === b.segmentNumber &&
-  a.distance === b.distance &&
+  sameNumber(a.distance, b.distance) &&
   a.color === b.color
 );
 
 const sameEdgePoints = (a: edgePoint[], b: edgePoint[]) => (
   a.length === b.length &&
   a.every((point, index) => (
-    point.x === b[index].x &&
-    point.y === b[index].y &&
+    sameNumber(point.x, b[index].x) &&
+    sameNumber(point.y, b[index].y) &&
     point.active === b[index].active
   ))
+);
+
+const edgePointsKey = (points: edgePoint[]) => (
+  points
+    .map((point) => `${String(point.x)}:${String(point.y)}:${String(point.active)}`)
+    .join('|')
+);
+
+const numberFromKey = (value: string) => (
+  value === 'NaN' ? NaN : Number(value)
+);
+
+const activeFromKey = (value: string) => (
+  value === 'undefined' ? undefined : Number(value)
+);
+
+const edgePointsFromKey = (key: string) => (
+  key === ''
+    ? []
+    : key.split('|').map((pointKey) => {
+      const [x, y, active] = pointKey.split(':');
+      return {
+        x: numberFromKey(x),
+        y: numberFromKey(y),
+        active: activeFromKey(active),
+      } as edgePoint;
+    })
 );
 
 
@@ -185,10 +216,10 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
     }
   }
 
-  const edgePointsSignature = JSON.stringify(edgePoints);
+  const edgePointsSignature = edgePointsKey(edgePoints);
 
   useEffect(() => {
-      const edgePointsForStore = JSON.parse(edgePointsSignature) as edgePoint[];
+      const edgePointsForStore = edgePointsFromKey(edgePointsSignature);
 
       useZustandStore.setState((state) => {
         if (sameEdgePoints(state.edgePoints, edgePointsForStore)) {
@@ -223,28 +254,28 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
         d={`M${fromXadapted},${fromYadapted} L ${toXadapted},${toYadapted}`}
       />
       }
-      {DEBUGMODE && x_arr.map((x)=>{
-        return <line x1={String(x)} y1={String(y_arr[0])} x2={String(x)} y2={String(y_arr[y_arr.length-1])} stroke="red" strokeWidth="0.5"/>;
+      {DEBUGMODE && x_arr.map((x, index)=>{
+        return <line key={`debug-x-${index}-${x}`} x1={String(x)} y1={String(y_arr[0])} x2={String(x)} y2={String(y_arr[y_arr.length-1])} stroke="red" strokeWidth="0.5"/>;
       })
       }
-      {DEBUGMODE && y_arr.map((y)=>{
-        return <line x1={String(x_arr[0])} y1={String(y)} x2={String(x_arr[x_arr.length-1])} y2={String(y)} stroke="red" strokeWidth="0.5"/>;
+      {DEBUGMODE && y_arr.map((y, index)=>{
+        return <line key={`debug-y-${index}-${y}`} x1={String(x_arr[0])} y1={String(y)} x2={String(x_arr[x_arr.length-1])} y2={String(y)} stroke="red" strokeWidth="0.5"/>;
       })
       }
       {
         DEBUGMODE && matrix[0].map((_, row_index) => {
           return matrix.map((_, col_index) => {
             if (matrix[col_index][row_index]==0) {
-            return <rect width={x_arr[col_index+1]-x_arr[col_index]} height={y_arr[row_index+1]-y_arr[row_index]} x={x_arr[col_index]} y={y_arr[row_index]} rx="0" ry="0" fill="blue" fillOpacity="0.2"/>
+            return <rect key={`debug-matrix-${col_index}-${row_index}`} width={x_arr[col_index+1]-x_arr[col_index]} height={y_arr[row_index+1]-y_arr[row_index]} x={x_arr[col_index]} y={y_arr[row_index]} rx="0" ry="0" fill="blue" fillOpacity="0.2"/>
             } else {
-              return <></>
+              return null
             }
           })
         })
       }
       { DEBUGMODE && result &&
-        result.map((obj)=>{
-          return <rect width={x_arr[obj.x+1]-x_arr[obj.x]} height={y_arr[obj.y+1]-y_arr[obj.y]} x={x_arr[obj.x]} y={y_arr[obj.y]} rx="0" ry="0" fill="green" fillOpacity="0.2"/>
+        result.map((obj, index)=>{
+          return <rect key={`debug-result-${index}-${obj.x}-${obj.y}`} width={x_arr[obj.x+1]-x_arr[obj.x]} height={y_arr[obj.y+1]-y_arr[obj.y]} x={x_arr[obj.x]} y={y_arr[obj.y]} rx="0" ry="0" fill="green" fillOpacity="0.2"/>
         })
       }
       { DEBUGMODE && <rect width={x_arr[start_matrix_index_x+1]-x_arr[start_matrix_index_x]} height={y_arr[start_matrix_index_y+1]-y_arr[start_matrix_index_y]} x={x_arr[start_matrix_index_x]} y={y_arr[start_matrix_index_y]} rx="0" ry="0" fill="black" fillOpacity="0.4"/>

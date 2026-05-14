@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from 'react';
+import {useState, useEffect, useRef, useCallback} from 'react';
 
 import {
   EdgeProps,
@@ -1383,7 +1383,9 @@ export default function EditableWire ({
     })));
   };
 
-  const clearSelectedWireNetwork = () => {
+
+
+  const clearSelectedWireNetwork = useCallback(() => {
     setSelectedNetworkEdgeIds(null);
     reactFlowInstance.setNodes((nodes) => nodes.map((node) => (
       node.data.checkHighlighted
@@ -1407,7 +1409,7 @@ export default function EditableWire ({
         }
         : edge
     )));
-  };
+  }, [setSelectedNetworkEdgeIds, reactFlowInstance]);
 
   const getSolderJointHandleIdsForEdges = (
     nodes: Node<ComponentDataType>[],
@@ -1691,7 +1693,7 @@ export default function EditableWire ({
     if(!selected && selectedNetworkEdgeIds) {
       clearSelectedWireNetwork();
     }
-  }, [selected, selectedNetworkEdgeIds]);
+  }, [selected, selectedNetworkEdgeIds, clearSelectedWireNetwork]);
 
   useEffect(() => () => {
     if(segmentDragRef.current) {

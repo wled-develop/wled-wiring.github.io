@@ -257,7 +257,6 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
             nodes: reactFlowInstance.getNodes(),
             edges,
             nodeId: id,
-            oldRotation: rotation,
             newRotation,
             pathFindingEnabled: useZustandStore.getState().pathFindingEnabled,
         }));
