@@ -2,9 +2,17 @@ import { useEffect } from 'react';
 import { ConnectionLineComponentProps, useConnection, useReactFlow} from '@xyflow/react';
 import { ComponentDataType, edgePoint, DirectionType} from '../types';
 
-import {postypeToAdjustedXYConn, getNearestEdgePoint, nearestPoint} from "../utils/utils_functions.ts";
+import {postypeToAdjustedXYConn, getNearestEdgePoint, nearestPoint, getRenderedWireEndpoint} from "../utils/utils_functions.ts";
 
-import {createMatrix, getPathResult, buildPath, endpointLineDirection, useZustandStore} from "../utils/pathfinder_functions.ts";
+import {
+  createMatrix,
+  getPathResult,
+  buildPath,
+  endpointLineDirection,
+  useZustandStore,
+  normalizePathfinderWireRoute,
+  findNonOrthogonalPathfinderRouteSegments,
+} from "../utils/pathfinder_functions.ts";
 
 import {GridNode} from "../utils/astar.ts";
 
@@ -94,6 +102,11 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
       sourceHandle?.height || 0,
       fromNodeData.rotation
     );
+  const renderedSourceEndpoint = getRenderedWireEndpoint(connection.fromNode ?? undefined, fromHandleId);
+  if(renderedSourceEndpoint) {
+    fromXadapted = renderedSourceEndpoint.x;
+    fromYadapted = renderedSourceEndpoint.y;
+  }
   //console.log(fromXadapted, fromYadapted);
 
   let fromHandle_prefferedLineDirectionRotated=endpointLineDirection(connection.fromNode ?? undefined, sourceHandle, fromXadapted, fromYadapted);
@@ -115,6 +128,11 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
       targetHandle?.height || 0,
       toNodeData.rotation
     );
+    const renderedTargetEndpoint = getRenderedWireEndpoint(connection.toNode ?? undefined, toHandleId);
+    if(renderedTargetEndpoint) {
+      toXadapted = renderedTargetEndpoint.x;
+      toYadapted = renderedTargetEndpoint.y;
+    }
     toHandle_prefferedLineDirectionRotated=endpointLineDirection(connection.toNode ?? undefined, targetHandle, toXadapted, toYadapted);
   }
 
@@ -200,19 +218,35 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
         targetDirection: toHandle_prefferedLineDirectionRotated,
       },
     );
+    const route = normalizePathfinderWireRoute(
+      {x: fromXadapted, y: fromYadapted},
+      {x: toXadapted, y: toYadapted},
+      myPath.slice(1, -1).map((point) => ({x: point.x, y: point.y})),
+      fromHandle_prefferedLineDirectionRotated,
+      toHandle_prefferedLineDirectionRotated,
+    );
+    const routeDiagnostics = findNonOrthogonalPathfinderRouteSegments(route);
+    if(import.meta.env.DEV && routeDiagnostics.length>0) {
+      console.warn('[wire-routing] non-orthogonal connection preview route', routeDiagnostics);
+    }
+    const normalizedPath = [
+      route.startXY,
+      ...route.edgePoints.map((point) => ({x: point.x, y: point.y})),
+      route.endXY,
+    ];
     //console.log("ConnLine myPath: ", myPath);
 
     // build PathStroke for ConnectionLine
-    myPathStroke=`M${myPath[0].x},${myPath[0].y}`;
-    for(let i=1; i<myPath.length; i++) {
-      myPathStroke=myPathStroke+` L${myPath[i].x},${myPath[i].y}`
+    myPathStroke=`M${normalizedPath[0].x},${normalizedPath[0].y}`;
+    for(let i=1; i<normalizedPath.length; i++) {
+      myPathStroke=myPathStroke+` L${normalizedPath[i].x},${normalizedPath[i].y}`
     }
 
     // build edgePoints array that will be passed to the edge Constructor on onConnectEnd
-    if(myPath.length>2) {
-      for(let i=1; i<myPath.length-1; i++) {
-        edgePoints.push({x:myPath[i].x, y:myPath[i].y});
-      }
+    if(route.edgePoints.length>0) {
+      route.edgePoints.forEach((point) => {
+        edgePoints.push(point);
+      });
     }
   }
 

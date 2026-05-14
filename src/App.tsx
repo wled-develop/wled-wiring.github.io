@@ -12,7 +12,12 @@ import Sidebar from './sidebar/Sidebar';
 import { ComponentDragPreviewLayer } from './sidebar/ComponentDragPreviewLayer.tsx';
 import type { SidebarComponentDragItem } from './sidebar/dragTypes.ts';
 import { getAdaptedBounds } from './utils/utils_functions.ts';
-import { useZustandStore } from './utils/pathfinder_functions.ts';
+import {
+  endpointLineDirection,
+  findNonOrthogonalPathfinderRouteSegments,
+  normalizePathfinderWireRoute,
+  useZustandStore,
+} from './utils/pathfinder_functions.ts';
 import ConnectionLine from './wires/ConnectionLine.tsx';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from './utils/componentTemplateUpdates.ts';
 import { collapseMergeableSolderJoints, collapseMergeableSolderJointsAfterWireDelete } from './utils/wireMerge.ts';
@@ -28,7 +33,7 @@ import {
   type DiagramSnapshot,
 } from './utils/undoRedo.tsx';
 
-import {postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
+import {getRenderedWireEndpoint, postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
 
 import { SolderJoint } from './components/ComponentTypes/SolderJoint.ts';
 
@@ -287,6 +292,44 @@ const FlowApp = () => {
       const width = sourceHandle?.prefferedLineWidth || 2;
 
       const edgePoints=useZustandStore.getState().edgePoints;
+      const targetNodeForRoute=connectionState.toNode ?? reactFlow.getNode(params.target);
+      const targetNodeDataForRoute=targetNodeForRoute?.data as ComponentDataType | undefined;
+      let targetHandle=targetNodeDataForRoute?.handles?.find((handleData)=>(handleData.hid===connectionState.toHandle?.id));
+      if(!targetHandle) {
+        targetHandle=targetNodeDataForRoute?.repeatedHandleArray?.find((handleData)=>(handleData.hid===connectionState.toHandle?.id));
+      }
+      const renderedSourceEndpoint = getRenderedWireEndpoint(sourceNode ?? undefined, connectionState.fromHandle?.id);
+      const renderedTargetEndpoint = getRenderedWireEndpoint(targetNodeForRoute ?? undefined, connectionState.toHandle?.id);
+      const sourceDirection = renderedSourceEndpoint
+        ? endpointLineDirection(sourceNode ?? undefined, sourceHandle, renderedSourceEndpoint.x, renderedSourceEndpoint.y)
+        : undefined;
+      const targetDirection = renderedTargetEndpoint
+        ? endpointLineDirection(targetNodeForRoute ?? undefined, targetHandle, renderedTargetEndpoint.x, renderedTargetEndpoint.y)
+        : undefined;
+      const pathfinderRoute = PFEnabled && renderedSourceEndpoint && renderedTargetEndpoint
+        ? normalizePathfinderWireRoute(
+          renderedSourceEndpoint,
+          renderedTargetEndpoint,
+          edgePoints,
+          sourceDirection,
+          targetDirection,
+        )
+        : undefined;
+      if(import.meta.env.DEV && pathfinderRoute) {
+        const diagnostics = findNonOrthogonalPathfinderRouteSegments(pathfinderRoute);
+        if(diagnostics.length>0) {
+          console.warn('[wire-routing] non-orthogonal created connection route', diagnostics);
+        }
+      }
+      const edgeRouteData = pathfinderRoute
+        ? {
+          edgePoints: pathfinderRoute.edgePoints,
+          startXY: pathfinderRoute.startXY,
+          endXY: pathfinderRoute.endXY,
+        }
+        : {
+          edgePoints: PFEnabled ? edgePoints : [],
+        };
       // define wire (in reactflow called "edge")
       setEdges(
         (edges) => {
@@ -298,7 +341,7 @@ const FlowApp = () => {
           const edg = addEdge({...params, type: "editable-wire-type", selected: false,
             zIndex: (maxZIndex?maxZIndex:0)+1, id: String((maxZIndex?maxZIndex:0)+1),
             data: {
-              edgePoints: edgePoints,
+              ...edgeRouteData,
               color: color,
               color_selected:
               color, 
@@ -358,7 +401,7 @@ const FlowApp = () => {
       }
       let fromXadapted=fromX;
       let fromYadapted=fromY; 
-    [fromXadapted, fromYadapted] = postypeToAdjustedXYConn(
+      [fromXadapted, fromYadapted] = postypeToAdjustedXYConn(
           (sourceHandle?.postype || "left"),
           fromX,
           fromY,
@@ -366,6 +409,11 @@ const FlowApp = () => {
           sourceHandle?.height || 0,
           fromNodeData.rotation
         );
+      const renderedSourceEndpoint = getRenderedWireEndpoint(connectionState.fromNode ?? undefined, fromHandleId);
+      if(renderedSourceEndpoint) {
+        fromXadapted=renderedSourceEndpoint.x;
+        fromYadapted=renderedSourceEndpoint.y;
+      }
       
       const retval=useZustandStore.getState().nearestPoint;   
       const edgePoints=useZustandStore.getState().edgePoints;
@@ -423,8 +471,24 @@ const FlowApp = () => {
         (veryNewEdge.data as EdgeDataType).edgePoints=[];
         veryNewEdge.source=connectionState.fromNode?.id || "";
         veryNewEdge.sourceHandle=connectionState.fromHandle?.id || "";
-        (veryNewEdge.data as EdgeDataType).startXY={x:fromXadapted, y:fromYadapted};
-        (veryNewEdge.data as EdgeDataType).edgePoints=edgePoints;
+        const sourceDirection = endpointLineDirection(
+          connectionState.fromNode ?? undefined,
+          sourceHandle,
+          fromXadapted,
+          fromYadapted,
+        );
+        const routeToWire = PFEnabled
+          ? normalizePathfinderWireRoute(
+            {x:fromXadapted, y:fromYadapted},
+            {x:retval.x, y:retval.y},
+            edgePoints,
+            sourceDirection,
+            undefined,
+          )
+          : undefined;
+        (veryNewEdge.data as EdgeDataType).startXY=routeToWire?.startXY ?? {x:fromXadapted, y:fromYadapted};
+        (veryNewEdge.data as EdgeDataType).endXY=routeToWire?.endXY ?? {x:retval.x, y:retval.y};
+        (veryNewEdge.data as EdgeDataType).edgePoints=routeToWire?.edgePoints ?? edgePoints;
         setEdges((edg)=>edg.concat(veryNewEdge));
 
         handleAndNodeArray=[
@@ -436,7 +500,7 @@ const FlowApp = () => {
 
     stripCheckAndDivideIfMiddleConnection(reactFlow, handleAndNodeArray);
 
-  }, [setNodes, setEdges, reactFlow, undoRedo]);
+  }, [PFEnabled, setNodes, setEdges, reactFlow, undoRedo]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds1) => {

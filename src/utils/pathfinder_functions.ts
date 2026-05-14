@@ -147,6 +147,12 @@ type BuildPathOptions = {
   targetDirection?: DirectionType;
 };
 
+export type PathfinderWireRoute = {
+  startXY: XYPoint;
+  endXY: XYPoint;
+  edgePoints: edgePoint[];
+};
+
 const EPSILON = 0.001;
 const ROUTE_LENGTH_WEIGHT = 0.01;
 const ROUTE_CORNER_PENALTY = 30;
@@ -945,6 +951,148 @@ const simplifyOrthogonalPath = (
   }
 
   return simplifyEndpointShortcuts(bestPath, edges, options);
+};
+
+const edgePointFromPoint = (point: XYPoint): edgePoint => ({
+  x: point.x,
+  y: point.y,
+  active: -1,
+});
+
+const isHorizontalDirection = (direction: DirectionType) => (
+  direction === 'left' || direction === 'right'
+);
+
+const isVerticalDirection = (direction: DirectionType) => (
+  direction === 'up' || direction === 'down'
+);
+
+const directOrthogonalPath = (
+  start: XYPoint,
+  end: XYPoint,
+  sourceDirection: DirectionType,
+  targetDirection: DirectionType,
+) => {
+  if(isOrthogonalSegment(start, end)) return [start, end];
+
+  if(isHorizontalDirection(sourceDirection) && isHorizontalDirection(targetDirection)) {
+    const midX = (start.x + end.x) / 2;
+    return [start, {x: midX, y: start.y}, {x: midX, y: end.y}, end];
+  }
+
+  if(isVerticalDirection(sourceDirection) && isVerticalDirection(targetDirection)) {
+    const midY = (start.y + end.y) / 2;
+    return [start, {x: start.x, y: midY}, {x: end.x, y: midY}, end];
+  }
+
+  if(isHorizontalDirection(sourceDirection) || isVerticalDirection(targetDirection)) {
+    return [start, {x: end.x, y: start.y}, end];
+  }
+
+  return [start, {x: start.x, y: end.y}, end];
+};
+
+const makePathfinderRouteOrthogonal = (
+  points: XYPoint[],
+  sourceDirection: DirectionType,
+  targetDirection: DirectionType,
+) => {
+  if(points.length < 2) return points;
+
+  const orthogonalPoints = points.map((point) => ({...point}));
+
+  if(orthogonalPoints.length === 2) {
+    return compactPathPoints(directOrthogonalPath(
+      orthogonalPoints[0],
+      orthogonalPoints[1],
+      sourceDirection,
+      targetDirection,
+    ) as PathPoint[], true);
+  }
+
+  if(sourceDirection && orthogonalPoints[1]) {
+    if(isHorizontalDirection(sourceDirection)) {
+      orthogonalPoints[1] = {...orthogonalPoints[1], y: orthogonalPoints[0].y};
+    } else if(isVerticalDirection(sourceDirection)) {
+      orthogonalPoints[1] = {...orthogonalPoints[1], x: orthogonalPoints[0].x};
+    }
+  }
+
+  if(targetDirection && orthogonalPoints.length > 2) {
+    const lastInnerIndex = orthogonalPoints.length - 2;
+    if(isHorizontalDirection(targetDirection)) {
+      orthogonalPoints[lastInnerIndex] = {
+        ...orthogonalPoints[lastInnerIndex],
+        y: orthogonalPoints[orthogonalPoints.length - 1].y,
+      };
+    } else if(isVerticalDirection(targetDirection)) {
+      orthogonalPoints[lastInnerIndex] = {
+        ...orthogonalPoints[lastInnerIndex],
+        x: orthogonalPoints[orthogonalPoints.length - 1].x,
+      };
+    }
+  }
+
+  const expandedPoints: XYPoint[] = [];
+  orthogonalPoints.forEach((point, index) => {
+    if(index === 0) {
+      expandedPoints.push(point);
+      return;
+    }
+
+    const previous = expandedPoints[expandedPoints.length - 1];
+    if(isOrthogonalSegment(previous, point)) {
+      expandedPoints.push(point);
+      return;
+    }
+
+    const next = orthogonalPoints[index + 1];
+    const viaX = {x: point.x, y: previous.y};
+    const viaY = {x: previous.x, y: point.y};
+    const via = next && isOrthogonalSegment(viaY, next) ? viaY : viaX;
+    expandedPoints.push(via, point);
+  });
+
+  return compactPathPoints(expandedPoints as PathPoint[], true);
+};
+
+export const normalizePathfinderWireRoute = (
+  startXY: XYPoint,
+  endXY: XYPoint,
+  edgePoints: edgePoint[],
+  sourceDirection: DirectionType = undefined,
+  targetDirection: DirectionType = undefined,
+): PathfinderWireRoute => {
+  const normalizedPoints = makePathfinderRouteOrthogonal(
+    [
+      startXY,
+      ...(edgePoints ?? []).map((point) => ({x: point.x, y: point.y})),
+      endXY,
+    ],
+    sourceDirection,
+    targetDirection,
+  );
+
+  return {
+    startXY: normalizedPoints[0],
+    endXY: normalizedPoints[normalizedPoints.length - 1],
+    edgePoints: normalizedPoints.slice(1, -1).map(edgePointFromPoint),
+  };
+};
+
+export const findNonOrthogonalPathfinderRouteSegments = (route: PathfinderWireRoute) => {
+  const points = [
+    route.startXY,
+    ...route.edgePoints.map((point) => ({x: point.x, y: point.y})),
+    route.endXY,
+  ];
+
+  return points.slice(0, -1).flatMap((point, index) => {
+    const nextPoint = points[index + 1];
+    return nextPoint && !isOrthogonalSegment(point, nextPoint)
+      ? [{segmentIndex: index, from: point, to: nextPoint}]
+      : [];
+  });
 };
 
 function getOptionImgXY(option_x: number, option_y:number, node_position_x: number,
