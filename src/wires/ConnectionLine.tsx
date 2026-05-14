@@ -73,7 +73,7 @@ const ConnectionLine = ({ fromX, fromY, toX, toY }:ConnectionLineComponentProps)
 
   const PFEnabled=useZustandStore((state)=>state.pathFindingEnabled);
 
-  const DEBUGMODE=true;
+  const DEBUGMODE=false;
   let myPathStroke="";
   let x_arr=[] as number[];
   let y_arr=[] as number[];
