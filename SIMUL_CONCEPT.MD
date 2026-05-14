@@ -158,7 +158,7 @@ type SimulationParameterRef =
   | {select: string; default?: number | string | boolean}
   | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
-  | {ledLookup: string; ledType: string; colorMode: string};
+  | {ledLookup: string; colorMode: 'settings.ledColorMode'};
 ```
 
 Dabei gilt:
@@ -167,6 +167,7 @@ Dabei gilt:
 - `{select: "Fuse"}` verweist auf die `technicalID`/HID eines Auswahlfelds der Komponente.
 - `{lookup: "miniOtoResistanceByCurrent", by: {select: "Fuse"}}` verweist auf eine in `simdata` definierte Lookup-Tabelle.
 - `{table: {"5": 0.01, "10": 0.006}, by: {select: "Fuse"}, default: 0.01}` erlaubt kleine lokale Tabellen direkt im Element.
+- `{ledLookup: "WS2814_24V", colorMode: "settings.ledColorMode"}` verweist auf eine LED-Stromtabelle in `src/simulation/ledCurrentLookups.ts`. Der LED-Typ wird separat ueber den Parameter `ledType` des `digitalLed`-Elements angegeben und wird nicht im `currentLookup` gedoppelt.
 - `default` wird verwendet, wenn ein Feld fehlt oder eine Lookup-Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
 
 Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID` darf zur Auswahl eines Modelladapters oder fuer Defaults dienen, aber die explizite `simdata`-Struktur ist die Freigabe, dass eine Komponente simuliert wird.
@@ -347,7 +348,22 @@ Der Stromwert der LED-Stromsenke wird aus der passenden Lookup-Tabelle bestimmt 
 
 `RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
 
-Lookup-Tabellen fuer LED-Streifen werden pro LED-Typ gepflegt. Fuer jeden Farbmodus liefern sie den Strom in Abhaengigkeit von der lokalen LED-Spannung. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
+Lookup-Tabellen fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus liefern sie den Strom in Abhaengigkeit von der lokalen LED-Spannung. Die Auswertung interpoliert linear zwischen Tabellenpunkten und skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
+
+Beispiel fuer `digitalLed`-Parameter:
+
+```ts
+parameters: {
+  supplyResistanceOhm: 0.002,
+  gndResistanceOhm: 0.002,
+  ledType: "WS2814_24V",
+  ledsPerMeter: 60,
+  currentLookup: {
+    ledLookup: "WS2814_24V",
+    colorMode: "settings.ledColorMode",
+  },
+}
+```
 
 ### PWM-DC-Netzelemente
 
@@ -936,6 +952,7 @@ src/simulation/
   wireResistance.ts
   awgToMm2.ts
   elementaryElements.ts
+  ledCurrentLookups.ts
   ledStripSimulation.ts
   componentSimulationModels.ts
   SimulationPage.tsx
@@ -980,7 +997,7 @@ Optional:
 3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
 4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
 5. Sicherungs-Lookups zuerst direkt in `simdata`.
-6. LED-Lookups pro LED-Typ.
+6. LED-Lookups pro LED-Typ in `src/simulation/ledCurrentLookups.ts`.
 7. `physLengths[i].length` ist Meter.
 8. `_middle_N` entspricht `repeatIndex === N`; `physLengths.startIndex === N` markiert eine Abschnittsgrenze.
 9. `_middle_N`-Spannung nur anzeigen, wenn `physLengths.startIndex === N` existiert.
@@ -1010,7 +1027,7 @@ Optional:
 33. Die Anzahl einzelner LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter)` berechnet.
 34. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt.
 35. Serienwiderstaende digitaler LED-Streifen werden pro LED angegeben.
-36. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung.
+36. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
 37. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 38. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
 39. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.

@@ -33,7 +33,7 @@ export type SimulationParameterRef =
   | {select: string; default?: SimulationParameterPrimitive}
   | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
-  | {ledLookup: string; ledType: string; colorMode: string};
+  | {ledLookup: string; colorMode: "settings.ledColorMode"};
 
 export type ComponentSimulationElementType =
   | "resistor"
