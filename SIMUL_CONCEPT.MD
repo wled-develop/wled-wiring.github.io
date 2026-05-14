@@ -1,0 +1,1022 @@
+# Konzept: DC-Stromfluss-Simulation
+
+## Zielbild
+
+Die Simulation soll aus dem aktuellen Diagramm ein elektrisches Simulationsmodell erzeugen, eine reine DC-Simulation ausfuehren und die Ergebnisse im Diagramm sowie im Sidebar-Bereich `Simulate current flow` anzeigen.
+
+Voraussetzung fuer jede Simulation ist ein fehlerfreier Diagramm-Check. Wenn beim Klick auf `Simulate` noch Diagramm-Check-Meldungen mit Severity `error` existieren, startet die Simulation nicht. Stattdessen wird eine Meldung angezeigt, dass zuerst die Diagramm-Check-Meldungen korrigiert werden muessen.
+
+Der erste Simulationsumfang ist bewusst begrenzt:
+
+- Es werden nur `gnd`, `supply` und `pwm` Netze betrachtet.
+- Es werden nur Komponenten simuliert, deren `data` eine `simdata`-Struktur enthaelt.
+- Die Simulation ist zunaechst eine DC-/Mittelwertsimulation, keine Zeitbereichs-, Signalform- oder Protokollsimulation.
+- Das Solver-Konzept ist separat in `SOLVER.MD` beschrieben.
+
+Die grobe Pipeline:
+
+1. Vorhandenes Diagramm-Check-Ergebnis pruefen, solange dessen Diagramm-Fingerprint unveraendert ist.
+2. Bei Check-Fehlern mit Severity `error` abbrechen und Meldung anzeigen; Warnungen blockieren die Simulation erstmal nicht.
+3. Aus dem Diagramm-JSON wird ein Simulationsmodell aufgebaut.
+4. Das Modell wird simuliert.
+5. Ergebnisse werden erzeugt: Pin-Stroeme, Pin-Spannungen und zusaetzliche LED-Streifen-Spannungen.
+6. Simulations-Checks laufen automatisch auf diesen Ergebnissen.
+7. Ergebnisse und Check-Hinweise werden angezeigt.
+8. Jede relevante Diagrammaenderung verwirft die Simulationsergebnisse.
+
+## Bestehende Architektur, die genutzt werden sollte
+
+Das Diagramm existiert bereits als ReactFlow-JSON. `createDiagramExportJson()` erzeugt das Exportobjekt aus `reactFlow.toObject()`.
+
+Die regelbasierte Diagrammpruefung hat bereits eine brauchbare Netzbildung in `src/check/checkContext.ts`:
+
+- `CheckHandle`
+- `CheckNet`
+- `componentLinkedNets`
+- Klassifikationen wie `gnd_net_type`, `suppl_net_type`, `pwm_net_type`
+- Funktionen wie `getNetByHandle`, `resolveVoltageOut`, `powerReachableHandles`, `signalReachableHandles`
+
+Fuer die Simulation sollte diese Netzlogik in einen gemeinsamen Netlist-/Context-Baustein extrahiert werden. Checks und Simulation sollen dieselbe Sicht auf verbundene Pins und logische Netze haben.
+
+Wichtig: Ein elementares Netz aus dem Diagramm-Check ist nicht automatisch ein einzelner Simulationsknoten. Wires werden in der Simulation als Widerstaende modelliert. Deshalb liegen die beiden Enden eines Wires im Simulationsmodell auf unterschiedlichen Knoten, die durch ein Wire-Widerstandselement verbunden sind. Check-Netze dienen also als topologische Gruppierung und Validierungsgrundlage, nicht als direkte 1:1-Knotenliste fuer den Solver.
+
+Der Sidebar-Bereich existiert bereits als Platzhalter:
+
+- `src/sidebar/Sidebar.tsx`
+- `sidebar.simulation.title`
+- `sidebar.simulation.comingSoon`
+
+Dieser Bereich sollte spaeter durch eine echte `SimulationPage` ersetzt werden.
+
+## Datenmodell: Komponenten
+
+Nur Komponenten mit `data.simdata` werden in das Simulationsmodell aufgenommen.
+
+Komponenten ohne `simdata` duerfen weiterhin im Diagramm existieren. Sie liefern aber keine elektrischen Bauteilgleichungen. Wenn sie zwischen simulierten Netzen liegen und dadurch ein relevanter Strompfad nicht modelliert werden kann, erzeugt der Modellaufbau einen Simulationsfehler und bricht ab. Dadurch werden unvollstaendige Ergebnisse nicht als vertrauenswuerdig angezeigt.
+
+Wenn `data.simdata` definiert, aber leer ist, bedeutet das: Die Komponente ist fuer die Simulation bekannt, enthaelt aber keine elementaren elektrischen Elemente. Sie kann beim Erzeugen der Gleichungen ignoriert werden. Das ist nuetzlich fuer Komponenten, die nur mechanisch, informativ oder rein verbindend im Diagramm vorkommen, ohne eigenes elektrisches Modell.
+
+Vorgeschlagene Erweiterung von `ComponentDataType`:
+
+```ts
+simdata?: ComponentSimulationDefinition;
+```
+
+Konzeptionelle Struktur:
+
+```ts
+type ComponentSimulationDefinition = {
+  version: 1;
+  elements?: ComponentSimulationElementUse[];
+};
+```
+
+`simdata.elements` soll kompakt genug bleiben, damit Komponenten-Dateien nicht aufgeblasen werden. Die Elementdefinitionen sollen aber lesbare Feldnamen verwenden. Die Validierung darf intern streng typisieren, aber die Komponentendaten selbst sollen kurze, gut lesbare Elementdefinitionen enthalten.
+
+Beispielhafte Struktur:
+
+```ts
+type ComponentSimulationElementUse = {
+  id: string;
+  type:
+    | 'resistor'
+    | 'shortBridge'
+    | 'voltageSource'
+    | 'currentSource'
+    | 'constantPowerSink'
+    | 'fuse'
+    | 'digitalLed'
+    | 'dcdcConverter';
+  terminals: Record<string, string>;
+  parameters?: Record<string, SimulationParameterRef>;
+};
+```
+
+Dabei gilt:
+
+- `type` ist der elementare Elementtyp.
+- `terminals` mappt Elementterminals auf `hid`s der Komponente.
+- `parameters` enthaelt Parameter, feste Werte, Field-Referenzen oder Lookup-Definitionen.
+
+Beispiele:
+
+```ts
+simdata: {
+  version: 1,
+  elements: [
+    {
+      id: "main-resistor",
+      type: "resistor",
+      terminals: {a: "A", b: "B"},
+      parameters: {resistanceOhm: {field: "resistance"}},
+    },
+  ],
+}
+```
+
+```ts
+simdata: {
+  version: 1,
+  elements: [
+    {
+      id: "psu-output",
+      type: "voltageSource",
+      terminals: {positive: "Vout1", negative: "GND1"},
+      parameters: {
+        voltageV: {field: "source_voltage"},
+        currentLimitA: {field: "source_current"},
+        voltageDropPctAt150Current: 50,
+      },
+    },
+    {id: "gnd-bridge-1", type: "shortBridge", terminals: {a: "GND1", b: "GND2"}},
+  ],
+}
+```
+
+```ts
+simdata: {
+  version: 1,
+  elements: [
+    {
+      id: "controller-idle-load",
+      type: "constantPowerSink",
+      terminals: {positive: "VIN", negative: "GND1"},
+      parameters: {powerW: 0.5},
+    },
+  ],
+}
+```
+
+Vorgeschlagene kompakte Syntax fuer `SimulationParameterRef`:
+
+```ts
+type SimulationParameterRef =
+  | number
+  | string
+  | {const: number | string | boolean}
+  | {field: string; default?: number | string | boolean}
+  | {select: string; default?: number | string | boolean}
+  | {lookup: string; by: SimulationParameterRef; default?: number}
+  | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
+  | {ledLookup: string; ledType: string; colorMode: string};
+```
+
+Dabei gilt:
+
+- `{field: "source_voltage"}` verweist auf die `technicalID`/HID eines Eingabefelds der Komponente und uebernimmt dessen aktuellen Wert.
+- `{select: "Fuse"}` verweist auf die `technicalID`/HID eines Auswahlfelds der Komponente.
+- `{lookup: "miniOtoResistanceByCurrent", by: {select: "Fuse"}}` verweist auf eine in `simdata` definierte Lookup-Tabelle.
+- `{table: {"5": 0.01, "10": 0.006}, by: {select: "Fuse"}, default: 0.01}` erlaubt kleine lokale Tabellen direkt im Element.
+- `default` wird verwendet, wenn ein Feld fehlt oder eine Lookup-Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
+
+Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID` darf zur Auswahl eines Modelladapters oder fuer Defaults dienen, aber die explizite `simdata`-Struktur ist die Freigabe, dass eine Komponente simuliert wird.
+
+`internalConnections` werden nicht automatisch in Kurzschlussbruecken uebersetzt. Interne Bruecken, Sicherungen oder andere Simulationselemente muessen explizit in `simdata` beschrieben werden. `internalConnections` und `simdata` duerfen inhaltlich aehnlich sein, bleiben aber getrennte Konzepte.
+
+## Elementare elektrische Elemente
+
+Die Simulation wird aus elementaren elektrischen Elementen aufgebaut. Komponenten verwenden diese Elemente in ihrer `data.simdata`-Struktur. Dadurch koennen viele Komponenten ohne Spezialcode beschrieben werden.
+
+### Elementarer Widerstand
+
+Ein elementarer Widerstand besteht aus zwei Terminals und einem Widerstand dazwischen.
+
+Terminals:
+
+- `a`
+- `b`
+
+Parameter:
+
+- `resistanceOhm`
+
+Der Widerstandswert kann definiert werden als:
+
+- fester Zahlenwert
+- Verweis auf ein Eingabefeld der Komponente
+- Verweis auf ein Auswahlfeld der Komponente
+- Lookup-Funktion in Abhaengigkeit von einem Eingabe- oder Auswahlfeld
+
+Beispiele:
+
+- `Resistor`: ein elementarer Widerstand zwischen den beiden Pins.
+- `miniOTOFuse`: ein elementarer Widerstand, dessen Wert aus einer Lookup-Tabelle anhand des Sicherungs-Nominalwerts bestimmt wird.
+- `MHC_V43`: ein Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren.
+
+### Konstante Spannungsquelle mit Stromlimit und Spannungsdegradation
+
+Eine konstante Spannungsquelle besteht aus zwei Terminals und einer geregelten Spannung dazwischen.
+
+Terminals:
+
+- `positive`
+- `negative`
+
+Parameter:
+
+- `voltageV`
+- `currentLimitA`
+- `voltageDropPctAt150Current`
+
+Bis zum Stromlimit ist die Quelle ideal geregelt. Wenn der Strom das Limit ueberschreitet, wird die Ausgangsspannung reduziert. Statt direkt einen Widerstandswert zu pflegen, wird in `simdata` definiert, um wie viel Prozent die Spannung sinkt, wenn der Strom 150% des Limits erreicht.
+
+```text
+overload = max(0, I / currentLimitA - 1)
+dropFactor = voltageDropPctAt150Current / 100 / 0.5
+U = U_nominal * (1 - dropFactor * overload), wenn I > currentLimitA
+```
+
+Beispiel: `voltageDropPctAt150Current = 50` bedeutet, dass bei `I = 1.5 * currentLimitA` die Ausgangsspannung auf 50% der Nominalspannung faellt. Wenn der Parameter fehlt, gilt dieser Wert `50` als Default. Der Solver kann daraus intern eine Ersatz-Steigung ableiten, die einem dynamischen Degradationswiderstand entspricht.
+
+Wenn der Strom ueber 150% des Stromlimits steigt, wird die Simulation abgebrochen und ein Fehler angezeigt. Das Modell soll also nur den Bereich zwischen Limit und 150% Limit degradieren, aber keine beliebig weit sinkende Ausgangsspannung fuer extreme Ueberlastfaelle berechnen.
+
+Bei Ueberschreiten des Stromlimits erzeugt der Simulations-Check eine Fehlermeldung. Die Degradation ist trotzdem Teil des Modells, damit der Solver in Ueberlastfaellen ein plausibles Ergebnis liefern kann.
+
+Beispiel:
+
+- `PSU`: Spannungsquelle zwischen Supply-Ausgang und GND, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
+
+Die GND-Referenz des Simulationsmodells wird an die Spannungsquelle gesetzt, die das hoechste Stromlimit hat. Bei mehreren gleich grossen Limits wird eine deterministische Auswahl verwendet und ein Info-Hinweis kann erzeugt werden.
+
+### DCDC-Wandler
+
+Ein DCDC-Wandler wird als eigenes elementares Element modelliert. Er besitzt Eingangs- und Ausgangsterminals und erzeugt eine geregelte Ausgangsspannung.
+
+Terminals:
+
+- `inPositive`
+- `inNegative`
+- `outPositive`
+- `outNegative`
+
+Parameter:
+
+- `outputVoltageV`
+- `efficiency`
+- optional `outputCurrentLimitA`
+- optional `voltageDropPctAt150Current`
+
+Der Ausgangsstrom ist begrenzt durch die Eingangsleistung:
+
+```text
+IoutLimitDynamic = max(0, Pin * efficiency / outputVoltageV)
+IoutLimit = min(outputCurrentLimitA, IoutLimitDynamic), falls outputCurrentLimitA gesetzt ist
+```
+
+Wenn der Ausgangsstrom das dynamische Limit ueberschreitet, verhaelt sich der Ausgang aehnlich wie eine PSU im Ueberlastfall: Die Ausgangsspannung wird ueber `voltageDropPctAt150Current` reduziert und der Simulations-Check meldet einen Fehler. Fehlt der Parameter, gilt auch hier Default `50`. Fuer die erste Version reicht ein iteratives Modell, bei dem Eingangsstrom und Ausgangsstrom pro Solver-Iteration aus Leistung und Wirkungsgrad aktualisiert werden.
+
+Wenn der Ausgangsstrom ueber 150% des dynamischen oder festen Ausgangslimits steigt, bricht die Simulation mit Fehler ab.
+
+### Kurzschlussbruecke
+
+Eine Kurzschlussbruecke besteht aus zwei Terminals und verbindet diese hart miteinander. Beide Terminals bilden elektrisch denselben Simulationsknoten.
+
+Terminals:
+
+- `a`
+- `b`
+
+Parameter:
+
+- keine
+
+Beispiele:
+
+- Interne Verbindung zwischen mehreren Supply-Ausgaengen einer PSU.
+- Interne Verbindung zwischen mehreren GND-Ausgaengen einer PSU.
+- `WAGO_2x` und `WAGO_3x`: Kurzschlussbruecken zwischen den jeweiligen Klemmenpins.
+- GND-Bruecken im `MHC_V43` Controller.
+
+### Konstantleistungssenke
+
+Eine Konstantleistungssenke verbraucht eine feste elektrische Leistung zwischen zwei Terminals. Sie ist nuetzlich fuer kleine Nebenverbraeuche von Controllern oder Modulen, die im DC-Modell nicht detailliert abgebildet werden sollen.
+
+Terminals:
+
+- `positive`
+- `negative`
+
+Parameter:
+
+- `powerW`
+- optional `minVoltageV`
+
+Elektrisches Verhalten:
+
+```text
+I = powerW / max(V(positive) - V(negative), minVoltageV)
+```
+
+Wenn `minVoltageV` nicht gesetzt ist, wird ein kleiner interner Mindestwert verwendet, damit bei sehr niedriger Spannung kein unendlicher Strom entsteht. Faellt die Spannung unter `minVoltageV`, begrenzt der Solver den Strom auf `powerW / minVoltageV` und erzeugt optional einen Simulationshinweis wegen Unterspannung.
+
+Beispiel:
+
+- `MHC_V43`: Konstantleistungssenke zwischen `VIN` und `GND1` mit `powerW = 0.5`, um einen kleinen Nebenverbrauch des Controllers zu simulieren.
+
+### Digitales LED-Netzelement
+
+Das digitale LED-Netzelement modelliert genau eine einzelne LED eines digitalen LED-Streifens.
+
+Terminals:
+
+- `supplyIn`
+- `supplyOut`
+- `gndIn`
+- `gndOut`
+
+Interne Struktur:
+
+- Serienwiderstand zwischen `supplyIn` und `supplyOut`
+- Serienwiderstand zwischen `gndIn` und `gndOut`
+- spannungsabhaengige Stromsenke zwischen `supplyOut` und `gndOut`
+
+Parameter:
+
+- `supplyResistanceOhm`
+- `gndResistanceOhm`
+- `ledType`
+- `ledsPerMeter`
+- Lookup-Tabelle fuer Strom bei Farbe `R` in Abhaengigkeit der lokalen LED-Spannung
+- Lookup-Tabelle fuer Strom bei Farbe `G` in Abhaengigkeit der lokalen LED-Spannung
+- Lookup-Tabelle fuer Strom bei Farbe `B` in Abhaengigkeit der lokalen LED-Spannung
+- Lookup-Tabelle fuer Strom bei Farbe `RGB-White` in Abhaengigkeit der lokalen LED-Spannung
+- Lookup-Tabelle fuer Strom bei Farbe `Separate-White` in Abhaengigkeit der lokalen LED-Spannung
+- Lookup-Tabelle fuer Strom bei Kombination `Separate-White + RGB-White` in Abhaengigkeit der lokalen LED-Spannung
+
+Der Stromwert der LED-Stromsenke wird aus der passenden Lookup-Tabelle bestimmt und mit der Helligkeit skaliert.
+
+`RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
+
+Lookup-Tabellen fuer LED-Streifen werden pro LED-Typ gepflegt. Fuer jeden Farbmodus liefern sie den Strom in Abhaengigkeit von der lokalen LED-Spannung. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
+
+### PWM-DC-Netzelemente
+
+PWM-Netze werden in der ersten Version als DC-Netze behandelt. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt. Das Konzept bereitet sie aber vor: Analoge LED-Streifen haben pro Kanal einen eigenen PWM-Eingang, zum Beispiel `pwm_in_R`, `pwm_in_G`, `pwm_in_B` oder `pwm_in_W`. Diese Eingangsnetze duerfen Strom und Spannung haben und werden nicht nur als reine Steuersignale betrachtet.
+
+Die konkrete Zuordnung eines PWM-Netzes zu einem LED-Streifen-Kanal kommt aus `simdata`.
+
+## Komponentenbeispiele fuer die erste Version
+
+`Resistor`:
+
+- ein elementarer Widerstand
+- Terminal `a` an Pin 1
+- Terminal `b` an Pin 2
+- Widerstand aus Eingabefeld oder festem Default
+
+`miniOTOFuse`:
+
+- ein elementarer Widerstand
+- Widerstandswert per Lookup aus Sicherungs-Nominalwert
+- Lookup direkt in `simdata`
+- Simulations-Check bei Strom ueber Nominalwert
+
+`PSU`:
+
+- eine konstante Spannungsquelle mit Stromlimit und `voltageDropPctAt150Current`
+- negative Quelle an GND
+- positive Quelle an Supply-Ausgang
+- mehrere Kurzschlussbruecken, um mehrere Supply-Ausgaenge und mehrere GND-Ausgaenge intern zu verbinden
+- Check-Fehler, wenn Stromlimit ueberschritten wird
+
+Digitale LED-Streifen:
+
+- Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType
+- `physLengths[i].length` ist verbindlich in Metern
+- pro Abschnitt wird aus `round(lengthM * ledsPerMeter)` berechnet, wie viele einzelne LEDs der Abschnitt hat
+- fuer jede einzelne LED wird ein digitales LED-Netzelement in Reihe erzeugt
+- Serienwiderstaende werden pro LED angegeben
+- dadurch koennen Spannungen an einzelnen `_middle_N`-Pins berechnet werden
+
+`WAGO_2x` und `WAGO_3x`:
+
+- Kurzschlussbruecken zwischen den Klemmenpins
+
+`MHC_V43` Controller:
+
+- Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren
+- Widerstandswert und Sicherungsgrenzwert per Lookup direkt in `simdata`
+- Kurzschlussbruecken zwischen den GND-Pins
+- Konstantleistungssenke zwischen `VIN` und `GND1` mit `0.5 W` fuer kleinen Controller-Nebenverbrauch
+
+`DCDC`:
+
+- eigenes DCDC-Element
+- Ausgangsspannung aus Eingabefeld
+- Stromlimit dynamisch aus Eingangsleistung, Wirkungsgrad und Ausgangsspannung
+- Ueberlastmodell analog PSU mit `voltageDropPctAt150Current`
+
+## Datenmodell: Simulationsmodell
+
+Das Simulationsmodell sollte unabhaengig vom ReactFlow-UI sein. Es wird aus Diagramm-JSON erzeugt und enthaelt nur fachliche Daten.
+
+Vorgeschlagene Hauptstruktur:
+
+```ts
+type SimulationModel = {
+  version: 1;
+  settings: SimulationSettings;
+  nodes: SimulationNode[];
+  checkNets: SimulationCheckNetRef[];
+  circuitNodes: SimulationCircuitNode[];
+  wires: SimulationWireElement[];
+  components: SimulationComponent[];
+  elements: SimulationElement[];
+  pins: SimulationPin[];
+  virtualPins: SimulationVirtualPin[];
+  referenceNodeId: string;
+};
+```
+
+`SimulationCircuitNode` ist der echte Knoten fuer den Solver. Da Wires Widerstaende sind, hat ein Check-Netz im Normalfall mehrere Circuit-Nodes.
+
+```ts
+type SimulationCircuitNode = {
+  id: string;
+  sourceCheckNetId?: string;
+  pinIds: string[];
+};
+```
+
+`SimulationWireElement`:
+
+```ts
+type SimulationWireElement = {
+  id: string;
+  edgeId: string;
+  sourceCircuitNodeId: string;
+  targetCircuitNodeId: string;
+  resistanceOhm: number;
+  lengthM: number;
+  crosssectionMm2: number;
+  material: 'copper';
+};
+```
+
+Wires im Diagramm werden in der Simulation als konstante Widerstaende modelliert. Fuer die erste Version wird Kupfer angenommen.
+
+Formel:
+
+```text
+R = rho * lengthM / crosssectionMm2
+rho = 0.0179 Ohm * mm2 / m
+```
+
+Dabei kommen `lengthM`, `crosssectionMm2` und Einheit aus den Wire-Daten:
+
+- `edge.data.physLength`
+- `edge.data.physCrosssection`
+- `edge.data.physCrosssectionUnit`
+
+Falls Laenge oder Querschnitt fehlen oder ungueltig sind, wird die Simulation abgebrochen und ein Check-Fehler erzeugt. Es gibt keinen stillen Default.
+
+Unterstuetzte Querschnittseinheiten:
+
+- `mm2`: Wert direkt verwenden
+- `AWG`: per AWG-zu-mm2-Tabelle umrechnen
+
+Die Wire-Toolbar verwendet aktuell ein Zahlenfeld/Select fuer den Querschnitt und daneben eine Einheitenauswahl mit `"mm2"` oder `"AWG"`. Bei `"AWG"` wird `physCrosssection` als AWG-Nummer gespeichert. Die aktuelle UI-Auswahl ist `24, 22, 20, 18, 16, 14, 12, 10, 8`. Engineering ToolBox dokumentiert eine AWG-Tabelle mit Durchmesser und Querschnittsflaeche in `mm2`, die als Quelle fuer die initiale Tabelle dienen kann: https://www.engineeringtoolbox.com/awg-wire-gauge-d_731.html
+
+Beispielwerte fuer die lokale Tabelle:
+
+```ts
+const awgToMm2: Record<string, number> = {
+  '8': 8.37,
+  '10': 5.26,
+  '12': 3.31,
+  '14': 2.08,
+  '16': 1.31,
+  '18': 0.82,
+  '20': 0.52,
+  '22': 0.33,
+  '24': 0.20,
+  '26': 0.13,
+};
+```
+
+`SimulationPin`:
+
+```ts
+type SimulationPin = {
+  id: string;
+  nodeId: string;
+  handleId: string;
+  circuitNodeId?: string;
+  sourceCheckNetId?: string;
+  functions: string[];
+  role: 'gnd' | 'supply' | 'pwm' | 'other';
+  position: {x: number; y: number};
+};
+```
+
+`SimulationVirtualPin` ist fuer LED-Streifen-Punkte, die nicht direkt an ein Netz angeschlossen sind, fuer die aber trotzdem eine Spannung angezeigt werden soll:
+
+```ts
+type SimulationVirtualPin = {
+  id: string;
+  nodeId: string;
+  handleId: string;
+  role: 'gnd' | 'supply';
+  segmentBoundaryIndex: number;
+  pairedHandleId?: string;
+  circuitNodeId?: string;
+  position: {x: number; y: number};
+};
+```
+
+## Relevante Netze
+
+Fuer den ersten Umfang werden nur Netze betrachtet, die mindestens eine dieser Klassifikationen haben:
+
+- `gnd_net_type`
+- `suppl_net_type`
+- `pwm_net_type`
+
+Mapping fuer die Simulation:
+
+- `gnd_net_type` -> `gnd`
+- `suppl_net_type` -> `supply`
+- `pwm_net_type` -> `pwm`
+
+Netze mit mehreren relevanten Klassifikationen sollten nicht stillschweigend simuliert werden. Sie sollten als Simulationsfehler abgebrochen werden. Der Simulations-Check zeigt dann eine klare Meldung.
+
+Wenn es mehrere getrennte GND-Netze gibt, sollte das wegen der Diagramm-Check-Voraussetzung normalerweise nicht vorkommen. Zur Robustheit bricht die Simulation ab und zeigt einen Fehler. Wenn gar kein GND-Netz existiert, bricht die Simulation ebenfalls ab und zeigt einen Fehler.
+
+Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sollen bereits durch den Diagramm-Check als Fehler erkannt werden. Falls dieser Zustand trotzdem bis zum Simulationsmodell gelangt, bricht die Simulation mit einem Simulationsfehler ab. Parallele Quellen mit Ausgleichsstrom werden nicht simuliert.
+
+Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet. Das betrifft z.B. lose passive Teilnetze oder nicht angeschlossene Teilbereiche ohne Quelle. Die Simulation des versorgten Hauptnetzes darf dadurch weiterlaufen.
+
+## Simulationseinstellungen
+
+Der Bereich `Simulate current flow` soll mindestens enthalten:
+
+1. Button `Simulate`
+2. Button `Delete simulation results`
+3. Einstellungen:
+   - LED-Farbwahl: `R`, `G`, `B`, `RGB-White`, `Separate-White`, `Separate-White + RGB-White`
+   - Helligkeit in Prozent
+4. Ergebnisliste der Simulations-Checks, analog zur Liste in der Diagrammpruefung
+
+Vorgeschlagene Struktur:
+
+```ts
+type SimulationSettings = {
+  ledColorMode: 'R' | 'G' | 'B' | 'RGB_WHITE' | 'SEPARATE_WHITE' | 'SEPARATE_AND_RGB_WHITE';
+  brightnessPercent: number;
+};
+```
+
+Die UI sollte `brightnessPercent` zunaechst auf `0..100` begrenzen. Intern sollte die Simulation mit `0..1` arbeiten.
+
+Simulationseinstellungen sind lokaler UI-State und nicht Undo-/Redo-faehig.
+
+## Simulationsergebnis
+
+Das Ergebnis sollte von der UI getrennt sein und keine React-Komponenten enthalten.
+
+Simulationsergebnisse werden nicht exportiert. Sie bleiben reiner Laufzeit-/UI-State und werden nicht in das Diagramm-JSON geschrieben. Dadurch bleiben Exportdateien deterministisch und enthalten nur das bearbeitbare Schaltungsmodell, nicht die zuletzt berechnete Auswertung.
+
+```ts
+type SimulationResult = {
+  modelVersion: 1;
+  settings: SimulationSettings;
+  createdAt: string;
+  diagramFingerprint: string;
+  pinResults: SimulationPinResult[];
+  virtualPinResults: SimulationVirtualPinResult[];
+  wireResults: SimulationWireResult[];
+  checkIssues: SimulationCheckIssue[];
+  status: 'ok' | 'warning' | 'error';
+};
+```
+
+Pin-Ergebnisse:
+
+```ts
+type SimulationPinResult = {
+  pinId: string;
+  nodeId: string;
+  handleId: string;
+  currentA?: number;
+  voltageV?: number;
+};
+```
+
+Wire-Ergebnisse:
+
+```ts
+type SimulationWireResult = {
+  wireId: string;
+  edgeId: string;
+  currentA?: number;
+  voltageDropV?: number;
+  resistanceOhm?: number;
+};
+```
+
+Wire-Strom und Spannungsabfall werden nicht dauerhaft als Label auf jedem Wire angezeigt, um das Diagramm nicht zu ueberladen. Sie sollen aber per Hover oder Select am Wire verfuegbar sein.
+
+Konvention fuer `currentA`:
+
+- positiv: Strom fliesst aus dem Komponentenpin ins Netz
+- negativ: Strom fliesst aus dem Netz in den Komponentenpin
+
+Die Anzeige zeigt den Betrag immer positiv:
+
+- `Math.abs(currentA).toFixed(1) + ' A'`
+- Pfeilrichtung zeigt das Vorzeichen.
+
+Spannung:
+
+- Normale Pin-Spannung wird als absolute Knotenspannung gegen Simulationsreferenz/GND angezeigt.
+- Anzeigeformat: positive oder negative Zahl mit einer Nachkommastelle und Einheit `V`.
+
+Eine Nachkommastelle bei Strom und Spannung reicht fuer die erste Version aus.
+
+## LED-Streifen: zusaetzliche Spannungsanzeige
+
+Bei LED-Komponenten sollen zusaetzlich Spannungen fuer bestimmte Supply-/GND-Pins angezeigt werden, auch wenn diese Pins nicht an ein Netz angebunden sind.
+
+Betroffene Handles:
+
+- Start/End:
+  - `GND_start`, `GND_end`
+  - `5V_start`, `5V_end`
+  - `12V_start`, `12V_end`
+  - `24V_start`, `24V_end`
+  - `48V_start`, `48V_end`
+- Mitte:
+  - konkrete wiederholte Handles im aktuellen System mit Basis-HIDs mit `_middle`, z.B. `24V_middle_1`, `GND_middle_2`
+
+Anzeige-Regel:
+
+- Fuer PWM- und GND-Pins von LED-Streifen werden keine Spannungen angezeigt.
+- Fuer Supply-Pins wird eine Differenzspannung angezeigt:
+  - `V(supplyPin) - V(correspondingGndPin)`
+  - Zuordnung ueber gleiche Endung:
+    - `_start`: Supply-Start gegen `GND_start`
+    - `_end`: Supply-Ende gegen `GND_end`
+    - `_middle_N`: Supply-Mitte gegen `GND_middle_N`
+
+Beispiele:
+
+- `24V_start` zeigt `V(24V_start) - V(GND_start)`
+- `12V_end` zeigt `V(12V_end) - V(GND_end)`
+- `5V_middle_2` zeigt `V(5V_middle_2) - V(GND_middle_2)`
+
+Ein `_middle_N`-Spannungswert wird nur angezeigt, wenn ein `physLengths`-Eintrag mit `startIndex === N` existiert. Falls der passende GND-Pin nicht existiert oder nicht berechnet werden kann, wird kein Spannungswert angezeigt und ein Simulations-Check kann einen Hinweis erzeugen.
+
+## LED-Streifen und physLengths
+
+`physLengths` beschreibt Teilabschnitte eines LED-Streifens:
+
+```ts
+type PhysLengthType = {
+  startIndex: number;
+  length: number | undefined;
+};
+```
+
+Die vorhandene UI berechnet daraus Abschnitte:
+
+- Abschnitt `i` beginnt bei `physLengths[i].startIndex`.
+- Abschnitt `i` endet bei `physLengths[i + 1].startIndex`, oder beim `nodeLength`, wenn es der letzte Abschnitt ist.
+- Abschnittsbreite im Bild: `(nextStartIndex - startIndex) * nodeBasicSizeX`.
+- `physLengths[i].length` ist in Metern.
+
+Die Beziehung zu `_middle_N`-Handles ist:
+
+- Wiederholte Middle-Handles werden in `repeatedHandleArray` konkretisiert.
+- Ein konkreter Middle-Handle hat eine ID wie `24V_middle_2` und `repeatIndex: 2`.
+- Beim Verbinden eines Middle-Handles sorgt `stripCheckAndDivideIfMiddleConnection()` dafuer, dass ein `physLengths`-Eintrag mit `startIndex === repeatIndex` existiert.
+- Falls dieser Eintrag noch nicht existiert, wird der vorherige Abschnitt geteilt. Ist dessen Laenge bekannt, wird sie proportional auf die beiden neuen Abschnitte verteilt.
+- Beim Loeschen der letzten Verbindung an einer solchen Grenze kann der zugehoerige `physLengths`-Eintrag wieder entfernt und die Laenge mit dem vorherigen Abschnitt zusammengefuehrt werden.
+
+Fuer die Simulation:
+
+- Ein LED-Streifen wird erst in `physLengths`-Abschnitte aufgeteilt.
+- Je Abschnitt wird aus `round(lengthM * ledsPerMeter)` die Anzahl einzelner LEDs berechnet.
+- Jede einzelne LED wird als ein digitales LED-Netzelement in Reihe modelliert.
+- `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N`.
+- Spannungen an `_middle_N` werden nur fuer solche Abschnittsgrenzen angezeigt, die wirklich in `physLengths` existieren.
+
+Beispiel aus `example3.json`:
+
+- `nodeLength: 4`
+- konkrete Middle-Handles bei `repeatIndex` 1, 2 und 3
+- `physLengths: [{startIndex: 0, length: 13}, {startIndex: 2, length: 13}]`
+- Die angeschlossenen Handles `24V_middle_2` und `GND_middle_2` gehoeren zur Abschnittsgrenze `startIndex: 2`.
+- Fuer `_middle_1` und `_middle_3` wird keine Zusatzspannung angezeigt, solange kein passender `physLengths`-Eintrag existiert.
+
+## Modellaufbau aus Diagramm-JSON
+
+Der Modellaufbau sollte als pure Funktion implementiert werden:
+
+```ts
+createSimulationModel(diagramJson, settings): SimulationModel
+```
+
+Schritte:
+
+1. Vorhandenes Diagramm-Check-Ergebnis pruefen; es darf verwendet werden, wenn dessen Diagramm-Fingerprint unveraendert ist. Nur Check-Fehler mit Severity `error` blockieren die Simulation, Warnungen erlauben sie erstmal.
+2. Diagramm-JSON parsen.
+3. Nodes und Edges typisieren.
+4. Check-/Netzkontext aufbauen oder gemeinsame Netlist-Funktion nutzen.
+5. Relevante Check-Netze filtern: GND, Supply, PWM.
+6. Echte Circuit-Nodes erzeugen: Pin-Enden, interne Bruecken und Wire-Enden beruecksichtigen.
+7. Wire-Widerstaende aus Laenge, Querschnitt und Kupfer-spezifischem Widerstand erzeugen.
+8. Simulierbare Komponenten erkennen: `node.data.simdata !== undefined`.
+9. Nicht simulierbare Komponenten pruefen: Wenn eine Komponente ohne `simdata` mindestens einen Pin an einem `gnd`-, `supply`- oder `pwm`-Netz hat, gilt sie als im relevanten Pfad und die Simulation bricht mit Fehler ab.
+10. Wenn `node.data.simdata` leer ist: Komponente als bekannt, aber ohne Gleichungsbeitraege behandeln.
+11. Fuer jede simulierbare Komponente:
+    - relevante Pins sammeln
+    - Pinpositionen fuer Anzeige bestimmen
+    - lesbare kompakte Elementdefinitionen validieren
+    - elementare elektrische Elemente aus `simdata.elements` erzeugen
+12. LED-VirtualPins und LED-Einzelelemente ermitteln.
+13. GND-Referenz anhand der Spannungsquelle mit dem hoechsten Stromlimit setzen.
+14. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System als Simulationsfehler behandeln.
+15. Nicht versorgte, aber ansonsten valide Teilnetze ignorieren und einen Hinweis erzeugen.
+16. Validierungsfehler sammeln; bei Fehlern keine Simulation starten.
+
+## Solver-Strategie
+
+Fuer die erste Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet. Er soll eine MNA-Matrix loesen koennen und mindestens Gaussian Elimination mit Pivoting enthalten. Diese Loesung ist bewusst auf kleine bis mittlere Testmodelle begrenzt und dient dazu, Modellaufbau, Element-Stempel, Checks und Ergebnisableitung schnell und nachvollziehbar zu verifizieren.
+
+Der Solver soll trotzdem von Anfang an ueber ein austauschbares Interface angebunden werden:
+
+```ts
+type LinearSystemSolver = {
+  solve(system: LinearSystem): SolverResult;
+};
+```
+
+Dadurch kann spaeter ein Sparse-Solver oder eine externe numerische Bibliothek ergaenzt werden, ohne Modellaufbau und Ergebnislogik neu zu schreiben. Ein eigener Sparse-Solver ist fuer den Start nicht vorgesehen.
+
+## Anzeige im Diagramm
+
+Die Ergebnisse sollen direkt am Diagramm angezeigt werden.
+
+Stromanzeige:
+
+- Position neben dem betroffenen Pin.
+- Pfeil plus Wert.
+- Pfeil aus dem Pin heraus, wenn `currentA > 0`.
+- Pfeil in den Pin hinein, wenn `currentA < 0`.
+- Wert immer als Betrag mit einer Nachkommastelle.
+- An `SolderJoint`-Komponenten werden keine Stroeme angezeigt.
+
+Spannungsanzeige:
+
+- Position neben dem betroffenen Pin.
+- Wert mit Vorzeichen, einer Nachkommastelle und Einheit `V`.
+- Fuer LED-Supply-Pins wird die Differenz zum zugeordneten GND-Pin angezeigt.
+- Fuer LED-GND- und LED-PWM-Pins wird keine Spannung angezeigt.
+- An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
+
+Wire-Anzeige:
+
+- Beim Hover oder Select eines Wires koennen Wire-Strom, Spannungsabfall und berechneter Widerstand angezeigt werden.
+- Beispiel: `I = 3.2 A`, `dU = 0.4 V`, `R = 0.12 Ohm`.
+- Die Werte sollen an der Wire-Toolbar oder in einem kleinen Tooltip erscheinen, nicht als dauerhaftes Label auf jedem Wire.
+
+Darstellungskonzept:
+
+- Eigene Overlay-Komponente, z.B. `SimulationOverlay`, die `SimulationResult` und Node-/Handle-Positionen liest.
+- Nicht in `ComponentDataType` speichern.
+- Nicht in Export-JSON persistieren.
+- Zoom- und pan-stabil: Overlay-Positionen werden aus ReactFlow-Viewport und Handle-Positionen abgeleitet und bei Pan/Zoom automatisch neu berechnet.
+- Stromrichtungspfeile direkt am Pin, deutlich sichtbar, z.B. blau/cyan fuer Strom.
+- Spannungslabels in einer zweiten Ebene mit heller Flaeche, dunkler Schrift und farbigem Rand, z.B. amber/orange fuer Spannung.
+- Bei vielen Labels an einer Komponente werden Labels auf Slots um den Node verteilt. Kurze Hinweislinien verbinden Label und Pin. Dadurch ueberlappen Werte nicht direkt mit Pins oder Nachbarkomponenten.
+- Labels sollen Pointer-Events deaktivieren, damit sie das Editieren des Diagramms nicht stoeren.
+
+## Simulationsergebnisse verwerfen
+
+Simulationsergebnisse duerfen nicht mehr angezeigt werden, sobald sich das Diagramm fachlich aendert.
+
+Relevante Aenderungen:
+
+- Komponente hinzugefuegt
+- Komponente geloescht
+- Komponente verschoben
+- Komponente gedreht
+- Komponenteneigenschaften geaendert
+- Handles/repeated handles geaendert
+- Wire hinzugefuegt
+- Wire geloescht
+- Wire verschoben
+- Wire-Bend geaendert
+- Wire-Eigenschaften geaendert
+
+Ausnahme:
+
+- Aenderungen, die nur die angezeigten Simulationsergebnisse selbst betreffen, duerfen die Ergebnisse nicht invalidieren.
+
+Entscheidung:
+
+- Eine Diagrammaenderung loescht Simulationsergebnisse sofort.
+- Auf dem Diagramm werden alle Simulationsanzeigen sofort entfernt.
+- Ergebnisse werden nicht nur als `outdated` markiert.
+- Beim Start einer neuen Simulation entsteht kein Undo-Snapshot, weil Simulationsergebnisse transient sind.
+
+`Delete simulation results`:
+
+- setzt `simulationResult = null`
+- entfernt Overlay
+- entfernt Simulations-Highlights
+- loescht auch Highlights aus Simulations-Checks
+
+Empfehlung:
+
+- Simulationsergebnis enthaelt `diagramFingerprint`.
+- Der Fingerprint wird aus Nodes und Edges erzeugt, aber ohne transienten UI-Zustand:
+  - `selected`
+  - `dragging`
+  - `checkHighlighted`
+  - Simulation-Overlay-Daten
+- Bei jeder Nodes-/Edges-Aenderung wird der aktuelle Fingerprint verglichen.
+- Wenn er abweicht, wird `simulationResult` auf `null` gesetzt.
+
+## Simulations-Checks
+
+Nach jeder erfolgreichen Simulation laufen automatisch Simulations-Checks.
+
+Die Ergebnisse werden im Bereich `Simulate current flow` angezeigt, aehnlich wie die Wiring-Diagramm-Checks.
+
+Vorgeschlagene Struktur:
+
+```ts
+type SimulationCheckIssue = {
+  id: string;
+  severity: 'error' | 'warning' | 'info';
+  title: string;
+  description: string;
+  recommendation?: string;
+  targets?: SimulationTarget[];
+};
+```
+
+Erste Checks:
+
+- Diagramm-Check hat Fehler: Simulation nicht starten.
+- Kein eindeutiges GND-Referenznetz.
+- Gar kein GND-Netz.
+- Supply-Netz ohne Spannungsquelle.
+- Stromlimit einer PSU oder eines DCDC-Wandlers ueberschritten.
+- Sicherungsstrom ueber Grenzwert.
+- Wire-Laenge oder Wire-Querschnitt fehlt oder ist ungueltig.
+- Nicht simulierbare Komponente liegt in relevantem Strompfad.
+- Simulation konnte fuer ein Netz keine Spannung bestimmen.
+- Spannung am Wire bzw. zwischen Supply- und GND-Pin zu niedrig, fuer alle Pin-Paare, fuer die Spannung angezeigt werden soll.
+- Spannung am LED-Streifen unter Mindestspannung.
+- Spannung am LED-Streifen ueber Maximalspannung.
+- Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System.
+- Nicht versorgtes Teilnetz wurde ignoriert.
+- Strom ueber 150% des PSU- oder DCDC-Limits: Simulation abbrechen.
+
+Vorgeschlagene kurze UI-/Translation-Texte:
+
+- Diagramm-Check blockiert Simulation: `Simulation nicht gestartet. Bitte korrigiere zuerst die Fehler im Diagramm-Check.`
+- Veraltetes Check-Ergebnis: `Diagramm wurde geaendert. Bitte Diagramm-Check erneut ausfuehren.`
+- Simulation fehlgeschlagen: `Simulation fehlgeschlagen. Bitte pruefe die angezeigten Simulationsmeldungen.`
+- PSU-Ueberlast: `Stromlimit der Spannungsquelle ueberschritten. Die Ausgangsspannung wurde im Modell reduziert.`
+- DCDC-Ueberlast: `Stromlimit des DCDC-Wandlers ueberschritten. Die Ausgangsspannung wurde im Modell reduziert.`
+- Extreme Ueberlast: `Strom liegt ueber 150% des Limits. Simulation wurde abgebrochen.`
+- Sicherung ueberlastet: `Strom durch Sicherung liegt ueber dem Nennwert.`
+- Wire-Daten fehlen: `Wire-Laenge oder Wire-Querschnitt fehlt. Simulation kann nicht gestartet werden.`
+- Nicht simulierbare Komponente im relevanten Netz: `Komponente ist an ein relevantes Netz angeschlossen, hat aber kein Simulationsmodell.`
+- Nicht versorgtes Teilnetz: `Nicht versorgtes Teilnetz wurde ignoriert.`
+
+Die Check-Liste sollte die gleiche UX verwenden wie `DiagramCheckPage`:
+
+- Severity-Tag
+- Titel
+- Beschreibung
+- Empfehlung
+- Betroffene Elemente
+- Klick/Expand hebt betroffene Pins/Komponenten/Wires hervor
+
+## UI-Konzept: Simulate current flow
+
+Sidebar-Panel ersetzt den aktuellen `comingSoon`-Text.
+
+Elemente:
+
+1. Einstellungen
+   - LED-Farbmodus als Select/Segmented Control
+   - Helligkeit als Slider + Prozentanzeige
+2. Button `Simulate`
+   - prueft vorhandenen Diagramm-Check-Status und Fingerprint
+   - baut Modell
+   - fuehrt Simulation aus
+   - startet Checks
+   - setzt `simulationResult`
+3. Button `Delete simulation results`
+   - setzt `simulationResult = null`
+   - entfernt Overlay
+   - entfernt Simulations-Highlights
+4. Statusbereich
+   - `No simulation has been run yet`
+   - `Simulation failed` bei Check-, Solver- oder Modellfehler
+5. Check-Ergebnisse
+   - Liste analog Diagramm-Checks
+
+## Empfohlene Modulstruktur
+
+Vorschlag:
+
+```text
+src/simulation/
+  simulationTypes.ts
+  buildSimulationModel.ts
+  runSimulation.ts
+  simulationChecks.ts
+  simulationFingerprint.ts
+  wireResistance.ts
+  awgToMm2.ts
+  elementaryElements.ts
+  ledStripSimulation.ts
+  componentSimulationModels.ts
+  SimulationPage.tsx
+  SimulationOverlay.tsx
+```
+
+Optional:
+
+- Gemeinsame Netzlogik aus `check/checkContext.ts` spaeter nach `src/netlist/` extrahieren.
+- Wiring-Checks und Simulation verwenden dann dieselbe Netlist.
+
+## Reihenfolge der Umsetzung
+
+1. [x] Typen fuer Simulation definieren. Umgesetzt in `src/simulation/simulationTypes.ts`.
+2. `ComponentDataType` um optionale `simdata`-Struktur erweitern.
+3. Elementare elektrische Elemente typisieren.
+4. Wire-Widerstandsmodell fuer Kupferleitungen inklusive AWG-Umrechnung definieren.
+5. Erste `simdata`-Daten fuer wenige Komponenten eintragen:
+   - `Resistor`
+   - `miniOTOFuse`
+   - PSU-Komponenten
+   - ein digitaler LED-Streifen
+   - `WAGO_2x`
+   - `WAGO_3x`
+   - `MHC_V43`
+   - `DCDC`
+6. `buildSimulationModel()` implementieren, noch ohne echten Solver.
+7. `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen.
+8. Ergebnis-Invalidierung per Fingerprint einbauen.
+9. Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen.
+10. Overlay fuer Pin-Strom/Spannung anzeigen.
+11. Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren.
+12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
+13. Simulation-Checks ergaenzen.
+14. LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren.
+15. Erste Simulation-Fixtures und erwartete Ergebniswerte bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+
+## Geklaerte Entscheidungen
+
+1. `simdata.elements` wird kompakt, aber mit lesbaren Feldnamen wie `type`, `terminals` und `parameters` gehalten.
+2. Erste Komponenten: `Resistor`, `miniOTOFuse`, PSU, digitaler LED-Streifen, `WAGO_2x`, `WAGO_3x`, `MHC_V43`, `DCDC`.
+3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
+4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
+5. Sicherungs-Lookups zuerst direkt in `simdata`.
+6. LED-Lookups pro LED-Typ.
+7. `physLengths[i].length` ist Meter.
+8. `_middle_N` entspricht `repeatIndex === N`; `physLengths.startIndex === N` markiert eine Abschnittsgrenze.
+9. `_middle_N`-Spannung nur anzeigen, wenn `physLengths.startIndex === N` existiert.
+10. `RGB-White`: RGB-Kanaele werden fuer Weiss gemeinsam angesteuert.
+11. `Separate-White`: nur W-/WW-Kanal aktiv; zusaetzlich Modus fuer Separate White plus RGB White.
+12. Analoge LED-Streifen haben pro Kanal separate PWM-Eingaenge.
+13. PWM-Netze werden erstmal als DC-Netze behandelt.
+14. Mehrere getrennte GND-Netze: robust abbrechen und Fehler anzeigen.
+15. Kein GND-Netz: abbrechen und Fehler anzeigen.
+16. Nicht simulierbare Komponenten in relevanten Strompfaden: Simulation abbrechen und Fehler anzeigen.
+17. Fehlende Wire-Laenge oder Querschnitt: Simulation abbrechen und Check-Fehler erzeugen.
+18. Andere Querschnittseinheiten: AWG per lokaler Tabelle nach `mm2` umrechnen.
+19. `internalConnections` werden nicht automatisch in `simdata`-Bruecken uebersetzt.
+20. Erste Grenzwerte: zu niedrige Spannung fuer alle angezeigten Supply/GND-Pin-Paare, Stromlimits und Sicherungen.
+21. Strompfeile und Spannungslabels: sichtbare Overlay-Ebene mit Slotting und Hinweislinien gegen Ueberlappung.
+22. Simulationsergebnisse bleiben bei Pan/Zoom sichtbar und werden automatisch neu positioniert.
+23. `Delete simulation results` loescht auch Simulations-Check-Highlights.
+24. Neue Simulation erzeugt keinen Undo-Snapshot.
+25. Simulationseinstellungen sind nicht Undo-/Redo-faehig.
+26. Diagrammaenderung loescht Ergebnisse sofort.
+27. `Simulate` verwendet ein vorhandenes Diagramm-Check-Ergebnis, wenn dessen Diagramm-Fingerprint unveraendert ist.
+28. Diagramm-Check-Warnungen blockieren die Simulation erstmal nicht; nur `error` blockiert.
+29. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und Lookup-Tabellen.
+30. Field-Referenzen verweisen auf die `technicalID`/HID des Eingabefelds und uebernehmen dessen aktuellen Wert.
+31. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
+32. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.
+33. Die Anzahl einzelner LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter)` berechnet.
+34. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt.
+35. Serienwiderstaende digitaler LED-Streifen werden pro LED angegeben.
+36. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung.
+37. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
+38. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
+39. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
+40. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
+41. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
+42. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
+43. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
+44. Erste Simulation-Fixtures werden gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+45. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
