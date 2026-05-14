@@ -40,6 +40,8 @@ export const Resistor: Node = {
             fieldWidth: 100,
             customImage: false,
             color: "black",
+            hide: false,
+            showNameIfSelected: false,
             options: [
                 {"value": 1.0, "label": "1.0 Ohm"},
                 {"value": 1.2, "label": "1.2 Ohm"},
@@ -160,6 +162,19 @@ export const Resistor: Node = {
             ],
             },
         ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "resistor",
+                    type: "resistor",
+                    terminals: {a: "1", b: "2"},
+                    parameters: {
+                        resistanceOhm: {select: "NominalValue"},
+                    },
+                },
+            ],
+        },
         handles: [
         {
             borderColor: "green",

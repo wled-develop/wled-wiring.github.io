@@ -953,7 +953,7 @@ Optional:
 2. [x] `ComponentDataType` um optionale `simdata`-Struktur erweitern. Umgesetzt in `src/types.ts`.
 3. [x] Elementare elektrische Elemente typisieren. Umgesetzt in `src/simulation/simulationTypes.ts` und `src/simulation/elementaryElements.ts`.
 4. [x] Wire-Widerstandsmodell fuer Kupferleitungen inklusive AWG-Umrechnung definieren. Umgesetzt in `src/simulation/wireResistance.ts` und `src/simulation/awgToMm2.ts`.
-5. Erste `simdata`-Daten fuer wenige Komponenten eintragen:
+5. [x] Erste `simdata`-Daten fuer wenige Komponenten eintragen. Umgesetzt fuer:
    - `Resistor`
    - `miniOTOFuse`
    - PSU-Komponenten

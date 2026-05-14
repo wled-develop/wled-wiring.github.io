@@ -43,6 +43,8 @@ export const miniOTOFuse: Node = {
             fieldWidth: 70,
             customImage: true,
             color: "white",
+            hide: false,
+            showNameIfSelected: false,
             options: [
                 {
                     value: 2,
@@ -119,6 +121,34 @@ export const miniOTOFuse: Node = {
                 nominalCurrentField: "NominalValue",
             },
         ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "fuse",
+                    type: "fuse",
+                    terminals: {a: "1", b: "2"},
+                    parameters: {
+                        resistanceOhm: {
+                            table: {
+                                "2": 0.018,
+                                "3": 0.014,
+                                "4": 0.011,
+                                "5": 0.009,
+                                "7.5": 0.006,
+                                "10": 0.0045,
+                                "15": 0.003,
+                                "20": 0.0023,
+                                "30": 0.0015,
+                            },
+                            by: {select: "NominalValue"},
+                            default: 0.01,
+                        },
+                        nominalCurrentA: {select: "NominalValue"},
+                    },
+                },
+            ],
+        },
         handles: [
         {
             hid: "1",
