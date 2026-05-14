@@ -243,7 +243,7 @@ function colorStringToRgbString(color: string):  string | undefined {
   }
 
   // for connection different function, since it always starts in the middle per default
-   export function postypeToAdjustedXYConn(postype: string, sourceX:number, sourceY:number, handleWidth:number, handleHeight:number, rotation:number) {
+  export function postypeToAdjustedXYConn(postype: string, sourceX:number, sourceY:number, handleWidth:number, handleHeight:number, rotation:number) {
     const ROUNDN=1;
     let sourceXadjusted=sourceX;
     let sourceYadjusted=sourceY;
@@ -272,6 +272,32 @@ function colorStringToRgbString(color: string):  string | undefined {
       }
     }
     return [Math.round(sourceXadjusted/ROUNDN)*ROUNDN, Math.round(sourceYadjusted/ROUNDN)*ROUNDN];
+  }
+
+  export function findHandleData(node: Node | undefined, handleID: string | null | undefined): HandleDataType | undefined {
+    const compData = node?.data as ComponentDataType | undefined;
+    if(!compData || !handleID) return undefined;
+
+    return compData.handles?.find((handle) => handle.hid === handleID)
+      ?? compData.repeatedHandleArray?.find((handle) => handle.hid === handleID);
+  }
+
+  export function getRenderedWireEndpoint(node: Node | undefined, handleID: string | null | undefined): XYPoint | undefined {
+    const compData = node?.data as ComponentDataType | undefined;
+    const handle = findHandleData(node, handleID);
+    if(!node || !compData || !handle || !handleID) return undefined;
+
+    const handlePoint = getHandleMiddleRealPosition(node, handleID);
+    const [x, y] = postypeToAdjustedXYConn(
+      handle.postype || "left",
+      handlePoint.x + node.position.x + (compData.borderWidth || 0),
+      handlePoint.y + node.position.y + (compData.borderWidth || 0),
+      handle.width || 0,
+      handle.height || 0,
+      compData.rotation || 0,
+    );
+
+    return {x, y};
   }
 
   // function get nearest point on one of edges to the given toX and toY point.

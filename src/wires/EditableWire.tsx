@@ -26,8 +26,8 @@ import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design
 import "./EditableWire.css";
 import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
 
-import {ComponentDataType, HandleDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
-import {canonicalizeColorForCompare, colorNameToRGBString, postypeToAdjustedXY} from "../utils/utils_functions.ts";
+import {ComponentDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
+import {canonicalizeColorForCompare, colorNameToRGBString, findHandleData, getRenderedWireEndpoint, postypeToAdjustedXY} from "../utils/utils_functions.ts";
 import { collapseMergeableSolderJoints, getSolderJointEndpointIds } from "../utils/wireMerge.ts";
 import { getSegmentOrientation, moveWireSegment, type SegmentOrientation } from "../utils/wireSegmentMove.ts";
 import { applySolderJointSegmentMove } from "../utils/solderJointSegmentMove.ts";
@@ -435,17 +435,17 @@ export default function EditableWire ({
   //console.log(sourceHandle);
   //console.log("Edge original sourceX, sourceY = ", [sourceX, sourceY])
 
-  let sourceHandleDef = (sourceNode?.data?.handles!=undefined) ? (sourceNode?.data?.handles as Array<HandleDataType>).filter((handleDef)=>handleDef.hid ==sourceHandleId)[0] : undefined;
-  // if undefined, then the handle probably in the repeatedHandleArray
-  if(sourceHandleDef==undefined) {
-    sourceHandleDef = (sourceNode?.data?.handles!=undefined) ? (sourceNode?.data?.repeatedHandleArray as Array<HandleDataType>).filter((handleDef)=>handleDef.hid ==sourceHandleId)[0] : undefined;
-  }
+  const sourceHandleDef = findHandleData(sourceNode, sourceHandleId);
   
   let sourceXadjusted=Math.round(sourceX/ROUNDN)*ROUNDN;
   let sourceYadjusted=Math.round(sourceY/ROUNDN)*ROUNDN;
   const sourceNodeRotation = (sourceNode?.data.rotation as number);
 
-  if(sourceHandleDef!=undefined) {
+  const renderedSourceEndpoint = getRenderedWireEndpoint(sourceNode, sourceHandleId);
+  if(renderedSourceEndpoint) {
+    sourceXadjusted = renderedSourceEndpoint.x;
+    sourceYadjusted = renderedSourceEndpoint.y;
+  } else if(sourceHandleDef!=undefined) {
     [sourceXadjusted, sourceYadjusted] = postypeToAdjustedXY(
       sourceHandleDef.postype,
       sourceX,
@@ -459,18 +459,17 @@ export default function EditableWire ({
   const targetNode = useInternalNode(target);
   const preserveEndPinStub = (targetNode?.data as ComponentDataType | undefined)?.technicalID !== 'SolderJoint';
   const targetHandle=targetNode?.internals.handleBounds?.source?.filter((handle)=>(handle.id==targetHandleId))[0];
-  let targetHandleDef= (targetNode?.data?.handles!=undefined) ? (targetNode?.data?.handles as Array<HandleDataType>).filter((handleDef)=>handleDef.hid ==targetHandleId)[0] : undefined;
- 
-  if(targetHandleDef==undefined) {
-    // if undefined, it is probably in repetaed
-    targetHandleDef= (targetNode?.data?.handles!=undefined) ? (targetNode?.data?.repeatedHandleArray as Array<HandleDataType>).filter((handleDef)=>handleDef.hid ==targetHandleId)[0] : undefined;
-  }
+  const targetHandleDef = findHandleData(targetNode, targetHandleId);
   
   let targetXadjusted=Math.round(targetX/ROUNDN)*ROUNDN;
   let targetYadjusted=Math.round(targetY/ROUNDN)*ROUNDN;
   const targetNodeRotation = (targetNode?.data.rotation as number);
   
-  if(targetHandleDef!=undefined) {
+  const renderedTargetEndpoint = getRenderedWireEndpoint(targetNode, targetHandleId);
+  if(renderedTargetEndpoint) {
+    targetXadjusted = renderedTargetEndpoint.x;
+    targetYadjusted = renderedTargetEndpoint.y;
+  } else if(targetHandleDef!=undefined) {
     [targetXadjusted, targetYadjusted] = postypeToAdjustedXY(
       targetHandleDef.postype,
       targetX,

@@ -8,8 +8,8 @@ import {
   getPathResult,
 } from './pathfinder_functions';
 import {
-  getHandleMiddleRealPosition,
-  //postypeToAdjustedXYConn,
+  findHandleData,
+  getRenderedWireEndpoint,
 } from './utils_functions';
 
 export const ROTATE_WIRE_PIN_STUB_ENABLED = true;
@@ -48,6 +48,19 @@ type RerouteWireGroup = {
 type RouteWireWithPathfinderOptions = {
   enforceEndpointDirections?: boolean;
   bindToRenderedEndpoints?: boolean;
+};
+
+type WireRoute = {
+  startXY: XYPoint;
+  endXY: XYPoint;
+  edgePoints: edgePoint[];
+};
+
+type WireRoutingDiagnostic = {
+  edgeId: string;
+  segmentIndex: number;
+  from: XYPoint;
+  to: XYPoint;
 };
 
 const getRotatedNodeSize = (node: Node, rotation: number) => {
@@ -143,34 +156,11 @@ const removeRedundantPoints = (points: XYPoint[], preserveEndpointStubs = false)
 const getNodeData = (node: Node | undefined) => node?.data as ComponentDataType | undefined;
 
 const getHandle = (node: Node | undefined, handleId?: string | null) => {
-  const nodeData = getNodeData(node);
-  if(!nodeData || !handleId) return undefined;
-
-  return nodeData.handles.find((handle) => handle.hid === handleId)
-    ?? nodeData.repeatedHandleArray?.find((handle) => handle.hid === handleId);
+  return findHandleData(node, handleId);
 };
 
 const getHandleConnectionPoint = (node: Node, handleId?: string | null): XYPoint | undefined => {
-  const nodeData = node.data as ComponentDataType;
-  const handle = getHandle(node, handleId);
-  if(!handle) return undefined;
-  // let ROUNDN=1;
-  const handleMiddle = getHandleMiddleRealPosition(node, handleId || '');
-  const handleX = handleMiddle.x + node.position.x + nodeData.borderWidth;
-  const handleY = handleMiddle.y + node.position.y + nodeData.borderWidth;
-  /*
-  let sourceXadjusted=Math.round(handleX/ROUNDN)*ROUNDN;
-  let sourceYadjusted=Math.round(handleY/ROUNDN)*ROUNDN;
-  const [x, y] = postypeToAdjustedXYConn(
-    handle.postype || 'left',
-    sourceXadjusted,
-    sourceYadjusted,
-    handle.width || 0,
-    handle.height || 0,
-    nodeData.rotation || 0,
-  );
-  */
-  return {x: handleX, y: handleY};
+  return getRenderedWireEndpoint(node, handleId);
 };
 
 const getEdgePoints = (edgeData: EdgeDataType) => (
@@ -180,6 +170,45 @@ const getEdgePoints = (edgeData: EdgeDataType) => (
     edgeData.endXY,
   ].filter((point): point is XYPoint => Boolean(point))
 );
+
+const getRoutePoints = (route: WireRoute) => [
+  route.startXY,
+  ...route.edgePoints.map(pointFromEdgePoint),
+  route.endXY,
+];
+
+export const findNonOrthogonalWireRouteSegments = (
+  edgeId: string,
+  route: WireRoute,
+): WireRoutingDiagnostic[] => {
+  const points = getRoutePoints(route);
+  return points
+    .slice(0, -1)
+    .flatMap((point, index) => {
+      const nextPoint = points[index + 1];
+      return nextPoint && !isHorizontalOrVertical(point, nextPoint)
+        ? [{
+          edgeId,
+          segmentIndex: index,
+          from: point,
+          to: nextPoint,
+        }]
+        : [];
+    });
+};
+
+const warnNonOrthogonalWireRouteSegments = (
+  edgeId: string,
+  route: WireRoute,
+  context: string,
+) => {
+  if(!import.meta.env.DEV) return;
+
+  const diagnostics = findNonOrthogonalWireRouteSegments(edgeId, route);
+  if(diagnostics.length === 0) return;
+
+  console.warn(`[wire-routing] non-orthogonal ${context} route`, diagnostics);
+};
 
 const pointFromDirection = (start: XYPoint, direction: DirectionType, length: number): XYPoint | undefined => {
   if(direction === 'right') return {x: start.x + length, y: start.y};
@@ -756,6 +785,7 @@ export const rotateComponentWires = ({
           ? routeWithStubs(updatedNodes, currentEdge, currentEdgeData, nodeId, shiftBendsActive)
           : undefined);
       if(!route) return;
+      warnNonOrthogonalWireRouteSegments(currentEdge.id, route, 'component rotation');
 
       const updatedEdge = {
         ...currentEdge,
@@ -786,6 +816,7 @@ export const rotateComponentWires = ({
       : undefined;
 
     if(!route) return edge;
+    warnNonOrthogonalWireRouteSegments(edge.id, route, 'component rotation fallback');
 
     return {
       ...edge,
