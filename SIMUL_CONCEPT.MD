@@ -794,13 +794,12 @@ Wenn eine Simulation laeuft, soll der Nutzer auch im Diagramm erkennen, dass ger
 
 Stromanzeige:
 
-- Position neben dem betroffenen Pin.
-- Pfeil plus Wert.
-- Pfeil aus dem Pin heraus, wenn `currentA > 0`.
-- Pfeil in den Pin hinein, wenn `currentA < 0`.
-- Wert immer als Betrag mit zwei Nachkommastellen.
-- Pin-Stroeme werden nur an Pins mit mindestens einer angeschlossenen Wire angezeigt. Interne Komponentenstroeme ohne externe Wire-Verbindung werden nicht als Pin-Label dargestellt.
-- An `SolderJoint`-Komponenten werden keine Stroeme angezeigt.
+- Pin-Stroeme werden nicht dauerhaft am Pin angezeigt. Am Pin steht nur Spannung.
+- Wire-Stroeme werden pro Wire angezeigt, ungefaehr in der geometrischen Wire-Mitte.
+- Die Wire-Stromanzeige zeigt den Stromwert immer als positiven Betrag mit zwei Nachkommastellen.
+- Neben der Wire-Stromanzeige wird ein Richtungspfeil gezeichnet. Der Pfeil liegt neben der Wire und zeigt in Richtung des positiven Stromflusses. Positiver Wire-Strom ist dabei die Richtung `source -> target`, negativer Wire-Strom zeigt entsprechend `target -> source`.
+- Beim Hover ueber eine Wire wird an der Hover-Position zusaetzlich nur der Stromwert angezeigt, ohne Richtungspfeil.
+- Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet, damit Wire-Toolbar, Wire-Punkte und Editier-Controls nicht ueberdeckt werden.
 
 Spannungsanzeige:
 
@@ -814,9 +813,11 @@ Spannungsanzeige:
 
 Wire-Anzeige:
 
-- Beim Hover oder Select eines Wires koennen Wire-Strom, Spannungsabfall und berechneter Widerstand angezeigt werden.
+- Im Overlay wird pro Wire dauerhaft der Wire-Strom mit Richtungspfeil angezeigt, solange keine Wire selektiert ist.
+- Beim Hover ueber eine Wire wird an der Hover-Position zusaetzlich nur der Stromwert angezeigt, ohne Richtungspfeil.
+- Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet.
+- Spannungsabfall und berechneter Widerstand koennen spaeter in der Wire-Toolbar oder in einem kleinen Tooltip angezeigt werden, nicht als dauerhaftes Label auf jedem Wire.
 - Beispiel: `I = 3.2 A`, `dU = 0.4 V`, `R = 0.12 Ohm`.
-- Die Werte sollen an der Wire-Toolbar oder in einem kleinen Tooltip erscheinen, nicht als dauerhaftes Label auf jedem Wire.
 
 Darstellungskonzept:
 
@@ -828,9 +829,9 @@ Darstellungskonzept:
 - Die Labelposition darf nicht aus `postype` abgeleitet werden. Fuer Overlay-Labels wird bevorzugt die tatsaechliche angeschlossene Wire-Geometrie verwendet: Am Pin wird der erste Wire-Segmentvektor bestimmt, und das Label wird auf der dem Wire-Verlauf gegenueberliegenden Seite platziert. Dadurch liegt es eher auf der Komponentenseite und ueberdeckt Wires seltener.
 - Falls keine eindeutige Wire-Geometrie bestimmt werden kann, wird `prefferedLineDirection` des Handles inklusive Komponentenrotation als Fallback verwendet. Falls auch diese fehlt, kann als letzter Fallback die Richtung vom Komponentenmittelpunkt zum Pin bzw. zum naechsten Komponentenrand genutzt werden. `postype` wird fuer Simulation-Overlay-Labels nicht verwendet.
 - Overlay-Labels haben eine begrenzte Zoom-Skalierung. Bei moderatem Herauszoomen skalieren sie kleiner mit. Bei starkem Herauszoomen wird die Skalierung gedeckelt, sodass Labels nicht groesser werden und weniger stark ueberlappen; volle Lesbarkeit bei maximalem Zoom-out ist nicht erforderlich.
-- Stromrichtungspfeile direkt am Pin, deutlich sichtbar, z.B. blau/cyan fuer Strom.
+- Stromrichtungspfeile werden an Wires angezeigt, deutlich sichtbar, z.B. blau/cyan fuer Strom.
 - Spannungslabels in einer zweiten Ebene mit heller Flaeche, dunkler Schrift und farbigem Rand, z.B. amber/orange fuer Spannung.
-- Bei vielen Labels an einer Komponente werden Labels auf Slots um den Node verteilt. Kurze Hinweislinien verbinden Label und Pin. Dadurch ueberlappen Werte nicht direkt mit Pins oder Nachbarkomponenten.
+- Nachdem alle Pin-Spannungslabels, Wire-Stromlabels und Hover-Labels platziert wurden, prueft das Overlay auf Ueberlappungen in Screen-Koordinaten. Ueberlappende Labels werden iterativ auseinander geschoben. Wird ein Label dabei so weit verschoben, dass die Zugehoerigkeit nicht mehr eindeutig ist, wird eine duenne Hinweislinie mit Pfeil vom Label zum Pin bzw. zum Wire-Stromrichtungspfeil gezeichnet.
 - Labels sollen Pointer-Events deaktivieren, damit sie das Editieren des Diagramms nicht stoeren.
 
 ## Simulationsergebnisse verwerfen
