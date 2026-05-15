@@ -56,6 +56,8 @@ Komponenten ohne `simdata` duerfen weiterhin im Diagramm existieren. Sie liefern
 
 Wenn `data.simdata` definiert, aber leer ist, bedeutet das: Die Komponente ist fuer die Simulation bekannt, enthaelt aber keine elementaren elektrischen Elemente. Sie kann beim Erzeugen der Gleichungen ignoriert werden. Das ist nuetzlich fuer Komponenten, die nur mechanisch, informativ oder rein verbindend im Diagramm vorkommen, ohne eigenes elektrisches Modell.
 
+Komponentenoptionen koennen sichtbare Pins beeinflussen. Pins, die durch `hideConditions` aktuell nicht sichtbar sind, werden im Simulationsmodell ignoriert. Wenn ein elementares `simdata`-Element auf mindestens einen solchen unsichtbaren Pin verweist, wird dieses gesamte Element fuer die aktuelle Komponentenkonfiguration ignoriert. Das ist kein Simulationsfehler, sondern bedeutet, dass die optionale Funktion gerade nicht aktiv ist. Verweist ein Element dagegen auf einen Handle, der in der Komponente gar nicht existiert, bleibt das ein Simulationsfehler.
+
 Vorgeschlagene Erweiterung von `ComponentDataType`:
 
 ```ts
@@ -754,10 +756,11 @@ Schritte:
 9. Nicht simulierbare Komponenten pruefen: Wenn eine Komponente ohne `simdata` mindestens einen Pin an einem `gnd`-, `supply`- oder `pwm`-Netz hat, gilt sie als im relevanten Pfad und die Simulation bricht mit Fehler ab.
 10. Wenn `node.data.simdata` leer ist: Komponente als bekannt, aber ohne Gleichungsbeitraege behandeln.
 11. Fuer jede simulierbare Komponente:
-    - relevante Pins sammeln
-    - Pinpositionen fuer Anzeige bestimmen
-    - lesbare kompakte Elementdefinitionen validieren
-    - elementare elektrische Elemente aus `simdata.elements` erzeugen
+     - relevante Pins sammeln
+     - Pinpositionen fuer Anzeige bestimmen
+     - lesbare kompakte Elementdefinitionen validieren
+     - elementare Elemente mit aktuell unsichtbaren Terminals wegen `hideConditions` ueberspringen
+     - elementare elektrische Elemente aus `simdata.elements` erzeugen
 12. LED-VirtualPins und LED-Einzelelemente ermitteln.
 13. GND-Referenz anhand der Spannungsquelle mit dem hoechsten Stromlimit setzen.
 14. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System als Simulationsfehler behandeln.
@@ -1001,7 +1004,7 @@ Optional:
 6. [x] `buildSimulationModel()` implementieren, noch ohne echten Solver. Umgesetzt in `src/simulation/buildSimulationModel.ts`.
 7. [x] `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen. Umgesetzt in `src/simulation/SimulationPage.tsx`.
 8. [x] Ergebnis-Invalidierung per Fingerprint einbauen. Umgesetzt in `src/simulation/simulationFingerprint.ts` und `src/simulation/SimulationPage.tsx`.
-9. Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen.
+9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. Overlay fuer Pin-Strom/Spannung anzeigen.
 11. Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren.
 12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
@@ -1051,10 +1054,11 @@ Optional:
 38. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
 39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
-41. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
-42. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
-43. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
-44. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
-45. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
-46. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
-47. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
+41. Pins, die durch Komponentenoptionen aktuell unsichtbar sind, werden ignoriert; elementare `simdata`-Elemente mit mindestens einem unsichtbaren Terminal werden fuer diese Konfiguration uebersprungen.
+42. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
+43. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
+44. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
+45. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
+46. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
+47. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+48. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.

@@ -5,8 +5,8 @@ import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/
 import { Alert, Button, Empty, Flex, List, Select, Slider, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 
-import { buildSimulationModel } from "./buildSimulationModel";
 import { createSimulationFingerprint } from "./simulationFingerprint";
+import { runSimulation as runDeterministicSimulation } from "./runSimulation";
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
@@ -55,6 +55,8 @@ export const SimulationPage = () => {
     circuitNodes: number;
     wires: number;
     elements: number;
+    pinResults: number;
+    wireResults: number;
   } | null>(null);
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
@@ -76,32 +78,29 @@ export const SimulationPage = () => {
     setModelStats(null);
     setWasInvalidated(false);
 
-    const diagramFingerprint = createSimulationFingerprint(
-      reactFlow.getNodes(),
-      reactFlow.getEdges(),
-    );
-
-    const result = buildSimulationModel(
+    const simulation = runDeterministicSimulation(
       reactFlow.getNodes(),
       reactFlow.getEdges(),
       settings,
     );
 
-    setIssues(result.issues);
+    setIssues(simulation.issues);
 
-    if(result.ok) {
-      setResultFingerprint(diagramFingerprint);
+    if(simulation.ok) {
+      setResultFingerprint(simulation.result.diagramFingerprint);
       setModelStats({
-        nodes: result.model.nodes.length,
-        circuitNodes: result.model.circuitNodes.length,
-        wires: result.model.wires.length,
-        elements: result.model.elements.length,
+        nodes: simulation.model.nodes.length,
+        circuitNodes: simulation.model.circuitNodes.length,
+        wires: simulation.model.wires.length,
+        elements: simulation.model.elements.length,
+        pinResults: simulation.result.pinResults.length,
+        wireResults: simulation.result.wireResults.length,
       });
       setStatus("success");
       return;
     }
 
-    setResultFingerprint(diagramFingerprint);
+    setResultFingerprint(simulation.diagramFingerprint);
     setStatus("failed");
   };
 

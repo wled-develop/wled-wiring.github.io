@@ -289,7 +289,7 @@
                                        "running":  "正在运行模拟...",
                                        "invalidated":  "图纸已更改，模拟结果已移除。",
                                        "modelReadyTitle":  "模拟模型已创建",
-                                       "modelReadyDescription":  "{{nodes}} 个组件，{{circuitNodes}} 个电路节点，{{wires}} 条导线，{{elements}} 个元素。",
+                                       "modelReadyDescription":  "{{nodes}} 个组件，{{circuitNodes}} 个电路节点，{{wires}} 条导线，{{elements}} 个元素，{{pinResults}} 个引脚结果，{{wireResults}} 个导线结果。",
                                        "failedTitle":  "模拟失败",
                                        "failedDescription":  "无法创建模拟模型。请检查下面的消息。",
                                        "noIssues":  "没有模拟消息。",

@@ -82,6 +82,11 @@ const visibleHandles = (node: Node<ComponentDataType>) => (
   ].filter((handle) => !isHiddenByCondition(node, handle))
 );
 
+const allHandles = (node: Node<ComponentDataType>) => [
+  ...(node.data.handles || []),
+  ...(node.data.repeatedHandleArray || []),
+];
+
 const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) => ({
   x: node.position.x + handle.x,
   y: node.position.y + handle.y,
@@ -290,8 +295,10 @@ const terminalPinIds = (
   element: ComponentSimulationElementUse,
   handleByPinId: Map<string, CheckHandle>,
   issues: SimulationCheckIssue[],
-) => {
+): {status: "ok"; terminals: Record<string, string>} | {status: "ignored"} | {status: "invalid"} => {
   const terminals: Record<string, string> = {};
+  let hasInvalidTerminal = false;
+  let hasHiddenTerminal = false;
 
   Object.entries(element.terminals).forEach(([terminalName, handleId]) => {
     const id = pinId(node.id, handleId);
@@ -300,6 +307,13 @@ const terminalPinIds = (
       return;
     }
 
+    const handle = allHandles(node).find((candidate) => candidate.hid === handleId);
+    if(handle && isHiddenByCondition(node, handle)) {
+      hasHiddenTerminal = true;
+      return;
+    }
+
+    hasInvalidTerminal = true;
     issues.push(issue(
       `simulation-terminal:${node.id}:${element.id}:${terminalName}`,
       "Simulation terminal points to a missing pin",
@@ -308,7 +322,15 @@ const terminalPinIds = (
     ));
   });
 
-  return terminals;
+  if(hasInvalidTerminal) {
+    return {status: "invalid"};
+  }
+
+  if(hasHiddenTerminal) {
+    return {status: "ignored"};
+  }
+
+  return {status: "ok", terminals};
 };
 
 const unionShortBridgeTerminals = (
@@ -321,9 +343,11 @@ const unionShortBridgeTerminals = (
     node.data.simdata?.elements
       ?.filter((element) => element.type === "shortBridge")
       .forEach((element) => {
-        const terminals = terminalPinIds(node, element, handleByPinId, issues);
-        const a = terminals.a;
-        const b = terminals.b;
+        const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+        if(terminalResolution.status !== "ok") return;
+
+        const a = terminalResolution.terminals.a;
+        const b = terminalResolution.terminals.b;
 
         if(a && b) {
           unionFind.union(a, b);
@@ -343,15 +367,20 @@ const collectReferenceCandidate = (
   element: ComponentSimulationElementUse,
   node: Node<ComponentDataType>,
   settings: SimulationSettings,
+  handleByPinId: Map<string, CheckHandle>,
+  issues: SimulationCheckIssue[],
 ) => {
   if(element.type !== "voltageSource") return undefined;
+
+  const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+  if(terminalResolution.status !== "ok") return undefined;
 
   const currentLimit = resolveParameter(element.parameters.currentLimitA, node, settings);
   if(!currentLimit.ok || typeof currentLimit.value !== "number") return undefined;
 
   return {
     currentLimitA: currentLimit.value,
-    negativePinId: pinId(node.id, element.terminals.negative),
+    negativePinId: terminalResolution.terminals.negative,
   };
 };
 
@@ -484,7 +513,7 @@ export const buildSimulationModel = (
 
   const referenceCandidates = nodes.flatMap((node) => (
     node.data.simdata?.elements
-      ?.map((element) => collectReferenceCandidate(element, node, settings))
+      ?.map((element) => collectReferenceCandidate(element, node, settings, handleByPinId, issues))
       .filter((candidate) => candidate !== undefined) || []
   ));
   const referenceCandidate = referenceCandidates
@@ -507,7 +536,10 @@ export const buildSimulationModel = (
     const elementIds: string[] = [];
 
     node.data.simdata?.elements?.forEach((element) => {
-      const terminalPins = terminalPinIds(node, element, handleByPinId, issues);
+      const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+      if(terminalResolution.status !== "ok") return;
+
+      const terminalPins = terminalResolution.terminals;
       const resolvedTerminals = Object.fromEntries(
         Object.entries(terminalPins).flatMap(([terminalName, terminalPinId]) => {
           const circuitNodeId = pinToCircuitNodeId.get(terminalPinId);
