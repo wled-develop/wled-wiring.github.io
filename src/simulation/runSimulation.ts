@@ -173,8 +173,8 @@ const getLedCurrentForElement = (
 
 const voltageSourcesFromElements = (
   model: SimulationModel,
-): VoltageSourceStamp[] => (
-  model.elements.flatMap((element) => {
+): VoltageSourceStamp[] => {
+  const sources = model.elements.flatMap((element) => {
     if(element.type === "voltageSource") {
       const voltageV = numberParameter(element.parameters, "voltageV");
       if(voltageV === undefined) return [];
@@ -198,8 +198,22 @@ const voltageSourcesFromElements = (
     }
 
     return [];
-  })
-);
+  });
+  const uniqueSources = new Map<string, VoltageSourceStamp>();
+
+  sources.forEach((source) => {
+    const key = [
+      source.positiveCircuitNodeId,
+      source.negativeCircuitNodeId,
+      source.voltageV.toFixed(6),
+    ].join("|");
+    if(!uniqueSources.has(key)) {
+      uniqueSources.set(key, source);
+    }
+  });
+
+  return Array.from(uniqueSources.values());
+};
 
 const collectActiveCircuitNodeIds = (model: SimulationModel) => {
   const activeCircuitNodeIds = new Set<string>();
@@ -415,6 +429,68 @@ const createLedStripVoltageSummaryResults = (
   });
 };
 
+const createSolvedCheckIssues = (
+  model: SimulationModel,
+  linearModel: LinearDcModel,
+  values: number[],
+  circuitVoltages: Map<string, number>,
+) => {
+  const issues: SimulationCheckIssue[] = [];
+  const elementById = new Map(model.elements.map((element) => [element.id, element]));
+
+  linearModel.voltageSources.forEach((source) => {
+    if(source.currentVariableIndex === undefined) return;
+
+    const element = elementById.get(source.elementId);
+    const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
+    const currentLimitA = element?.type === "voltageSource"
+      ? numberParameter(element.parameters, "currentLimitA")
+      : element?.type === "dcdcConverter"
+        ? numberParameter(element.parameters, "outputCurrentLimitA")
+        : undefined;
+
+    if(currentLimitA !== undefined && currentLimitA >= 0 && currentA > currentLimitA + 0.0005) {
+      issues.push(issue(
+        `simulation-current-limit:${source.elementId}`,
+        "Current limit exceeded",
+        `Voltage source current ${currentA.toFixed(3)} A exceeds limit ${currentLimitA.toFixed(3)} A.`,
+        [{type: "element", elementId: source.elementId}],
+      ));
+    }
+  });
+
+  model.elements.forEach((element) => {
+    if(element.type !== "fuse") return;
+
+    const nominalCurrentA = numberParameter(element.parameters, "nominalCurrentA");
+    const resistanceOhm = numberParameter(element.parameters, "resistanceOhm");
+    const aVoltage = circuitVoltages.get(element.terminals.a);
+    const bVoltage = circuitVoltages.get(element.terminals.b);
+
+    if(
+      nominalCurrentA === undefined ||
+      resistanceOhm === undefined ||
+      resistanceOhm <= 0 ||
+      aVoltage === undefined ||
+      bVoltage === undefined
+    ) {
+      return;
+    }
+
+    const currentA = Math.abs((aVoltage - bVoltage) / resistanceOhm);
+    if(currentA > nominalCurrentA + 0.0005) {
+      issues.push(issue(
+        `simulation-fuse-current:${element.id}`,
+        "Fuse current exceeded",
+        `Fuse current ${currentA.toFixed(3)} A exceeds nominal current ${nominalCurrentA.toFixed(3)} A.`,
+        [{type: "element", elementId: element.id}],
+      ));
+    }
+  });
+
+  return issues;
+};
+
 const createSimulationResult = (
   model: SimulationModel,
   diagramFingerprint: string,
@@ -462,6 +538,8 @@ const createSimulationResult = (
       resistanceOhm: wire.resistanceOhm,
     };
   });
+  const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages);
+  const allCheckIssues = [...checkIssues, ...solvedCheckIssues];
 
   return {
     modelVersion: 1,
@@ -484,10 +562,10 @@ const createSimulationResult = (
     wireResults,
     ledElementVoltageResults,
     ledStripVoltageSummaryResults,
-    checkIssues,
-    status: checkIssues.some((item) => item.severity === "error")
+    checkIssues: allCheckIssues,
+    status: allCheckIssues.some((item) => item.severity === "error")
       ? "error"
-      : checkIssues.some((item) => item.severity === "warning")
+      : allCheckIssues.some((item) => item.severity === "warning")
         ? "warning"
         : "ok",
   };

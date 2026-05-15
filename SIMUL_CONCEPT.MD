@@ -240,7 +240,7 @@ Beispiel:
 - `PSU`: Spannungsquelle zwischen Supply-Ausgang und GND, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
 - `PSU_USB_WIRES`: Spannungsquelle zwischen `VOUT` und `GND`, feste Ausgangsspannung `5 V`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
 
-Die GND-Referenz des Simulationsmodells wird an die Spannungsquelle gesetzt, die das hoechste Stromlimit hat. Bei mehreren gleich grossen Limits wird eine deterministische Auswahl verwendet und ein Info-Hinweis kann erzeugt werden.
+Die GND-Referenz des Simulationsmodells wird an die negative Seite der Spannungsquelle gesetzt, die das hoechste Stromlimit hat. Bei mehreren gleich grossen Limits wird deterministisch nach Quellen-ID sortiert. Gibt es keine Spannungsquelle mit Stromlimit, wird als Fallback ein GND-Pin verwendet; wenn auch dieser fehlt, bricht der Modellaufbau mit einem Simulationsfehler ab.
 
 ### DCDC-Wandler
 
@@ -564,7 +564,7 @@ Netze mit mehreren relevanten Klassifikationen sollten nicht stillschweigend sim
 
 Wenn es mehrere getrennte GND-Netze gibt, sollte das wegen der Diagramm-Check-Voraussetzung normalerweise nicht vorkommen. Zur Robustheit bricht die Simulation ab und zeigt einen Fehler. Wenn gar kein GND-Netz existiert, bricht die Simulation ebenfalls ab und zeigt einen Fehler.
 
-Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sollen bereits durch den Diagramm-Check als Fehler erkannt werden. Falls dieser Zustand trotzdem bis zum Simulationsmodell gelangt, bricht die Simulation mit einem Simulationsfehler ab. Parallele Quellen mit Ausgleichsstrom werden nicht simuliert.
+Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sollen bereits durch den Diagramm-Check als Fehler erkannt werden. Falls dieser Zustand trotzdem bis zum Simulationsmodell gelangt, bricht die Simulation mit einem Simulationsfehler ab. Als gleiches Supply/GND-System gelten Spannungsquellen, deren positive und negative Terminals auf denselben Circuit-Nodes liegen. Fuer den Vergleich wird eine kleine Ergebnistoleranz von `0.0005 V` verwendet. Parallele Quellen mit Ausgleichsstrom werden nicht simuliert. Mehrere ideale Quellen mit identischer Spannung auf denselben Circuit-Nodes duerfen vorkommen; der lineare Solver stempelt sie nur einmal, damit keine redundante ideale Quellenbedingung eine singulaere Matrix erzeugt.
 
 Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet. Das betrifft z.B. lose passive Teilnetze oder nicht angeschlossene Teilbereiche ohne Quelle. Die Simulation des versorgten Hauptnetzes darf dadurch weiterlaufen.
 
@@ -800,8 +800,8 @@ Schritte:
      - elementare Elemente mit aktuell unsichtbaren Terminals wegen `hideConditions` ueberspringen
      - elementare elektrische Elemente aus `simdata.elements` erzeugen
 12. LED-VirtualPins und LED-Einzelelemente ermitteln.
-13. GND-Referenz anhand der Spannungsquelle mit dem hoechsten Stromlimit setzen.
-14. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System als Simulationsfehler behandeln.
+13. GND-Referenz anhand der Spannungsquelle mit dem hoechsten Stromlimit setzen. Bei Gleichstand wird deterministisch nach Quellen-ID gewaehlt; wenn keine Quelle existiert, wird ein GND-Pin als Fallback verwendet.
+14. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System als Simulationsfehler behandeln. Identische parallele ideale Quellen werden fuer den linearen Solver dedupliziert.
 15. Nicht versorgte, aber ansonsten valide Teilnetze ignorieren und einen Hinweis erzeugen.
 16. Validierungsfehler sammeln; bei Fehlern keine Simulation starten.
 
@@ -1079,8 +1079,8 @@ Optional:
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
 12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als erste lineare DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Nichtlineare Iterationen fuer PSU-/DCDC-Degradation und spannungsabhaengige LED-Stroeme bleiben Folgearbeit.
-13. Simulation-Checks ergaenzen.
-14. LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren.
+13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits und Sicherungs-Nennstroeme.
+14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
 
 ## Geklaerte Entscheidungen

@@ -19,6 +19,7 @@ import type {
   SimulationPin,
   SimulationPinRole,
   SimulationSettings,
+  SimulationVirtualPin,
 } from "./simulationTypes";
 
 export type BuildSimulationModelResult =
@@ -98,6 +99,7 @@ const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) =
 
 type DigitalLedSectionPlan = {
   startIndex: number;
+  endIndex: number;
   logicLedCount: number;
   supplyPinIds: string[];
   gndPinIds: string[];
@@ -403,8 +405,62 @@ const collectReferenceCandidate = (
 
   return {
     currentLimitA: currentLimit.value,
+    sourceId: `${node.id}:${element.id}`,
     negativePinId: terminalResolution.terminals.negative,
   };
+};
+
+const voltageSourceCircuitTerminals = (element: SimulationElement) => {
+  if(element.type === "voltageSource") {
+    return {
+      positive: element.terminals.positive,
+      negative: element.terminals.negative,
+      voltageV: typeof element.parameters?.voltageV === "number" ? element.parameters.voltageV : undefined,
+    };
+  }
+
+  if(element.type === "dcdcConverter") {
+    return {
+      positive: element.terminals.outPositive,
+      negative: element.terminals.outNegative,
+      voltageV: typeof element.parameters?.outputVoltageV === "number" ? element.parameters.outputVoltageV : undefined,
+    };
+  }
+
+  return undefined;
+};
+
+const addVoltageSourceConflictIssues = (
+  elements: SimulationElement[],
+  issues: SimulationCheckIssue[],
+) => {
+  const voltageToleranceV = 0.0005;
+  const sourceGroups = new Map<string, Array<{element: SimulationElement; voltageV: number}>>();
+
+  elements.forEach((element) => {
+    const source = voltageSourceCircuitTerminals(element);
+    if(!source?.positive || !source.negative || source.voltageV === undefined) return;
+
+    const key = `${source.positive}->${source.negative}`;
+    const group = sourceGroups.get(key) ?? [];
+    group.push({element, voltageV: source.voltageV});
+    sourceGroups.set(key, group);
+  });
+
+  sourceGroups.forEach((group, key) => {
+    const reference = group[0];
+    const hasConflict = group.some((candidate) => (
+      Math.abs(candidate.voltageV - reference.voltageV) > voltageToleranceV
+    ));
+    if(!hasConflict) return;
+
+    issues.push(issue(
+      `simulation-voltage-source-conflict:${key}`,
+      "Conflicting voltage sources",
+      "Multiple voltage sources with different voltages are connected to the same supply/GND system. Parallel source balancing is not simulated.",
+      group.map(({element}) => ({type: "element", elementId: element.id})),
+    ));
+  });
 };
 
 const simulationPinId = (
@@ -637,6 +693,7 @@ const collectDigitalLedElementPlans = (
 
           return [{
             startIndex: physLength.startIndex,
+            endIndex,
             logicLedCount,
             supplyPinIds,
             gndPinIds,
@@ -652,6 +709,109 @@ const collectDigitalLedElementPlans = (
   });
 
   return plans;
+};
+
+const ledBoundaryHandleId = (
+  element: DigitalLedElementUse,
+  rail: "supply" | "gnd",
+  boundaryIndex: number,
+  nodeLength: number,
+) => {
+  if(rail === "supply") {
+    if(boundaryIndex === 0) return String(element.terminals.supplyIn);
+    if(boundaryIndex === nodeLength) return String(element.terminals.supplyOut);
+
+    return middleHandleId(terminalBaseHandleId(String(element.terminals.supplyIn)), boundaryIndex);
+  }
+
+  if(boundaryIndex === 0) return String(element.terminals.gndIn);
+  if(boundaryIndex === nodeLength) return String(element.terminals.gndOut);
+
+  return middleHandleId(terminalBaseHandleId(String(element.terminals.gndIn)), boundaryIndex);
+};
+
+const ledBoundaryPosition = (
+  node: Node<ComponentDataType>,
+  handleId: string,
+  boundaryIndex: number,
+  rail: "supply" | "gnd",
+) => {
+  const handle = visibleHandles(node).find((candidate) => candidate.hid === handleId);
+  if(handle) return handlePosition(node, handle);
+
+  const width = node.measured?.width ?? node.width ?? node.data.image?.width ?? 0;
+  const height = node.measured?.height ?? node.height ?? node.data.image?.height ?? 0;
+  const nodeLength = node.data.nodeLength || 1;
+  const x = node.position.x + width * Math.min(1, Math.max(0, boundaryIndex / nodeLength));
+  const y = node.position.y + (rail === "supply" ? height * 0.25 : height * 0.75);
+
+  return {x, y};
+};
+
+const createDigitalLedVirtualPins = (
+  nodes: Node<ComponentDataType>[],
+  digitalLedElementPlans: Map<string, DigitalLedElementPlan>,
+  pinToCircuitNodeId: Map<string, string>,
+) => {
+  const virtualPins = new Map<string, SimulationVirtualPin>();
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+  digitalLedElementPlans.forEach((plan, key) => {
+    const [nodeId] = key.split(":");
+    const node = nodeById.get(nodeId);
+    if(!node) return;
+
+    const nodeLength = node.data.nodeLength || 1;
+
+    plan.sections.forEach((section) => {
+      [
+        {
+          boundaryIndex: section.startIndex,
+          supplyPinId: section.supplyPinIds[0],
+          gndPinId: section.gndPinIds[0],
+        },
+        {
+          boundaryIndex: section.endIndex,
+          supplyPinId: section.supplyPinIds[section.supplyPinIds.length - 1],
+          gndPinId: section.gndPinIds[section.gndPinIds.length - 1],
+        },
+      ].forEach((boundary) => {
+        const supplyHandleId = ledBoundaryHandleId(plan.element, "supply", boundary.boundaryIndex, nodeLength);
+        const gndHandleId = ledBoundaryHandleId(plan.element, "gnd", boundary.boundaryIndex, nodeLength);
+
+        [
+          {
+            role: "supply" as const,
+            handleId: supplyHandleId,
+            pairedHandleId: gndHandleId,
+            pinId: boundary.supplyPinId,
+          },
+          {
+            role: "gnd" as const,
+            handleId: gndHandleId,
+            pairedHandleId: supplyHandleId,
+            pinId: boundary.gndPinId,
+          },
+        ].forEach((virtualPin) => {
+          const id = `${node.id}::virtual:${plan.element.id}:${virtualPin.role}:${boundary.boundaryIndex}`;
+          if(virtualPins.has(id)) return;
+
+          virtualPins.set(id, {
+            id,
+            nodeId: node.id,
+            handleId: virtualPin.handleId,
+            role: virtualPin.role,
+            segmentBoundaryIndex: boundary.boundaryIndex,
+            pairedHandleId: virtualPin.pairedHandleId,
+            circuitNodeId: pinToCircuitNodeId.get(virtualPin.pinId),
+            position: ledBoundaryPosition(node, virtualPin.handleId, boundary.boundaryIndex, virtualPin.role),
+          });
+        });
+      });
+    });
+  });
+
+  return Array.from(virtualPins.values());
 };
 
 export const buildSimulationModel = (
@@ -795,7 +955,10 @@ export const buildSimulationModel = (
       .filter((candidate) => candidate !== undefined) || []
   ));
   const referenceCandidate = referenceCandidates
-    .sort((a, b) => b.currentLimitA - a.currentLimitA)[0];
+    .sort((a, b) => (
+      (b.currentLimitA - a.currentLimitA) ||
+      a.sourceId.localeCompare(b.sourceId)
+    ))[0];
   const referenceNodeId = referenceCandidate
     ? pinToCircuitNodeId.get(referenceCandidate.negativePinId)
     : pins.find((pin) => pin.role === "gnd")?.circuitNodeId;
@@ -888,6 +1051,13 @@ export const buildSimulationModel = (
       pinIds: nodePinIds,
     };
   });
+  const virtualPins = createDigitalLedVirtualPins(
+    nodes,
+    digitalLedElementPlans,
+    pinToCircuitNodeId,
+  );
+
+  addVoltageSourceConflictIssues(elements, issues);
 
   if(issues.some((item) => item.severity === "error") || !referenceNodeId) {
     return {ok: false, issues};
@@ -911,7 +1081,7 @@ export const buildSimulationModel = (
       components,
       elements,
       pins,
-      virtualPins: [],
+      virtualPins,
       referenceNodeId,
     },
   };

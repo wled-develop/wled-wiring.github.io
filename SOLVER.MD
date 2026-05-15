@@ -203,3 +203,96 @@ Nach Konvergenz werden berechnet:
 - Simulations-Check-Ziele fuer Highlights
 
 Fuer LED-Middle-Anzeigen gilt: Ein Wert wird nur erzeugt, wenn ein konkreter Abschnitt mit `physLengths.startIndex === N` existiert.
+
+## Stand der aktuellen Implementierung
+
+Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
+
+- Modellaufbau mit Circuit-Nodes, Wire-Widerstaenden, Kurzschlussbruecken und `simdata.elements`.
+- Referenzknoten wird aus der Spannungsquelle mit dem hoechsten Stromlimit gewaehlt; bei Gleichstand deterministisch.
+- Digitale LED-Streifen werden anhand von `physLengths`, `ledsPerMeter` und `physLedsPerLogicLed` in interne LED-Elemente expandiert.
+- Start-/End-/Middle-Grenzen der LED-Streifen werden als `SimulationVirtualPin` ausgegeben.
+- Lineares MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, ideale Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken.
+- Ergebnisableitung fuer Pin-Spannungen, Wire-Stroeme, Wire-Spannungsabfaelle, LED-Netzelement-Differenzspannungen und `ΔVmin`.
+- Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit und Sicherungs-Nennstrom.
+
+Die aktuelle Implementierung ist damit ein brauchbarer linearer Zwischenschritt, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
+
+## Was noch fuer einen richtigen Solver fehlt
+
+### Sparse Solver statt Dense Solver
+
+Der aktuelle Solver verwendet noch eine dichte Matrix. Fuer lange LED-Streifen muss das auf einen Sparse-Assembler und einen Sparse-Solver umgestellt werden:
+
+- Sparse Row-/Triplet-Struktur fuer das Stempeln beibehalten.
+- Numerisch robuste Loesung mit Pivoting verwenden.
+- Matrixgroesse und Konditionierung in Debug-Ausgaben erfassen.
+- Tests mit langen LED-Streifen aufbauen, damit Performance-Regressionen sichtbar werden.
+
+### Iterativer Nichtlinear-Solver
+
+Die geplanten nichtlinearen Elemente werden derzeit nur als lineare Naeherung behandelt. Es fehlt ein Iterationsrahmen:
+
+1. Startzustand fuer alle nichtlinearen Elemente setzen.
+2. Lineares System stempeln und loesen.
+3. Elementstroeme und lokale Spannungen auswerten.
+4. Zielwerte fuer nichtlineare Elemente aktualisieren.
+5. Konvergenz ueber Spannungs- und Stromdifferenzen pruefen.
+6. Bei Nichtkonvergenz mit klarer Fehlermeldung abbrechen.
+
+### PSU-Stromlimit und Spannungsdegradation
+
+Aktuell wird das Stromlimit nur nach der Loesung geprueft. Fuer das richtige Verhalten fehlt:
+
+- Quellenstrom nach jeder Iteration auswerten.
+- Bei `I > currentLimitA` die Zielspannung anhand `voltageDropPctAt150Current` reduzieren.
+- Bei `I > 1.5 * currentLimitA` abbrechen.
+- Ueberlast als Check-Fehler melden, auch wenn die degradierte Loesung konvergiert.
+
+### DCDC-Wandler-Modell
+
+Der DCDC-Wandler ist derzeit nur als ideale Ausgangsspannungsquelle modelliert. Es fehlt:
+
+- Eingangsleistung aus Ausgangsleistung und Wirkungsgrad berechnen.
+- Dynamisches Ausgangsstromlimit aus verfuegbarer Eingangsleistung ableiten.
+- Ausgangsspannung bei Ueberlast analog zur PSU degradieren.
+- Eingangsseite elektrisch korrekt belasten.
+
+### Spannungsabhaengige LED-Stroeme
+
+Digitale LED-Stroeme werden aktuell aus dem Lookup bei Nominalspannung bestimmt. Fuer realistischere Ergebnisse fehlt:
+
+- Pro internem LED-Netzelement lokale Spannung `V(supplyOut) - V(gndOut)` verwenden.
+- Lookup pro Iteration mit dieser lokalen Spannung auswerten.
+- Strom bei Unterspannung reduzieren statt konstant zu halten.
+- `ΔVmin` und Detailwerte erst nach Konvergenz ausgeben.
+
+### Quellen- und Stromverteilung
+
+Mehrere widerspruechliche ideale Spannungsquellen werden jetzt abgefangen. Fuer einen vollstaendigen Solver bleiben offen:
+
+- Verhalten bei mehreren identischen parallelen Quellen fachlich definieren: keine Stromaufteilung anzeigen oder explizit als nicht simulierte Parallelspeisung melden.
+- Stromlimitpruefung bei deduplizierten parallelen identischen Quellen fachlich klaeren.
+- Falls echte Stromaufteilung gewuenscht ist, muessen Quellen einen Innenwiderstand oder ein explizites Sharing-Modell bekommen.
+
+### Ergebnis- und Check-Abdeckung
+
+Weitere Checks muessen noch ausgebaut werden:
+
+- Unter-/Ueberspannung an angezeigten Supply/GND-Paaren.
+- LED-Streifen unter Mindestspannung oder ueber Maximalspannung.
+- Nicht versorgte Teilnetze erkennen, ignorieren und als Hinweis melden.
+- Mehrere getrennte GND-Inseln robust erkennen.
+- Nicht simulierbare Komponenten in relevanten Strompfaden erkennen.
+- Wire-/Elementstroeme fuer alle relevanten Elementtypen als Pin-Stroeme konsistent aufsummieren.
+
+### Tests und Fixtures
+
+Fuer die naechste Stufe werden reproduzierbare Solver-Tests gebraucht:
+
+- Kleine analytisch pruefbare Widerstandsnetzwerke.
+- Mehrere PSU-/Fuse-Ueberlastfaelle.
+- LED-Streifen mit Einspeisung an Start, Ende und Middle.
+- Widerspruechliche Spannungsquellen.
+- Sehr lange LED-Streifen als Performance-Test.
+- Erwartete Werte mit Toleranzen fuer Spannung, Strom, `ΔV` und `ΔVmin`.
