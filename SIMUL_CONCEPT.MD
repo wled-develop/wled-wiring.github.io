@@ -989,6 +989,7 @@ src/simulation/
   simulationDebug.ts
   simulationChecks.ts
   simulationFingerprint.ts
+  denseLinearSystemSolver.ts
   wireResistance.ts
   awgToMm2.ts
   elementaryElements.ts
@@ -1026,7 +1027,7 @@ Optional:
 8. [x] Ergebnis-Invalidierung per Fingerprint einbauen. Umgesetzt in `src/simulation/simulationFingerprint.ts` und `src/simulation/SimulationPage.tsx`.
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
-11. Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren.
+11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
 12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
 13. Simulation-Checks ergaenzen.
 14. LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren.
