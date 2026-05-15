@@ -662,7 +662,7 @@ Simulationsergebnisse werden mit drei Nachkommastellen erzeugt. Die Diagrammanze
 
 ## LED-Streifen: zusaetzliche Spannungsanzeige
 
-Bei LED-Komponenten sollen zusaetzlich Spannungen fuer bestimmte Supply-/GND-Pins angezeigt werden, auch wenn diese Pins nicht an ein Netz angebunden sind.
+Bei LED-Komponenten sollen zusaetzlich Spannungsdifferenzen fuer bestimmte Supply-/GND-Pin-Paare angezeigt werden.
 
 Betroffene Handles:
 
@@ -677,13 +677,14 @@ Betroffene Handles:
 
 Anzeige-Regel:
 
-- Fuer PWM- und GND-Pins von LED-Streifen werden keine Spannungen angezeigt.
-- Fuer Supply-Pins wird eine Differenzspannung angezeigt:
+- LED-Supply-, LED-GND- und LED-PWM-Pins werden fuer normale Pin-Spannungslabels wie andere Pins behandelt.
+- Zusaetzlich wird fuer Supply-/GND-Paare eine Differenzspannung angezeigt:
   - `V(supplyPin) - V(correspondingGndPin)`
   - Zuordnung ueber gleiche Endung:
     - `_start`: Supply-Start gegen `GND_start`
     - `_end`: Supply-Ende gegen `GND_end`
     - `_middle_N`: Supply-Mitte gegen `GND_middle_N`
+- Fuer die Differenzanzeige wird ein leicht versetzter Spannungspfeil vom Supply-Pin zum GND-Pin gezeichnet. Das Label wird als `ΔV=0.15V` angezeigt und per Hinweispfeil mit der Mitte dieses Spannungspfeils verbunden.
 
 Beispiele:
 
@@ -795,26 +796,40 @@ Wenn eine Simulation laeuft, soll der Nutzer auch im Diagramm erkennen, dass ger
 Stromanzeige:
 
 - Pin-Stroeme werden nicht dauerhaft am Pin angezeigt. Am Pin steht nur Spannung.
-- Wire-Stroeme werden pro Wire angezeigt, ungefaehr in der geometrischen Wire-Mitte.
-- Die Wire-Stromanzeige zeigt den Stromwert immer als positiven Betrag mit zwei Nachkommastellen.
-- Neben der Wire-Stromanzeige wird ein Richtungspfeil gezeichnet. Der Pfeil liegt neben der Wire und zeigt in Richtung des positiven Stromflusses. Positiver Wire-Strom ist dabei die Richtung `source -> target`, negativer Wire-Strom zeigt entsprechend `target -> source`.
-- Beim Hover ueber eine Wire wird an der Hover-Position zusaetzlich nur der Stromwert angezeigt, ohne Richtungspfeil.
+- Wire-Stroeme werden pro Wire angezeigt.
+- Normale Wire-Stromanzeige:
+  - Die Position der Anzeige ist am laengsten Wire-Segment ungefaehr in dessen Mitte.
+  - Die Wire-Stromanzeige zeigt den Stromwert immer als positiven Betrag mit zwei Nachkommastellen.
+  - Neben der Wire-Stromanzeige wird ein Richtungspfeil gezeichnet. Der Pfeil liegt moeglichst nahe an der Wire und zeigt in Richtung des positiven Stromflusses. Positiver Wire-Strom ist dabei die Richtung `source -> target`, negativer Wire-Strom zeigt entsprechend `target -> source`.
+  - Ist der gerundete Stromwert `0.00`, wird ein beidseitiger Pfeil angezeigt.
+  - Der Pfeilkopf ist schmal. Die Pfeilkopflaenge soll zusammen mit der Pfeillaenge so wirken, dass ein Pfeilkopf ungefaehr ein Drittel der Pfeillaenge einnimmt.
+  - Pfeillaenge und Pfeilkopf werden in Screen-Koordinaten stabil gehalten, damit der Pfeilkopf beim Herauszoomen nicht relativ zur Pfeillaenge waechst.
+  - Der Abstand des Pfeils zur Wire wird aus der gezeichneten Wire-Dicke plus einem kleinen visuellen Abstand berechnet.
+  - Wenn eine andere Wire den Bereich um die geplante Pfeilmitte kreuzt, darf der Pfeil entlang desselben Wire-Segments nach links oder rechts verschoben werden, sofern dort genug Platz ist.
+  - Die Stromwertanzeige darf etwas Abstand zum Pfeil haben, bleibt aber so nah wie moeglich und wird so platziert, dass sie andere Wires, Komponenten oder Anzeigen moeglichst nicht ueberdeckt.
+  - Von der Stromwertanzeige fuehrt eine duenne Hinweislinie mit Pfeil zur Mitte des Wire-Stromrichtungspfeils.
+- Zusaetzliche Wire-Stromanzeige beim Hover:
+  - Beim Hover ueber eine Wire wird eine zusaetzliche Stromanzeige nahe an der Hover-Position erzeugt.
+  - Sie verwendet dasselbe Konzept wie die normale Wire-Stromanzeige: positiver Betrag, Richtungspfeil, beidseitiger Pfeil bei gerundet `0.00` und Hinweislinie vom Label zur Pfeilmitte.
+  - Wenn der Hover im Bereich der normalen Anzeige liegt, wird keine zusaetzliche Hover-Anzeige erzeugt, damit sich beide Anzeigen nicht ueberlappen.
 - Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet, damit Wire-Toolbar, Wire-Punkte und Editier-Controls nicht ueberdeckt werden.
 
 Spannungsanzeige:
 
 - Position neben dem betroffenen Pin.
 - Wert mit Vorzeichen, zwei Nachkommastellen und Einheit `V`.
+- Von jedem Spannungswert fuehrt immer ein Hinweispfeil zum betroffenen Pin.
 - Normale Pin-Spannungen werden nur an Pins mit mindestens einer angeschlossenen Wire angezeigt. Unverbundene normale Pins bleiben ohne Spannungslabel, auch wenn intern ein Wert berechnet wurde.
-- Fuer LED-Supply-Pins wird die Differenz zum zugeordneten GND-Pin angezeigt.
-- LED-Streifen-Spannungspunkte sind eine Ausnahme: vorgesehene Supply-Start-/End-/Middle-Punkte duerfen auch ohne direkt angeschlossene Wire angezeigt werden, wenn dafuer ein Simulationsergebnis existiert.
-- Fuer LED-GND- und LED-PWM-Pins wird keine Spannung angezeigt.
+- LED-Supply-Pins werden bei normalen Pin-Spannungslabels wie andere Pins behandelt.
+- LED-Streifen-Spannungspunkte sind eine Ausnahme: vorgesehene Supply-Start-/End-/Middle-Punkte duerfen auch ohne direkt angeschlossene Wire angezeigt werden, wenn dafuer ein Simulationsergebnis existiert. Diese Ausnahme betrifft nur explizite LED-Spannungspunkte mit Simulationsergebnis; normale LED-Supply-Pins bleiben ansonsten wie andere Pins an die Wire-Verbindung gekoppelt.
+- Zusaetzlich wird fuer ein LED-Supply/GND-Pin-Paar eine Spannungsdifferenz angezeigt: Ein Spannungspfeil wird leicht versetzt vom Supply-Pin zum zugeordneten GND-Pin gezeichnet. Ueber oder unter dem LED-Streifen wird eine Delta-Anzeige platziert, z.B. `ΔV=0.15V`. Von dieser Anzeige fuehrt ein Hinweispfeil zur Mitte des Spannungspfeils.
 - An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
+- Spannungsanzeigen sollen so platziert werden, dass sie keine Pins bzw. Handle-Bereiche, Wires oder andere Spannungs- oder Stromanzeigen ueberdecken.
 
 Wire-Anzeige:
 
 - Im Overlay wird pro Wire dauerhaft der Wire-Strom mit Richtungspfeil angezeigt, solange keine Wire selektiert ist.
-- Beim Hover ueber eine Wire wird an der Hover-Position zusaetzlich nur der Stromwert angezeigt, ohne Richtungspfeil.
+- Beim Hover ueber eine Wire wird nahe der Hover-Position eine zusaetzliche Wire-Stromanzeige mit Richtungspfeil und Hinweislinie angezeigt. Wenn der Hover nahe an der normalen Wire-Stromanzeige liegt, wird diese zusaetzliche Anzeige unterdrueckt.
 - Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet.
 - Spannungsabfall und berechneter Widerstand koennen spaeter in der Wire-Toolbar oder in einem kleinen Tooltip angezeigt werden, nicht als dauerhaftes Label auf jedem Wire.
 - Beispiel: `I = 3.2 A`, `dU = 0.4 V`, `R = 0.12 Ohm`.
@@ -826,8 +841,7 @@ Darstellungskonzept:
 - Nicht in `ComponentDataType` speichern.
 - Nicht in Export-JSON persistieren.
 - Zoom- und pan-stabil: Overlay-Positionen werden aus ReactFlow-Viewport und Handle-Positionen abgeleitet und bei Pan/Zoom automatisch neu berechnet.
-- Die Labelposition darf nicht aus `postype` abgeleitet werden. Fuer Overlay-Labels wird bevorzugt die tatsaechliche angeschlossene Wire-Geometrie verwendet: Am Pin wird der erste Wire-Segmentvektor bestimmt, und das Label wird auf der dem Wire-Verlauf gegenueberliegenden Seite platziert. Dadurch liegt es eher auf der Komponentenseite und ueberdeckt Wires seltener.
-- Falls keine eindeutige Wire-Geometrie bestimmt werden kann, wird `prefferedLineDirection` des Handles inklusive Komponentenrotation als Fallback verwendet. Falls auch diese fehlt, kann als letzter Fallback die Richtung vom Komponentenmittelpunkt zum Pin bzw. zum naechsten Komponentenrand genutzt werden. `postype` wird fuer Simulation-Overlay-Labels nicht verwendet.
+- Die Labelposition darf nicht aus `postype` abgeleitet werden. Fuer Spannungslabels wird nicht pauschal die entgegengesetzte Richtung der ausgehenden Wire verwendet. Stattdessen werden mehrere Kandidatenpositionen um den Pin bewertet und die Position mit moeglichst wenig Ueberdeckung mit Handle-Bereichen, Wires, Komponenten und anderen Anzeigen gewaehlt.
 - Overlay-Labels haben eine begrenzte Zoom-Skalierung. Bei moderatem Herauszoomen skalieren sie kleiner mit. Bei starkem Herauszoomen wird die Skalierung gedeckelt, sodass Labels nicht groesser werden und weniger stark ueberlappen; volle Lesbarkeit bei maximalem Zoom-out ist nicht erforderlich.
 - Stromrichtungspfeile werden an Wires angezeigt, deutlich sichtbar, z.B. blau/cyan fuer Strom.
 - Spannungslabels in einer zweiten Ebene mit heller Flaeche, dunkler Schrift und farbigem Rand, z.B. amber/orange fuer Spannung.

@@ -2,14 +2,14 @@ import { useMemo } from "react";
 
 import { useEdges, useNodes, useViewport, type Edge, type Node } from "@xyflow/react";
 
-import type { ComponentDataType, DirectionType, EdgeDataType, XYPoint } from "../types";
-import { findHandleData, getRenderedWireEndpoint, rotatePrefferedLineDirection } from "../utils/utils_functions";
+import type { ComponentDataType, EdgeDataType, XYPoint } from "../types";
+import { getRenderedWireEndpoint } from "../utils/utils_functions";
 import { useSimulationResultStore } from "./simulationResultStore";
 import type { SimulationPinResult } from "./simulationTypes";
 
 type OverlayLabel = {
   id: string;
-  kind: "voltage" | "wireCurrent" | "wireHover";
+  kind: "voltage" | "voltageDelta" | "wireCurrent" | "wireHover";
   valueLines: string[];
   x: number;
   y: number;
@@ -21,61 +21,49 @@ type OverlayLabel = {
 
 type OverlayArrow = {
   id: string;
+  kind: "current" | "voltageDelta";
   startX: number;
   startY: number;
   endX: number;
   endY: number;
+  bidirectional: boolean;
 };
 
-type PolylineMidpoint = {
+type SegmentPoint = {
   point: XYPoint;
   direction: XYPoint;
+  from: XYPoint;
+  to: XYPoint;
+  length: number;
 };
 
-const LABEL_GAP = 14;
 const LABEL_PADDING_X = 8;
 const LABEL_HEIGHT = 20;
 const LEADER_LINE_THRESHOLD = 28;
 const OVERLAP_PADDING = 4;
-const WIRE_ARROW_LENGTH = 28;
-const WIRE_ARROW_OFFSET = 12;
+const VOLTAGE_LABEL_GAP = 18;
+const WIRE_ARROW_LENGTH_PX = 14;
+const WIRE_ARROW_STROKE_WIDTH = 2;
+const WIRE_ARROW_MIN_GAP_PX = 2;
+const WIRE_ARROW_CROSSING_PADDING_PX = 4;
+const VOLTAGE_DELTA_ARROW_OFFSET_PX = 9;
+const VOLTAGE_DELTA_LABEL_GAP_PX = 24;
+const WIRE_LABEL_GAP = 20;
+const HOVER_NORMAL_DISPLAY_DISTANCE = 40;
+const HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX = 16;
+const COMPONENT_OBSTACLE_PADDING = 3;
+const WIRE_OBSTACLE_PADDING = 5;
 
-const formatVoltage = (value: number) => `${value.toFixed(2)} V`;
+const formatVoltage = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} V`;
+const formatDeltaVoltage = (value: number) => `\u0394V=${value.toFixed(2)}V`;
 const formatCurrent = (value: number) => `${Math.abs(value).toFixed(2)} A`;
 
 const pinResultHasVoltage = (result: SimulationPinResult) => result.voltageV !== undefined;
-
-const directionFromVector = (from: XYPoint, to: XYPoint): DirectionType => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if(Math.abs(dx) < 1 && Math.abs(dy) < 1) return undefined;
-  if(Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "right" : "left";
-  return dy >= 0 ? "down" : "up";
-};
-
-const oppositeDirection = (direction: DirectionType): DirectionType => {
-  if(direction === "right") return "left";
-  if(direction === "left") return "right";
-  if(direction === "up") return "down";
-  if(direction === "down") return "up";
-  return undefined;
-};
 
 const screenPoint = (point: XYPoint, viewport: {x: number; y: number; zoom: number}) => ({
   x: (point.x * viewport.zoom) + viewport.x,
   y: (point.y * viewport.zoom) + viewport.y,
 });
-
-const componentEdgeDirection = (node: Node<ComponentDataType>, endpoint: XYPoint): DirectionType => {
-  const width = node.measured?.width ?? node.width ?? node.data.image?.width ?? 0;
-  const height = node.measured?.height ?? node.height ?? node.data.image?.height ?? 0;
-  const center = {
-    x: node.position.x + width / 2,
-    y: node.position.y + height / 2,
-  };
-
-  return directionFromVector(center, endpoint);
-};
 
 const wirePoints = (
   nodeById: Map<string, Node<ComponentDataType>>,
@@ -92,69 +80,6 @@ const wirePoints = (
     ...(edge.data?.edgePoints ?? []),
     targetEndpoint,
   ];
-};
-
-const wireDirectionAtPin = (
-  nodeById: Map<string, Node<ComponentDataType>>,
-  edges: Edge<EdgeDataType>[],
-  nodeId: string,
-  handleId: string,
-  endpoint: XYPoint,
-): DirectionType => {
-  const vectors = edges.flatMap((edge) => {
-    const isSourcePin = edge.source === nodeId && edge.sourceHandle === handleId;
-    const isTargetPin = edge.target === nodeId && edge.targetHandle === handleId;
-    if(!isSourcePin && !isTargetPin) return [];
-
-    const points = wirePoints(nodeById, edge);
-    if(points.length < 2) return [];
-
-    const nextPoint = isSourcePin ? points[1] : points[points.length - 2];
-    const dx = nextPoint.x - endpoint.x;
-    const dy = nextPoint.y - endpoint.y;
-    if(Math.abs(dx) < 1 && Math.abs(dy) < 1) return [];
-
-    const length = Math.hypot(dx, dy);
-    return [{x: dx / length, y: dy / length}];
-  });
-
-  if(vectors.length === 0) return undefined;
-
-  const average = vectors.reduce((sum, vector) => ({
-    x: sum.x + vector.x,
-    y: sum.y + vector.y,
-  }), {x: 0, y: 0});
-
-  return directionFromVector({x: 0, y: 0}, average);
-};
-
-const labelOffsetForDirection = (direction: DirectionType, zoom: number) => {
-  const distance = LABEL_GAP * Math.min(1, Math.max(0.55, zoom));
-
-  if(direction === "right") return {x: distance, y: 0};
-  if(direction === "up") return {x: 0, y: -distance};
-  if(direction === "down") return {x: 0, y: distance};
-  return {x: -distance, y: 0};
-};
-
-const labelOffsetForPin = (
-  nodeById: Map<string, Node<ComponentDataType>>,
-  edges: Edge<EdgeDataType>[],
-  node: Node<ComponentDataType>,
-  handleId: string,
-  endpoint: XYPoint,
-  zoom: number,
-) => {
-  const handle = findHandleData(node, handleId);
-  const rotation = node.data.rotatable ? node.data.rotation : 0;
-  const wireDirection = wireDirectionAtPin(nodeById, edges, node.id, handleId, endpoint);
-  const preferredDirection = rotatePrefferedLineDirection(handle?.prefferedLineDirection, rotation);
-  const fallbackDirection = componentEdgeDirection(node, endpoint);
-
-  return labelOffsetForDirection(
-    oppositeDirection(wireDirection ?? preferredDirection ?? fallbackDirection) ?? "left",
-    zoom,
-  );
 };
 
 const pinHasConnectedWire = (
@@ -184,40 +109,542 @@ const estimateLabelSize = (valueLines: string[], scale: number) => {
   };
 };
 
-const polylineMidpoint = (points: XYPoint[]): PolylineMidpoint | undefined => {
-  if(points.length < 2) return undefined;
-
-  const segments = points.slice(0, -1).map((from, index) => {
+const wireSegments = (points: XYPoint[]) => (
+  points.slice(0, -1).map((from, index) => {
     const to = points[index + 1];
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
     return {
       from,
       to,
-      length: Math.hypot(to.x - from.x, to.y - from.y),
+      length,
+      index,
+      direction: length > 0
+        ? {x: (to.x - from.x) / length, y: (to.y - from.y) / length}
+        : {x: 0, y: 0},
     };
-  }).filter((segment) => segment.length > 0);
+  }).filter((segment) => segment.length > 0)
+);
 
-  const totalLength = segments.reduce((sum, segment) => sum + segment.length, 0);
-  if(totalLength <= 0) return undefined;
+const longestSegmentMidpoint = (points: XYPoint[]): SegmentPoint | undefined => {
+  if(points.length < 2) return undefined;
 
-  let walked = 0;
-  const target = totalLength / 2;
-  const segment = segments.find((candidate) => {
-    const contains = walked + candidate.length >= target;
-    if(!contains) walked += candidate.length;
-    return contains;
-  }) ?? segments[segments.length - 1];
-  const ratio = Math.min(1, Math.max(0, (target - walked) / segment.length));
-  const direction = {
-    x: (segment.to.x - segment.from.x) / segment.length,
-    y: (segment.to.y - segment.from.y) / segment.length,
-  };
+  const segment = wireSegments(points)
+    .sort((a, b) => b.length - a.length)[0];
+  if(!segment) return undefined;
 
   return {
     point: {
-      x: segment.from.x + (segment.to.x - segment.from.x) * ratio,
-      y: segment.from.y + (segment.to.y - segment.from.y) * ratio,
+      x: segment.from.x + (segment.to.x - segment.from.x) / 2,
+      y: segment.from.y + (segment.to.y - segment.from.y) / 2,
     },
+    direction: segment.direction,
+    from: segment.from,
+    to: segment.to,
+    length: segment.length,
+  };
+};
+
+const closestPointOnSegment = (point: XYPoint, from: XYPoint, to: XYPoint) => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if(lengthSquared <= 0) return {point: from, ratio: 0, distance: Math.hypot(point.x - from.x, point.y - from.y)};
+
+  const ratio = Math.min(1, Math.max(0, ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared));
+  const closest = {
+    x: from.x + dx * ratio,
+    y: from.y + dy * ratio,
+  };
+
+  return {
+    point: closest,
+    ratio,
+    distance: Math.hypot(point.x - closest.x, point.y - closest.y),
+  };
+};
+
+const closestPointOnPolyline = (points: XYPoint[], point: XYPoint): SegmentPoint | undefined => {
+  const segment = wireSegments(points)
+    .map((candidate) => ({
+      ...candidate,
+      closest: closestPointOnSegment(point, candidate.from, candidate.to),
+    }))
+    .sort((a, b) => a.closest.distance - b.closest.distance)[0];
+  if(!segment) return undefined;
+
+  return {
+    point: segment.closest.point,
+    direction: segment.direction,
+    from: segment.from,
+    to: segment.to,
+    length: segment.length,
+  };
+};
+
+const pointAtSegmentRatio = (
+  segment: Pick<SegmentPoint, "from" | "to" | "direction" | "length">,
+  ratio: number,
+): SegmentPoint => ({
+  point: {
+    x: segment.from.x + (segment.to.x - segment.from.x) * ratio,
+    y: segment.from.y + (segment.to.y - segment.from.y) * ratio,
+  },
+  direction: segment.direction,
+  from: segment.from,
+  to: segment.to,
+  length: segment.length,
+});
+
+const rectsOverlap = (
+  a: {left: number; right: number; top: number; bottom: number},
+  b: {left: number; right: number; top: number; bottom: number},
+) => (
+  a.left < b.right &&
+  a.right > b.left &&
+  a.top < b.bottom &&
+  a.bottom > b.top
+);
+
+const labelRect = (label: Pick<OverlayLabel, "x" | "y" | "width" | "height">) => ({
+  left: label.x - label.width / 2,
+  right: label.x + label.width / 2,
+  top: label.y - label.height / 2,
+  bottom: label.y + label.height / 2,
+});
+
+const screenSegmentRect = (
+  from: XYPoint,
+  to: XYPoint,
+  viewport: {x: number; y: number; zoom: number},
+  padding: number,
+) => {
+  const start = screenPoint(from, viewport);
+  const end = screenPoint(to, viewport);
+  return {
+    left: Math.min(start.x, end.x) - padding,
+    right: Math.max(start.x, end.x) + padding,
+    top: Math.min(start.y, end.y) - padding,
+    bottom: Math.max(start.y, end.y) + padding,
+  };
+};
+
+const nodeObstacleRects = (
+  nodes: Node<ComponentDataType>[],
+  viewport: {x: number; y: number; zoom: number},
+) => nodes.map((node) => {
+  const width = node.measured?.width ?? node.width ?? node.data.image?.width ?? 0;
+  const height = node.measured?.height ?? node.height ?? node.data.image?.height ?? 0;
+  const topLeft = screenPoint(node.position, viewport);
+  return {
+    left: topLeft.x - COMPONENT_OBSTACLE_PADDING,
+    right: topLeft.x + width * viewport.zoom + COMPONENT_OBSTACLE_PADDING,
+    top: topLeft.y - COMPONENT_OBSTACLE_PADDING,
+    bottom: topLeft.y + height * viewport.zoom + COMPONENT_OBSTACLE_PADDING,
+  };
+});
+
+const handleObstacleRects = (
+  nodes: Node<ComponentDataType>[],
+  viewport: {x: number; y: number; zoom: number},
+) => nodes.flatMap((node) => (
+  [...(node.data.handles ?? []), ...(node.data.repeatedHandleArray ?? [])].flatMap((handle) => {
+    const endpoint = getRenderedWireEndpoint(node, handle.hid);
+    if(!endpoint) return [];
+
+    const center = screenPoint(endpoint, viewport);
+    const width = Math.max(8, (handle.width ?? 8) * viewport.zoom);
+    const height = Math.max(8, (handle.height ?? 8) * viewport.zoom);
+    return [{
+      left: center.x - width / 2 - COMPONENT_OBSTACLE_PADDING,
+      right: center.x + width / 2 + COMPONENT_OBSTACLE_PADDING,
+      top: center.y - height / 2 - COMPONENT_OBSTACLE_PADDING,
+      bottom: center.y + height / 2 + COMPONENT_OBSTACLE_PADDING,
+    }];
+  })
+));
+
+const wireObstacleRects = (
+  edges: Edge<EdgeDataType>[],
+  nodeById: Map<string, Node<ComponentDataType>>,
+  viewport: {x: number; y: number; zoom: number},
+) => edges.flatMap((edge) => {
+  const points = wirePoints(nodeById, edge);
+  return wireSegments(points).map((segment) => screenSegmentRect(
+    segment.from,
+    segment.to,
+    viewport,
+    Math.max(WIRE_OBSTACLE_PADDING, ((edge.data?.width ?? 1) * viewport.zoom) / 2 + WIRE_OBSTACLE_PADDING),
+  ));
+});
+
+const wireArrowBlockingRects = (
+  edges: Edge<EdgeDataType>[],
+  nodeById: Map<string, Node<ComponentDataType>>,
+  viewport: {x: number; y: number; zoom: number},
+  activeEdgeId: string,
+) => edges.flatMap((edge) => {
+  if(edge.id === activeEdgeId) return [];
+
+  const points = wirePoints(nodeById, edge);
+  return wireSegments(points).map((segment) => screenSegmentRect(
+    segment.from,
+    segment.to,
+    viewport,
+    Math.max(
+      WIRE_ARROW_CROSSING_PADDING_PX,
+      ((edge.data?.width ?? 1) * viewport.zoom) / 2 + WIRE_ARROW_CROSSING_PADDING_PX,
+    ),
+  ));
+});
+
+const hoverPreferredNormal = (
+  currentDirection: XYPoint,
+) => {
+  const normal = {x: -currentDirection.y, y: currentDirection.x};
+  if(Math.abs(currentDirection.x) >= Math.abs(currentDirection.y)) {
+    return normal.y < 0 ? normal : {x: -normal.x, y: -normal.y};
+  }
+
+  return normal.x < 0 ? normal : {x: -normal.x, y: -normal.y};
+};
+
+const arrowRect = (
+  center: XYPoint,
+  direction: XYPoint,
+  normal: XYPoint,
+  lengthPx: number,
+  paddingPx: number,
+) => {
+  const halfLength = lengthPx / 2;
+  const halfThickness = WIRE_ARROW_STROKE_WIDTH / 2 + paddingPx;
+  const corners = [
+    {
+      x: center.x - direction.x * halfLength - normal.x * halfThickness,
+      y: center.y - direction.y * halfLength - normal.y * halfThickness,
+    },
+    {
+      x: center.x - direction.x * halfLength + normal.x * halfThickness,
+      y: center.y - direction.y * halfLength + normal.y * halfThickness,
+    },
+    {
+      x: center.x + direction.x * halfLength - normal.x * halfThickness,
+      y: center.y + direction.y * halfLength - normal.y * halfThickness,
+    },
+    {
+      x: center.x + direction.x * halfLength + normal.x * halfThickness,
+      y: center.y + direction.y * halfLength + normal.y * halfThickness,
+    },
+  ];
+
+  return {
+    left: Math.min(...corners.map((corner) => corner.x)),
+    right: Math.max(...corners.map((corner) => corner.x)),
+    top: Math.min(...corners.map((corner) => corner.y)),
+    bottom: Math.max(...corners.map((corner) => corner.y)),
+  };
+};
+
+const chooseArrowPoint = (
+  point: SegmentPoint,
+  currentDirection: XYPoint,
+  normal: XYPoint,
+  arrowOffsetPx: number,
+  viewport: {x: number; y: number; zoom: number},
+  blockingRects: Array<{left: number; right: number; top: number; bottom: number}>,
+) => {
+  const minimumMarginFlow = WIRE_ARROW_LENGTH_PX / 2 / Math.max(viewport.zoom, 0.001);
+  const availableLength = Math.max(point.length - minimumMarginFlow * 2, 0);
+  const preferredRatio = availableLength > 0
+    ? Math.min(1, Math.max(0, ((point.point.x - point.from.x) * point.direction.x + (point.point.y - point.from.y) * point.direction.y) / point.length))
+    : 0.5;
+  const maxRatioShift = availableLength > 0 ? availableLength / point.length / 2 : 0;
+  const ratioOffsets = [0, 0.12, -0.12, 0.22, -0.22, 0.34, -0.34, 0.44, -0.44];
+  const candidateRatios = ratioOffsets
+    .map((offset) => Math.min(1, Math.max(0, preferredRatio + offset)))
+    .filter((ratio) => Math.abs(ratio - 0.5) <= 0.5 && Math.abs(ratio - preferredRatio) <= Math.max(maxRatioShift, 0.02));
+
+  const candidates = Array.from(new Set(candidateRatios.map((ratio) => ratio.toFixed(4))))
+    .map((ratio) => pointAtSegmentRatio(point, Number(ratio)))
+    .map((candidate) => {
+      const candidateScreen = screenPoint(candidate.point, viewport);
+      const arrowCenter = {
+        x: candidateScreen.x + normal.x * arrowOffsetPx,
+        y: candidateScreen.y + normal.y * arrowOffsetPx,
+      };
+      const rect = arrowRect(
+        arrowCenter,
+        currentDirection,
+        normal,
+        WIRE_ARROW_LENGTH_PX,
+        WIRE_ARROW_CROSSING_PADDING_PX,
+      );
+      const blockingPenalty = blockingRects.reduce((sum, blockingRect) => (
+        sum + rectOverlapPenalty(rect, blockingRect)
+      ), 0);
+      const shiftPenalty = Math.hypot(
+        candidateScreen.x - screenPoint(point.point, viewport).x,
+        candidateScreen.y - screenPoint(point.point, viewport).y,
+      ) * 0.15;
+
+      return {candidate, penalty: blockingPenalty * 10 + shiftPenalty};
+    })
+    .sort((a, b) => a.penalty - b.penalty);
+
+  return candidates[0]?.candidate ?? point;
+};
+
+const rectOverlapPenalty = (
+  rect: {left: number; right: number; top: number; bottom: number},
+  obstacle: {left: number; right: number; top: number; bottom: number},
+) => {
+  if(!rectsOverlap(rect, obstacle)) return 0;
+  return (Math.min(rect.right, obstacle.right) - Math.max(rect.left, obstacle.left)) *
+    (Math.min(rect.bottom, obstacle.bottom) - Math.max(rect.top, obstacle.top));
+};
+
+const chooseLabelPosition = (
+  anchor: XYPoint,
+  direction: XYPoint,
+  normal: XYPoint,
+  size: {width: number; height: number},
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+  labelGapPx = WIRE_LABEL_GAP,
+) => {
+  const candidates = [
+    {x: anchor.x + normal.x * labelGapPx, y: anchor.y + normal.y * labelGapPx},
+    {x: anchor.x - normal.x * labelGapPx, y: anchor.y - normal.y * labelGapPx},
+    {x: anchor.x + direction.x * labelGapPx, y: anchor.y + direction.y * labelGapPx},
+    {x: anchor.x - direction.x * labelGapPx, y: anchor.y - direction.y * labelGapPx},
+    {x: anchor.x + (normal.x + direction.x) * labelGapPx, y: anchor.y + (normal.y + direction.y) * labelGapPx},
+    {x: anchor.x + (normal.x - direction.x) * labelGapPx, y: anchor.y + (normal.y - direction.y) * labelGapPx},
+    {x: anchor.x - (normal.x + direction.x) * labelGapPx, y: anchor.y - (normal.y + direction.y) * labelGapPx},
+    {x: anchor.x - (normal.x - direction.x) * labelGapPx, y: anchor.y - (normal.y - direction.y) * labelGapPx},
+  ];
+
+  return candidates
+    .map((candidate) => {
+      const rect = labelRect({...candidate, ...size});
+      const obstaclePenalty = obstacles.reduce((sum, obstacle) => sum + rectOverlapPenalty(rect, obstacle), 0);
+      const labelPenalty = existingLabels.reduce((sum, label) => (
+        sum + rectOverlapPenalty(rect, labelRect(label)) * 3
+      ), 0);
+      const distancePenalty = Math.hypot(candidate.x - anchor.x, candidate.y - anchor.y) * 0.05;
+      return {candidate, penalty: obstaclePenalty + labelPenalty + distancePenalty};
+    })
+    .sort((a, b) => a.penalty - b.penalty)[0].candidate;
+};
+
+const chooseVoltageLabelPosition = (
+  anchor: XYPoint,
+  size: {width: number; height: number},
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+) => {
+  const gap = VOLTAGE_LABEL_GAP;
+  const candidates = [
+    {x: anchor.x, y: anchor.y - gap},
+    {x: anchor.x + gap, y: anchor.y},
+    {x: anchor.x, y: anchor.y + gap},
+    {x: anchor.x - gap, y: anchor.y},
+    {x: anchor.x + gap, y: anchor.y - gap},
+    {x: anchor.x - gap, y: anchor.y - gap},
+    {x: anchor.x + gap, y: anchor.y + gap},
+    {x: anchor.x - gap, y: anchor.y + gap},
+    {x: anchor.x, y: anchor.y - gap * 1.7},
+    {x: anchor.x + gap * 1.7, y: anchor.y},
+    {x: anchor.x, y: anchor.y + gap * 1.7},
+    {x: anchor.x - gap * 1.7, y: anchor.y},
+  ];
+
+  return candidates
+    .map((candidate) => {
+      const rect = labelRect({...candidate, ...size});
+      const obstaclePenalty = obstacles.reduce((sum, obstacle) => sum + rectOverlapPenalty(rect, obstacle), 0);
+      const labelPenalty = existingLabels.reduce((sum, label) => (
+        sum + rectOverlapPenalty(rect, labelRect(label)) * 4
+      ), 0);
+      const distancePenalty = Math.hypot(candidate.x - anchor.x, candidate.y - anchor.y) * 0.08;
+      return {candidate, penalty: obstaclePenalty + labelPenalty + distancePenalty};
+    })
+    .sort((a, b) => a.penalty - b.penalty)[0].candidate;
+};
+
+const createVoltageLabel = (
+  id: string,
+  value: number,
+  anchor: XYPoint,
+  scale: number,
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+): OverlayLabel => {
+  const valueLines = [formatVoltage(value)];
+  const size = estimateLabelSize(valueLines, scale);
+  const position = chooseVoltageLabelPosition(anchor, size, existingLabels, obstacles);
+
+  return {
+    id,
+    kind: "voltage",
+    valueLines,
+    x: position.x,
+    y: position.y,
+    anchorX: anchor.x,
+    anchorY: anchor.y,
+    width: size.width,
+    height: size.height,
+  };
+};
+
+const isLedNode = (node: Node<ComponentDataType>) => node.data.group === "led";
+
+const ledPairedGndHandleId = (handleId: string) => {
+  const match = /^(\d+V)_(start|end|middle_\d+)$/.exec(handleId);
+  return match ? `GND_${match[2]}` : undefined;
+};
+
+const createVoltageDeltaOverlay = (
+  id: string,
+  supplyAnchor: XYPoint,
+  gndAnchor: XYPoint,
+  deltaV: number,
+  scale: number,
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+) => {
+  const dx = gndAnchor.x - supplyAnchor.x;
+  const dy = gndAnchor.y - supplyAnchor.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const direction = {x: dx / length, y: dy / length};
+  const normal = {x: -direction.y, y: direction.x};
+  const preferredNormal = Math.abs(direction.x) >= Math.abs(direction.y)
+    ? (normal.y < 0 ? normal : {x: -normal.x, y: -normal.y})
+    : (normal.x < 0 ? normal : {x: -normal.x, y: -normal.y});
+  const arrowStart = {
+    x: supplyAnchor.x + preferredNormal.x * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+    y: supplyAnchor.y + preferredNormal.y * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+  };
+  const arrowEnd = {
+    x: gndAnchor.x + preferredNormal.x * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+    y: gndAnchor.y + preferredNormal.y * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+  };
+  const arrowCenter = {
+    x: (arrowStart.x + arrowEnd.x) / 2,
+    y: (arrowStart.y + arrowEnd.y) / 2,
+  };
+  const valueLines = [formatDeltaVoltage(deltaV)];
+  const size = estimateLabelSize(valueLines, scale);
+  const labelPosition = chooseLabelPosition(
+    arrowCenter,
     direction,
+    preferredNormal,
+    size,
+    existingLabels,
+    obstacles,
+    VOLTAGE_DELTA_LABEL_GAP_PX,
+  );
+
+  return {
+    arrow: {
+      id: `voltage-delta-arrow:${id}`,
+      kind: "voltageDelta" as const,
+      startX: arrowStart.x,
+      startY: arrowStart.y,
+      endX: arrowEnd.x,
+      endY: arrowEnd.y,
+      bidirectional: false,
+    },
+    label: {
+      id: `voltage-delta:${id}`,
+      kind: "voltageDelta" as const,
+      valueLines,
+      x: labelPosition.x,
+      y: labelPosition.y,
+      anchorX: arrowCenter.x,
+      anchorY: arrowCenter.y,
+      width: size.width,
+      height: size.height,
+    },
+  };
+};
+
+const roundedCurrentIsZero = (value: number) => Math.abs(value) < 0.005;
+
+const createWireCurrentOverlay = (
+  id: string,
+  point: SegmentPoint,
+  currentA: number,
+  wireWidth: number,
+  viewport: {x: number; y: number; zoom: number},
+  scale: number,
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+  blockingRects: Array<{left: number; right: number; top: number; bottom: number}>,
+  preferredNormal?: XYPoint,
+  labelGapPx = WIRE_LABEL_GAP,
+) => {
+  const bidirectional = roundedCurrentIsZero(currentA);
+  const currentDirection = currentA >= 0
+    ? point.direction
+    : {x: -point.direction.x, y: -point.direction.y};
+  const normal = preferredNormal ?? {x: -currentDirection.y, y: currentDirection.x};
+  const arrowOffsetPx = Math.max(
+    WIRE_ARROW_MIN_GAP_PX + WIRE_ARROW_STROKE_WIDTH / 2,
+    ((wireWidth * viewport.zoom) / 2) + WIRE_ARROW_MIN_GAP_PX + WIRE_ARROW_STROKE_WIDTH / 2,
+  );
+  const arrowPoint = chooseArrowPoint(
+    point,
+    currentDirection,
+    normal,
+    arrowOffsetPx,
+    viewport,
+    blockingRects,
+  );
+  const arrowPointScreen = screenPoint(arrowPoint.point, viewport);
+  const arrowCenterScreen = {
+    x: arrowPointScreen.x + normal.x * arrowOffsetPx,
+    y: arrowPointScreen.y + normal.y * arrowOffsetPx,
+  };
+  const arrowStart = {
+    x: arrowCenterScreen.x - currentDirection.x * WIRE_ARROW_LENGTH_PX / 2,
+    y: arrowCenterScreen.y - currentDirection.y * WIRE_ARROW_LENGTH_PX / 2,
+  };
+  const arrowEnd = {
+    x: arrowCenterScreen.x + currentDirection.x * WIRE_ARROW_LENGTH_PX / 2,
+    y: arrowCenterScreen.y + currentDirection.y * WIRE_ARROW_LENGTH_PX / 2,
+  };
+  const valueLines = [formatCurrent(currentA)];
+  const size = estimateLabelSize(valueLines, scale);
+  const labelPosition = chooseLabelPosition(
+    arrowCenterScreen,
+    currentDirection,
+    normal,
+    size,
+    existingLabels,
+    obstacles,
+    labelGapPx,
+  );
+
+  return {
+    arrow: {
+      id: `wire-arrow:${id}`,
+      kind: "current" as const,
+      startX: arrowStart.x,
+      startY: arrowStart.y,
+      endX: arrowEnd.x,
+      endY: arrowEnd.y,
+      bidirectional,
+    },
+    label: {
+      id: `wire-current:${id}`,
+      kind: "wireCurrent" as const,
+      valueLines,
+      x: labelPosition.x,
+      y: labelPosition.y,
+      anchorX: arrowCenterScreen.x,
+      anchorY: arrowCenterScreen.y,
+      width: size.width,
+      height: size.height,
+    },
   };
 };
 
@@ -262,6 +689,10 @@ const resolveLabelOverlaps = (labels: OverlayLabel[]) => {
 };
 
 const leaderLineNeeded = (label: OverlayLabel) => (
+  label.kind === "voltage" ||
+  label.kind === "voltageDelta" ||
+  label.kind === "wireCurrent" ||
+  label.kind === "wireHover" ||
   Math.hypot(label.x - label.anchorX, label.y - label.anchorY) > LEADER_LINE_THRESHOLD
 );
 
@@ -282,6 +713,36 @@ export const SimulationOverlay = () => {
     const scale = overlayScale(viewport.zoom);
     const labels: OverlayLabel[] = [];
     const arrows: OverlayArrow[] = [];
+    const obstacles = [
+      ...handleObstacleRects(nodes, viewport),
+      ...nodeObstacleRects(nodes, viewport),
+      ...wireObstacleRects(edges, nodeById, viewport),
+    ];
+    const pinResultByNodeHandle = new Map(
+      simulationResult.pinResults.map((pinResult) => [`${pinResult.nodeId}:${pinResult.handleId}`, pinResult]),
+    );
+
+    edges.forEach((edge) => {
+      const wireResult = wireResultByEdgeId.get(edge.id);
+      if(!wireResult || wireResult.currentA === undefined) return;
+
+      const normalPoint = longestSegmentMidpoint(wirePoints(nodeById, edge));
+      if(!normalPoint) return;
+
+      const overlay = createWireCurrentOverlay(
+        edge.id,
+        normalPoint,
+        wireResult.currentA,
+        edge.data?.width ?? 1,
+        viewport,
+        scale,
+        labels,
+        obstacles,
+        wireArrowBlockingRects(edges, nodeById, viewport, edge.id),
+      );
+      arrows.push(overlay.arrow);
+      labels.push(overlay.label);
+    });
 
     simulationResult.pinResults
       .filter(pinResultHasVoltage)
@@ -291,104 +752,96 @@ export const SimulationOverlay = () => {
         if(!node || !endpoint || pinResult.voltageV === undefined) return;
 
         const connected = pinHasConnectedWire(edges, pinResult.nodeId, pinResult.handleId);
-        if(!connected && !isLedSupplyVoltagePin(node, pinResult.handleId)) return;
+        if(!connected) return;
 
-        const offset = labelOffsetForPin(
-          nodeById,
-          edges,
-          node,
-          pinResult.handleId,
-          endpoint,
-          viewport.zoom,
-        );
         const anchor = screenPoint(endpoint, viewport);
-        const valueLines = [formatVoltage(pinResult.voltageV)];
-        const size = estimateLabelSize(valueLines, scale);
-
-        labels.push({
-          id: `pin:${pinResult.pinId}`,
-          kind: "voltage",
-          valueLines,
-          x: anchor.x + offset.x * viewport.zoom,
-          y: anchor.y + offset.y * viewport.zoom,
-          anchorX: anchor.x,
-          anchorY: anchor.y,
-          width: size.width,
-          height: size.height,
-        });
+        const label = createVoltageLabel(
+          `pin:${pinResult.pinId}`,
+          pinResult.voltageV,
+          anchor,
+          scale,
+          labels,
+          obstacles,
+        );
+        labels.push(label);
       });
 
-    edges.forEach((edge) => {
-      const wireResult = wireResultByEdgeId.get(edge.id);
-      if(!wireResult || wireResult.currentA === undefined) return;
+    nodes
+      .filter(isLedNode)
+      .forEach((node) => {
+        simulationResult.pinResults
+          .filter((pinResult) => (
+            pinResult.nodeId === node.id &&
+            pinResult.voltageV !== undefined &&
+            isLedSupplyVoltagePin(node, pinResult.handleId)
+          ))
+          .forEach((supplyResult) => {
+            const gndHandleId = ledPairedGndHandleId(supplyResult.handleId);
+            if(!gndHandleId || supplyResult.voltageV === undefined) return;
 
-      const midpoint = polylineMidpoint(wirePoints(nodeById, edge));
-      if(!midpoint) return;
+            const gndResult = pinResultByNodeHandle.get(`${node.id}:${gndHandleId}`);
+            if(gndResult?.voltageV === undefined) return;
 
-      const currentDirection = wireResult.currentA >= 0
-        ? midpoint.direction
-        : {x: -midpoint.direction.x, y: -midpoint.direction.y};
-      const normal = {x: -currentDirection.y, y: currentDirection.x};
-      const arrowCenter = {
-        x: midpoint.point.x + normal.x * WIRE_ARROW_OFFSET,
-        y: midpoint.point.y + normal.y * WIRE_ARROW_OFFSET,
-      };
-      const arrowStart = {
-        x: arrowCenter.x - currentDirection.x * WIRE_ARROW_LENGTH / 2,
-        y: arrowCenter.y - currentDirection.y * WIRE_ARROW_LENGTH / 2,
-      };
-      const arrowEnd = {
-        x: arrowCenter.x + currentDirection.x * WIRE_ARROW_LENGTH / 2,
-        y: arrowCenter.y + currentDirection.y * WIRE_ARROW_LENGTH / 2,
-      };
-      const arrowStartScreen = screenPoint(arrowStart, viewport);
-      const arrowEndScreen = screenPoint(arrowEnd, viewport);
-      const arrowCenterScreen = screenPoint(arrowCenter, viewport);
-      const labelAnchor = {
-        x: arrowCenter.x + normal.x * 18,
-        y: arrowCenter.y + normal.y * 18,
-      };
-      const labelAnchorScreen = screenPoint(labelAnchor, viewport);
-      const valueLines = [formatCurrent(wireResult.currentA)];
-      const size = estimateLabelSize(valueLines, scale);
+            const supplyEndpoint = getRenderedWireEndpoint(node, supplyResult.handleId);
+            const gndEndpoint = getRenderedWireEndpoint(node, gndHandleId);
+            if(!supplyEndpoint || !gndEndpoint) return;
 
-      arrows.push({
-        id: `wire-arrow:${edge.id}`,
-        startX: arrowStartScreen.x,
-        startY: arrowStartScreen.y,
-        endX: arrowEndScreen.x,
-        endY: arrowEndScreen.y,
+            const overlay = createVoltageDeltaOverlay(
+              `${node.id}:${supplyResult.handleId}:${gndHandleId}`,
+              screenPoint(supplyEndpoint, viewport),
+              screenPoint(gndEndpoint, viewport),
+              supplyResult.voltageV - gndResult.voltageV,
+              scale,
+              labels,
+              obstacles,
+            );
+            arrows.push(overlay.arrow);
+            labels.push(overlay.label);
+          });
       });
-      labels.push({
-        id: `wire-current:${edge.id}`,
-        kind: "wireCurrent",
-        valueLines,
-        x: labelAnchorScreen.x,
-        y: labelAnchorScreen.y,
-        anchorX: arrowCenterScreen.x,
-        anchorY: arrowCenterScreen.y,
-        width: size.width,
-        height: size.height,
-      });
-    });
 
     if(wireHover) {
       const hoverWireResult = wireResultByEdgeId.get(wireHover.edgeId);
       if(hoverWireResult?.currentA !== undefined) {
-        const hover = screenPoint(wireHover, viewport);
-        const valueLines = [formatCurrent(hoverWireResult.currentA)];
-        const size = estimateLabelSize(valueLines, scale);
-        labels.push({
-          id: `wire-hover:${wireHover.edgeId}`,
-          kind: "wireHover",
-          valueLines,
-          x: hover.x,
-          y: hover.y - 18 * scale,
-          anchorX: hover.x,
-          anchorY: hover.y,
-          width: size.width,
-          height: size.height,
-        });
+        const edge = edges.find((candidate) => candidate.id === wireHover.edgeId);
+        const points = edge ? wirePoints(nodeById, edge) : [];
+        const normalPoint = longestSegmentMidpoint(points);
+        const hoverPoint = closestPointOnPolyline(points, wireHover);
+        if(hoverPoint) {
+          const normalScreenPoint = normalPoint ? screenPoint(normalPoint.point, viewport) : undefined;
+          const hoverScreenPoint = screenPoint(hoverPoint.point, viewport);
+          const overlapsNormalDisplay = normalScreenPoint
+            ? Math.hypot(
+              hoverScreenPoint.x - normalScreenPoint.x,
+              hoverScreenPoint.y - normalScreenPoint.y,
+            ) < HOVER_NORMAL_DISPLAY_DISTANCE * scale
+            : false;
+
+          if(!overlapsNormalDisplay) {
+            const hoverDirection = hoverWireResult.currentA >= 0
+              ? hoverPoint.direction
+              : {x: -hoverPoint.direction.x, y: -hoverPoint.direction.y};
+            const hoverNormal = hoverPreferredNormal(hoverDirection);
+            const hoverLabelGap = Math.abs(hoverDirection.x) >= Math.abs(hoverDirection.y)
+              ? WIRE_LABEL_GAP + HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX
+              : WIRE_LABEL_GAP;
+            const overlay = createWireCurrentOverlay(
+              `hover:${wireHover.edgeId}`,
+              hoverPoint,
+              hoverWireResult.currentA,
+              edge?.data?.width ?? 1,
+              viewport,
+              scale,
+              labels,
+              obstacles,
+              wireArrowBlockingRects(edges, nodeById, viewport, wireHover.edgeId),
+              hoverNormal,
+              hoverLabelGap,
+            );
+            arrows.push(overlay.arrow);
+            labels.push({...overlay.label, id: `wire-hover:${wireHover.edgeId}`, kind: "wireHover"});
+          }
+        }
       }
     }
 
@@ -427,9 +880,10 @@ export const SimulationOverlay = () => {
           <marker
             id="simulation-current-arrowhead"
             markerHeight="6"
+            markerUnits="userSpaceOnUse"
             markerWidth="8"
-            orient="auto"
-            refX="7"
+            orient="auto-start-reverse"
+            refX="5"
             refY="3"
           >
             <path d="M0,0 L8,3 L0,6 Z" fill="#1677ff" />
@@ -444,6 +898,17 @@ export const SimulationOverlay = () => {
           >
             <path d="M0,0 L7,2.5 L0,5 Z" fill="rgba(38, 38, 38, 0.56)" />
           </marker>
+          <marker
+            id="simulation-voltage-arrowhead"
+            markerHeight="6"
+            markerUnits="userSpaceOnUse"
+            markerWidth="8"
+            orient="auto"
+            refX="5"
+            refY="3"
+          >
+            <path d="M0,0 L8,3 L0,6 Z" fill="#fa8c16" />
+          </marker>
         </defs>
         {overlayData.arrows.map((arrow) => (
           <line
@@ -452,10 +917,11 @@ export const SimulationOverlay = () => {
             y1={arrow.startY}
             x2={arrow.endX}
             y2={arrow.endY}
-            stroke="#1677ff"
+            stroke={arrow.kind === "voltageDelta" ? "#fa8c16" : "#1677ff"}
             strokeLinecap="round"
             strokeWidth={2}
-            markerEnd="url(#simulation-current-arrowhead)"
+            markerStart={arrow.kind === "current" && arrow.bidirectional ? "url(#simulation-current-arrowhead)" : undefined}
+            markerEnd={arrow.kind === "voltageDelta" ? "url(#simulation-voltage-arrowhead)" : "url(#simulation-current-arrowhead)"}
           />
         ))}
         {leaderLines.map((label) => (
@@ -465,10 +931,14 @@ export const SimulationOverlay = () => {
             y1={label.y}
             x2={label.anchorX}
             y2={label.anchorY}
-            stroke="rgba(38, 38, 38, 0.46)"
+            stroke={label.kind === "voltage" || label.kind === "voltageDelta"
+              ? "rgba(250, 140, 22, 0.58)"
+              : "rgba(38, 38, 38, 0.46)"}
             strokeDasharray="3 3"
             strokeWidth={1}
-            markerEnd="url(#simulation-leader-arrowhead)"
+            markerEnd={label.kind === "voltage" || label.kind === "voltageDelta"
+              ? "url(#simulation-voltage-arrowhead)"
+              : "url(#simulation-leader-arrowhead)"}
           />
         ))}
       </svg>
@@ -478,9 +948,13 @@ export const SimulationOverlay = () => {
           style={{
             background: label.kind === "voltage"
               ? "rgba(255, 255, 255, 0.92)"
+              : label.kind === "voltageDelta"
+                ? "rgba(255, 247, 230, 0.94)"
               : "rgba(230, 244, 255, 0.94)",
             border: label.kind === "voltage"
               ? "1px solid rgba(250, 173, 20, 0.56)"
+              : label.kind === "voltageDelta"
+                ? "1px solid rgba(250, 140, 22, 0.62)"
               : "1px solid rgba(22, 119, 255, 0.48)",
             borderRadius: 4,
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.16)",
