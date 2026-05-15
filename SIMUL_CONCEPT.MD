@@ -955,8 +955,17 @@ Elemente:
    - `No simulation has been run yet`
    - `Simulation is running...` waehrend der Berechnung
    - `Simulation failed` bei Check-, Solver- oder Modellfehler
+   - Bei Erfolg nur nutzerverstaendliche Zusammenfassung anzeigen, z.B. Anzahl Diagramm-Komponenten und Anzahl simulierter Wires.
+   - Technische Modellstatistiken wie Circuit-Nodes, Elementanzahl, Pin-Results und Wire-Results nicht in der normalen UI anzeigen.
 5. Check-Ergebnisse
    - Liste analog Diagramm-Checks
+
+Debug-Modus:
+
+- Der Simulationsbereich hat einen Code-Schalter `SIMULATION_DEBUG`, der standardmaessig `false` ist.
+- Wenn `SIMULATION_DEBUG === true`, schreibt die Simulation technische Debug-Informationen in die Browser-Console.
+- Sinnvolle Debug-Ausgaben sind: Diagramm-Fingerprint, Einstellungen, Status, Anzahl Diagramm-Komponenten, Anzahl simulierbarer Komponenten, Check-Netze, Circuit-Nodes, simulierte Wires, elementare Simulationselemente, Pins, virtuelle Pins, Pin-/Wire-Ergebnisse und Simulationsmeldungen.
+- Diese Informationen sind nur fuer Entwicklung und Tests gedacht und duerfen normale Nutzer nicht in der UI verwirren.
 
 ## Empfohlene Modulstruktur
 
@@ -967,6 +976,7 @@ src/simulation/
   simulationTypes.ts
   buildSimulationModel.ts
   runSimulation.ts
+  simulationDebug.ts
   simulationChecks.ts
   simulationFingerprint.ts
   wireResistance.ts
@@ -1056,9 +1066,10 @@ Optional:
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
 41. Pins, die durch Komponentenoptionen aktuell unsichtbar sind, werden ignoriert; elementare `simdata`-Elemente mit mindestens einem unsichtbaren Terminal werden fuer diese Konfiguration uebersprungen.
 42. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
-43. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
-44. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
-45. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
-46. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
-47. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
-48. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
+43. Die normale Simulation-UI zeigt nur nutzerverstaendliche Zusammenfassungen; technische Modellstatistiken werden nur bei `SIMULATION_DEBUG === true` in die Console geschrieben.
+44. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
+45. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
+46. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
+47. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
+48. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+49. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.

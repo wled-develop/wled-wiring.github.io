@@ -6,6 +6,7 @@ import { Alert, Button, Empty, Flex, List, Select, Slider, Space, Tag, Typograph
 import { useTranslation } from "react-i18next";
 
 import { createSimulationFingerprint } from "./simulationFingerprint";
+import { logSimulationDebug } from "./simulationDebug";
 import { runSimulation as runDeterministicSimulation } from "./runSimulation";
 import type {
   LedSimulationColorMode,
@@ -51,12 +52,8 @@ export const SimulationPage = () => {
   const [status, setStatus] = useState<SimulationUiStatus>("idle");
   const [issues, setIssues] = useState<SimulationCheckIssue[] | null>(null);
   const [modelStats, setModelStats] = useState<{
-    nodes: number;
-    circuitNodes: number;
+    components: number;
     wires: number;
-    elements: number;
-    pinResults: number;
-    wireResults: number;
   } | null>(null);
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
@@ -84,17 +81,14 @@ export const SimulationPage = () => {
       settings,
     );
 
+    logSimulationDebug(simulation);
     setIssues(simulation.issues);
 
     if(simulation.ok) {
       setResultFingerprint(simulation.result.diagramFingerprint);
       setModelStats({
-        nodes: simulation.model.nodes.length,
-        circuitNodes: simulation.model.circuitNodes.length,
+        components: simulation.model.nodes.filter((node) => node.technicalID !== "WireInfoNode").length,
         wires: simulation.model.wires.length,
-        elements: simulation.model.elements.length,
-        pinResults: simulation.result.pinResults.length,
-        wireResults: simulation.result.wireResults.length,
       });
       setStatus("success");
       return;
