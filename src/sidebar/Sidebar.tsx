@@ -9,6 +9,7 @@ import {ComponentPage} from './ComponentPage';
 import {ImportExportPage} from './ImportExportPage';
 import {DiagramCheckPage} from './DiagramCheckPage';
 import {ToolsPage} from './ToolsPage';
+import { SimulationPage } from '../simulation/SimulationPage';
 
 const Sidebar = () => {
   const {t} = useTranslation(['main']);
@@ -49,7 +50,7 @@ const Sidebar = () => {
   {
     key: '4',
     label: <span>{t('sidebar.simulation.title')}</span>,
-    children: <div>{t('sidebar.simulation.comingSoon')}</div>,
+    children: <SimulationPage />,
     style: panelStyle,
   },
   {

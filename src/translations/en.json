@@ -280,7 +280,34 @@
                               },
                     "simulation":  {
                                        "title":  "Simulate current flow",
-                                       "comingSoon":  "Simulation of power distribution will be implemented in future. Stay tuned!"
+                                       "comingSoon":  "Simulation of power distribution will be implemented in future. Stay tuned!",
+                                       "settings":  "Settings",
+                                       "brightness":  "Brightness: {{value}}%",
+                                       "buttonRun":  "Simulate",
+                                       "buttonDelete":  "Delete results",
+                                       "notRun":  "No simulation has been run yet.",
+                                       "running":  "Simulation is running...",
+                                       "invalidated":  "Simulation results were removed because the diagram changed.",
+                                       "modelReadyTitle":  "Simulation model created",
+                                       "modelReadyDescription":  "{{nodes}} component(s), {{circuitNodes}} circuit node(s), {{wires}} wire(s), {{elements}} element(s).",
+                                       "failedTitle":  "Simulation failed",
+                                       "failedDescription":  "The simulation model could not be created. Check the messages below.",
+                                       "noIssues":  "No simulation messages.",
+                                       "issueCount":  "{{count}} simulation message(s)",
+                                       "affectedElements":  "Affected elements",
+                                       "severity":  {
+                                                        "error":  "Error",
+                                                        "warning":  "Warning",
+                                                        "info":  "Info"
+                                                    },
+                                       "colorModes":  {
+                                                          "rgbWhite":  "RGB white",
+                                                          "separateWhite":  "Separate white",
+                                                          "separateAndRgbWhite":  "Separate + RGB white",
+                                                          "red":  "Red",
+                                                          "green":  "Green",
+                                                          "blue":  "Blue"
+                                                      }
                                    },
                     "tools":  {
                                   "title":  "Tools",

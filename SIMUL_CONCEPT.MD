@@ -976,6 +976,8 @@ src/simulation/
   SimulationOverlay.tsx
 ```
 
+Beispiele fuer Simulation und Ueberpruefung liegen im Verzeichnis `simulation_test/`. Dort sollen Testdiagramme, erwartete Simulationsergebnisse und Sonderfaelle wie Ueberlast, fehlende Wire-Daten oder LED-Streifen-Spannungsabfaelle gesammelt werden.
+
 Optional:
 
 - Gemeinsame Netzlogik aus `check/checkContext.ts` spaeter nach `src/netlist/` extrahieren.
@@ -997,15 +999,15 @@ Optional:
    - `MHC_V43`
    - `DCDC`
 6. [x] `buildSimulationModel()` implementieren, noch ohne echten Solver. Umgesetzt in `src/simulation/buildSimulationModel.ts`.
-7. `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen.
-8. Ergebnis-Invalidierung per Fingerprint einbauen.
+7. [x] `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen. Umgesetzt in `src/simulation/SimulationPage.tsx`.
+8. [x] Ergebnis-Invalidierung per Fingerprint einbauen. Umgesetzt in `src/simulation/simulationFingerprint.ts` und `src/simulation/SimulationPage.tsx`.
 9. Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen.
 10. Overlay fuer Pin-Strom/Spannung anzeigen.
 11. Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren.
 12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
 13. Simulation-Checks ergaenzen.
 14. LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren.
-15. Erste Simulation-Fixtures und erwartete Ergebniswerte bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+15. Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
 
 ## Geklaerte Entscheidungen
 
@@ -1054,5 +1056,5 @@ Optional:
 43. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
 44. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
 45. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
-46. Erste Simulation-Fixtures werden gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+46. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
 47. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
