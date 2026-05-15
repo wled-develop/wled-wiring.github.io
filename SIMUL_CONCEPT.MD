@@ -992,7 +992,7 @@ Optional:
    - `WAGO_3x`
    - `MHC_V43`
    - `DCDC`
-6. `buildSimulationModel()` implementieren, noch ohne echten Solver.
+6. [x] `buildSimulationModel()` implementieren, noch ohne echten Solver. Umgesetzt in `src/simulation/buildSimulationModel.ts`.
 7. `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen.
 8. Ergebnis-Invalidierung per Fingerprint einbauen.
 9. Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen.

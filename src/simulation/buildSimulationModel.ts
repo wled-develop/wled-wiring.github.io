@@ -1,0 +1,521 @@
+import type { Edge, Node } from "@xyflow/react";
+
+import { createDiagramCheckContext } from "../check/checkContext";
+import type { CheckHandle, CheckNet, CheckNetClassification } from "../check/checkContext";
+import type { ComponentDataType, EdgeDataType, HandleDataType } from "../types";
+import { calculateCopperWireResistanceFromEdgeData } from "./wireResistance";
+import type {
+  ComponentSimulationElementUse,
+  ComponentSimulationElementType,
+  SimulationCheckIssue,
+  SimulationCheckNetRef,
+  SimulationCircuitNode,
+  SimulationComponent,
+  SimulationElement,
+  SimulationModel,
+  SimulationNetClassification,
+  SimulationParameterPrimitive,
+  SimulationParameterRef,
+  SimulationPin,
+  SimulationPinRole,
+  SimulationSettings,
+} from "./simulationTypes";
+
+export type BuildSimulationModelResult =
+  | {ok: true; model: SimulationModel; issues: SimulationCheckIssue[]}
+  | {ok: false; issues: SimulationCheckIssue[]};
+
+const DEFAULT_SIMULATION_SETTINGS: SimulationSettings = {
+  ledColorMode: "RGB_WHITE",
+  brightnessPercent: 100,
+};
+
+const pinId = (nodeId: string, handleId: string) => `${nodeId}::${handleId}`;
+
+class UnionFind {
+  private parent = new Map<string, string>();
+
+  add(value: string) {
+    if(!this.parent.has(value)) {
+      this.parent.set(value, value);
+    }
+  }
+
+  find(value: string): string {
+    const parent = this.parent.get(value);
+    if(parent === undefined || parent === value) {
+      return value;
+    }
+
+    const root = this.find(parent);
+    this.parent.set(value, root);
+    return root;
+  }
+
+  union(a: string, b: string) {
+    this.add(a);
+    this.add(b);
+
+    const rootA = this.find(a);
+    const rootB = this.find(b);
+
+    if(rootA !== rootB) {
+      this.parent.set(rootB, rootA);
+    }
+  }
+}
+
+const isHiddenByCondition = (node: Node<ComponentDataType>, handle: HandleDataType) => (
+  handle.hideConditions?.some((condition) => {
+    const selectedValue = node.data.selectFields?.find((field) => (
+      field.technicalID === condition.selectHID
+    ))?.selectedValue;
+
+    return selectedValue !== undefined && condition.values.includes(selectedValue);
+  }) || false
+);
+
+const visibleHandles = (node: Node<ComponentDataType>) => (
+  [
+    ...(node.data.handles || []),
+    ...(node.data.repeatedHandleArray || []),
+  ].filter((handle) => !isHiddenByCondition(node, handle))
+);
+
+const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) => ({
+  x: node.position.x + handle.x,
+  y: node.position.y + handle.y,
+});
+
+const netClassifications: Record<CheckNetClassification, SimulationNetClassification | undefined> = {
+  gnd_net_type: "gnd",
+  suppl_net_type: "supply",
+  pwm_net_type: "pwm",
+  digital_net_type: undefined,
+  analog_net_type: undefined,
+  audio_net_type: undefined,
+  eth_net_type: undefined,
+  usb_net_type: undefined,
+  rs485_a_net_type: undefined,
+  rs485_b_net_type: undefined,
+  N_net_type: undefined,
+  L_net_type: undefined,
+  PE_net_type: undefined,
+};
+
+const mapNetClassifications = (classifications: CheckNetClassification[]) => (
+  classifications.flatMap((classification) => {
+    const mapped = netClassifications[classification];
+    return mapped ? [mapped] : [];
+  })
+);
+
+const pinRoleFromFunctions = (functions: string[]): SimulationPinRole => {
+  if(functions.includes("gnd")) return "gnd";
+  if(
+    functions.includes("suppl_in") ||
+    functions.includes("suppl_out") ||
+    functions.includes("usb_power_out") ||
+    functions.includes("usb_full")
+  ) {
+    return "supply";
+  }
+  if(
+    functions.includes("pwm_out") ||
+    functions.includes("pwm_in_R") ||
+    functions.includes("pwm_in_G") ||
+    functions.includes("pwm_in_B") ||
+    functions.includes("pwm_in_W") ||
+    functions.includes("pwm_in_WW")
+  ) {
+    return "pwm";
+  }
+
+  return "other";
+};
+
+const getInputFieldValue = (
+  node: Node<ComponentDataType>,
+  technicalID: string,
+): SimulationParameterPrimitive | undefined => (
+  node.data.inputFields?.find((field) => field.technicalID === technicalID)?.value
+);
+
+const getSelectFieldValue = (
+  node: Node<ComponentDataType>,
+  technicalID: string,
+): SimulationParameterPrimitive | undefined => (
+  node.data.selectFields?.find((field) => field.technicalID === technicalID)?.selectedValue
+);
+
+const issue = (
+  id: string,
+  title: string,
+  description: string,
+  targets?: SimulationCheckIssue["targets"],
+): SimulationCheckIssue => ({
+  id,
+  severity: "error",
+  title,
+  description,
+  targets,
+});
+
+const resolveParameter = (
+  ref: SimulationParameterRef,
+  node: Node<ComponentDataType>,
+  settings: SimulationSettings,
+): {ok: true; value: SimulationParameterPrimitive} | {ok: false; message: string} => {
+  if(typeof ref === "number" || typeof ref === "string" || typeof ref === "boolean") {
+    return {ok: true, value: ref};
+  }
+
+  if("const" in ref) {
+    return {ok: true, value: ref.const};
+  }
+
+  if("field" in ref) {
+    const value = getInputFieldValue(node, ref.field);
+    if(value !== undefined) return {ok: true, value};
+    if(ref.default !== undefined) return {ok: true, value: ref.default};
+
+    return {ok: false, message: `Missing input field value: ${ref.field}.`};
+  }
+
+  if("select" in ref) {
+    const value = getSelectFieldValue(node, ref.select);
+    if(value !== undefined) return {ok: true, value};
+    if(ref.default !== undefined) return {ok: true, value: ref.default};
+
+    return {ok: false, message: `Missing select field value: ${ref.select}.`};
+  }
+
+  if("table" in ref) {
+    const selector = resolveParameter(ref.by, node, settings);
+    if(!selector.ok) return selector;
+
+    const value = ref.table[String(selector.value)];
+    if(value !== undefined) return {ok: true, value};
+    if(ref.default !== undefined) return {ok: true, value: ref.default};
+
+    return {ok: false, message: `No table value for selector ${String(selector.value)}.`};
+  }
+
+  if("lookup" in ref) {
+    return {ok: false, message: `Lookup references are not implemented yet: ${ref.lookup}.`};
+  }
+
+  return {
+    ok: true,
+    value: `${ref.ledLookup}:${settings.ledColorMode}`,
+  };
+};
+
+const resolveParameters = (
+  element: ComponentSimulationElementUse,
+  node: Node<ComponentDataType>,
+  settings: SimulationSettings,
+  issues: SimulationCheckIssue[],
+) => {
+  const parameters = element.parameters;
+  if(!parameters) return undefined;
+
+  const resolved: Record<string, SimulationParameterPrimitive> = {};
+
+  Object.entries(parameters).forEach(([key, ref]) => {
+    const result = resolveParameter(ref, node, settings);
+    if(result.ok) {
+      resolved[key] = result.value;
+      return;
+    }
+
+    issues.push(issue(
+      `simulation-parameter:${node.id}:${element.id}:${key}`,
+      "Simulation parameter could not be resolved",
+      result.message,
+      [{type: "node", nodeId: node.id}],
+    ));
+  });
+
+  return resolved;
+};
+
+const terminalPinIds = (
+  node: Node<ComponentDataType>,
+  element: ComponentSimulationElementUse,
+  handleByPinId: Map<string, CheckHandle>,
+  issues: SimulationCheckIssue[],
+) => {
+  const terminals: Record<string, string> = {};
+
+  Object.entries(element.terminals).forEach(([terminalName, handleId]) => {
+    const id = pinId(node.id, handleId);
+    if(handleByPinId.has(id)) {
+      terminals[terminalName] = id;
+      return;
+    }
+
+    issues.push(issue(
+      `simulation-terminal:${node.id}:${element.id}:${terminalName}`,
+      "Simulation terminal points to a missing pin",
+      `Element terminal ${terminalName} references missing handle ${handleId}.`,
+      [{type: "node", nodeId: node.id}],
+    ));
+  });
+
+  return terminals;
+};
+
+const unionShortBridgeTerminals = (
+  nodes: Node<ComponentDataType>[],
+  handleByPinId: Map<string, CheckHandle>,
+  unionFind: UnionFind,
+  issues: SimulationCheckIssue[],
+) => {
+  nodes.forEach((node) => {
+    node.data.simdata?.elements
+      ?.filter((element) => element.type === "shortBridge")
+      .forEach((element) => {
+        const terminals = terminalPinIds(node, element, handleByPinId, issues);
+        const a = terminals.a;
+        const b = terminals.b;
+
+        if(a && b) {
+          unionFind.union(a, b);
+        }
+      });
+  });
+};
+
+const createSimulationCheckNetRef = (net: CheckNet): SimulationCheckNetRef => ({
+  id: net.id,
+  classifications: mapNetClassifications(net.classifications),
+  pinIds: net.handles.map((handle) => pinId(handle.node.id, handle.handle.hid)),
+  wireIds: net.edges.map((edge) => edge.id),
+});
+
+const collectReferenceCandidate = (
+  element: ComponentSimulationElementUse,
+  node: Node<ComponentDataType>,
+  settings: SimulationSettings,
+) => {
+  if(element.type !== "voltageSource") return undefined;
+
+  const currentLimit = resolveParameter(element.parameters.currentLimitA, node, settings);
+  if(!currentLimit.ok || typeof currentLimit.value !== "number") return undefined;
+
+  return {
+    currentLimitA: currentLimit.value,
+    negativePinId: pinId(node.id, element.terminals.negative),
+  };
+};
+
+export const buildSimulationModel = (
+  nodes: Node<ComponentDataType>[],
+  edges: Edge<EdgeDataType>[],
+  settings: SimulationSettings = DEFAULT_SIMULATION_SETTINGS,
+): BuildSimulationModelResult => {
+  const issues: SimulationCheckIssue[] = [];
+  const checkContext = createDiagramCheckContext(nodes, edges);
+  const checkNetByPinId = new Map<string, CheckNet>();
+  const handleByPinId = new Map<string, CheckHandle>();
+  const unionFind = new UnionFind();
+
+  checkContext.handles.forEach((handle) => {
+    const id = pinId(handle.node.id, handle.handle.hid);
+    handleByPinId.set(id, handle);
+    unionFind.add(id);
+
+    const net = checkContext.getNetByHandle(handle);
+    if(net) {
+      checkNetByPinId.set(id, net);
+    }
+  });
+
+  unionShortBridgeTerminals(nodes, handleByPinId, unionFind, issues);
+
+  const rootToCircuitNodeId = new Map<string, string>();
+  const pinToCircuitNodeId = new Map<string, string>();
+
+  handleByPinId.forEach((_handle, id) => {
+    const root = unionFind.find(id);
+    const circuitNodeId = rootToCircuitNodeId.get(root) || `circuit:${rootToCircuitNodeId.size + 1}`;
+    rootToCircuitNodeId.set(root, circuitNodeId);
+    pinToCircuitNodeId.set(id, circuitNodeId);
+  });
+
+  const circuitNodes: SimulationCircuitNode[] = Array.from(rootToCircuitNodeId.entries()).map(([
+    root,
+    id,
+  ]) => {
+    const groupedPinIds = Array.from(pinToCircuitNodeId.entries())
+      .filter(([, circuitNodeId]) => circuitNodeId === id)
+      .map(([groupedPinId]) => groupedPinId);
+    const sourceCheckNetId = groupedPinIds
+      .map((groupedPinId) => checkNetByPinId.get(groupedPinId)?.id)
+      .find((checkNetId) => checkNetId !== undefined);
+
+    return {
+      id,
+      sourceCheckNetId,
+      pinIds: groupedPinIds.length > 0 ? groupedPinIds : [root],
+    };
+  });
+
+  const pins: SimulationPin[] = checkContext.handles.map((handle) => {
+    const id = pinId(handle.node.id, handle.handle.hid);
+
+    return {
+      id,
+      nodeId: handle.node.id,
+      handleId: handle.handle.hid,
+      circuitNodeId: pinToCircuitNodeId.get(id),
+      sourceCheckNetId: checkNetByPinId.get(id)?.id,
+      functions: handle.functions,
+      role: pinRoleFromFunctions(handle.functions),
+      position: handlePosition(handle.node, handle.handle),
+    };
+  });
+
+  const wires = edges.flatMap((edge) => {
+    if(!edge.sourceHandle || !edge.targetHandle) {
+      issues.push(issue(
+        `simulation-wire:${edge.id}:missing-handle`,
+        "Wire endpoint is incomplete",
+        "Wire is missing a source or target handle.",
+        [{type: "wire", edgeId: edge.id}],
+      ));
+      return [];
+    }
+
+    const sourcePinId = pinId(edge.source, edge.sourceHandle);
+    const targetPinId = pinId(edge.target, edge.targetHandle);
+    const sourceCircuitNodeId = pinToCircuitNodeId.get(sourcePinId);
+    const targetCircuitNodeId = pinToCircuitNodeId.get(targetPinId);
+
+    if(!sourceCircuitNodeId || !targetCircuitNodeId) {
+      issues.push(issue(
+        `simulation-wire:${edge.id}:missing-node`,
+        "Wire endpoint is not part of the simulation model",
+        "Wire references a handle that was not found in the diagram.",
+        [{type: "wire", edgeId: edge.id}],
+      ));
+      return [];
+    }
+
+    if(!edge.data) {
+      issues.push(issue(
+        `simulation-wire:${edge.id}:missing-data`,
+        "Wire data is missing",
+        "Wire has no physical data for length and cross section.",
+        [{type: "wire", edgeId: edge.id}],
+      ));
+      return [];
+    }
+
+    const resistance = calculateCopperWireResistanceFromEdgeData(edge.data);
+
+    if(!resistance.ok) {
+      issues.push(issue(
+        `simulation-wire:${edge.id}:${resistance.reason}`,
+        "Wire resistance could not be calculated",
+        resistance.message,
+        [{type: "wire", edgeId: edge.id}],
+      ));
+      return [];
+    }
+
+    return [{
+      id: `wire:${edge.id}`,
+      edgeId: edge.id,
+      sourceCircuitNodeId,
+      targetCircuitNodeId,
+      resistanceOhm: resistance.resistanceOhm,
+      lengthM: resistance.lengthM,
+      crosssectionMm2: resistance.crosssectionMm2,
+      material: resistance.material,
+    }];
+  });
+
+  const referenceCandidates = nodes.flatMap((node) => (
+    node.data.simdata?.elements
+      ?.map((element) => collectReferenceCandidate(element, node, settings))
+      .filter((candidate) => candidate !== undefined) || []
+  ));
+  const referenceCandidate = referenceCandidates
+    .sort((a, b) => b.currentLimitA - a.currentLimitA)[0];
+  const referenceNodeId = referenceCandidate
+    ? pinToCircuitNodeId.get(referenceCandidate.negativePinId)
+    : pins.find((pin) => pin.role === "gnd")?.circuitNodeId;
+
+  if(!referenceNodeId) {
+    issues.push(issue(
+      "simulation-reference-node:missing",
+      "No simulation reference node found",
+      "Simulation needs a GND pin or a voltage source negative terminal as 0 V reference.",
+    ));
+  }
+
+  const elements: SimulationElement[] = [];
+  const components: SimulationComponent[] = nodes.map((node) => {
+    const nodePinIds = visibleHandles(node).map((handle) => pinId(node.id, handle.hid));
+    const elementIds: string[] = [];
+
+    node.data.simdata?.elements?.forEach((element) => {
+      const terminalPins = terminalPinIds(node, element, handleByPinId, issues);
+      const resolvedTerminals = Object.fromEntries(
+        Object.entries(terminalPins).flatMap(([terminalName, terminalPinId]) => {
+          const circuitNodeId = pinToCircuitNodeId.get(terminalPinId);
+          return circuitNodeId ? [[terminalName, circuitNodeId]] : [];
+        }),
+      );
+      const elementId = `component:${node.id}:${element.id}`;
+
+      elements.push({
+        id: elementId,
+        componentId: node.id,
+        sourceElementId: element.id,
+        type: element.type as ComponentSimulationElementType,
+        terminals: resolvedTerminals,
+        parameters: resolveParameters(element, node, settings, issues),
+      });
+      elementIds.push(elementId);
+    });
+
+    return {
+      id: `component:${node.id}`,
+      nodeId: node.id,
+      technicalID: node.data.technicalID,
+      simdata: node.data.simdata,
+      elementIds,
+      pinIds: nodePinIds,
+    };
+  });
+
+  if(issues.some((item) => item.severity === "error") || !referenceNodeId) {
+    return {ok: false, issues};
+  }
+
+  return {
+    ok: true,
+    issues,
+    model: {
+      version: 1,
+      settings,
+      nodes: nodes.map((node) => ({
+        id: node.id,
+        technicalID: node.data.technicalID,
+        technicalVersion: node.data.technicalVersion,
+        position: node.position,
+      })),
+      checkNets: checkContext.componentLinkedNets.map(createSimulationCheckNetRef),
+      circuitNodes,
+      wires,
+      components,
+      elements,
+      pins,
+      virtualPins: [],
+      referenceNodeId,
+    },
+  };
+};
