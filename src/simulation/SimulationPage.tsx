@@ -11,6 +11,7 @@ import { runSimulation as runDeterministicSimulation } from "./runSimulation";
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
+  SimulationModel,
   SimulationSettings,
   SimulationTarget,
 } from "./simulationTypes";
@@ -38,6 +39,20 @@ const targetLabel = (target: SimulationTarget) => {
   if(target.type === "wire") return target.edgeId;
   if(target.type === "element") return target.elementId;
   return `${target.nodeId}.${target.handleId}`;
+};
+
+const getSimulationModelStats = (model: SimulationModel) => {
+  const simulatedCircuitNodeIds = new Set(
+    model.elements.flatMap((element) => Object.values(element.terminals)),
+  );
+
+  return {
+    components: model.components.filter((component) => component.elementIds.length > 0).length,
+    wires: model.wires.filter((wire) => (
+      simulatedCircuitNodeIds.has(wire.sourceCircuitNodeId) &&
+      simulatedCircuitNodeIds.has(wire.targetCircuitNodeId)
+    )).length,
+  };
 };
 
 export const SimulationPage = () => {
@@ -86,10 +101,7 @@ export const SimulationPage = () => {
 
     if(simulation.ok) {
       setResultFingerprint(simulation.result.diagramFingerprint);
-      setModelStats({
-        components: simulation.model.nodes.filter((node) => node.technicalID !== "WireInfoNode").length,
-        wires: simulation.model.wires.length,
-      });
+      setModelStats(getSimulationModelStats(simulation.model));
       setStatus("success");
       return;
     }

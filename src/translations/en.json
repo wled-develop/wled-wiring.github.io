@@ -289,7 +289,7 @@
                                        "running":  "Simulation is running...",
                                        "invalidated":  "Simulation results were removed because the diagram changed.",
                                        "modelReadyTitle":  "Simulation model created",
-                                       "modelReadyDescription":  "{{components}} diagram component(s), {{wires}} simulated wire(s).",
+                                       "modelReadyDescription":  "{{components}} simulated component(s), {{wires}} simulated wire(s).",
                                        "failedTitle":  "Simulation failed",
                                        "failedDescription":  "The simulation model could not be created. Check the messages below.",
                                        "noIssues":  "No simulation messages.",

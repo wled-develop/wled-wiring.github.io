@@ -1,6 +1,6 @@
 import type { RunSimulationResult } from "./runSimulation";
 
-export const SIMULATION_DEBUG = false;
+export const SIMULATION_DEBUG = true;
 
 export const logSimulationDebug = (simulation: RunSimulationResult) => {
   if(!SIMULATION_DEBUG) return;

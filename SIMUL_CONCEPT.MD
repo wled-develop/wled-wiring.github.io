@@ -718,13 +718,16 @@ Die Beziehung zu `_middle_N`-Handles ist:
 - Beim Verbinden eines Middle-Handles sorgt `stripCheckAndDivideIfMiddleConnection()` dafuer, dass ein `physLengths`-Eintrag mit `startIndex === repeatIndex` existiert.
 - Falls dieser Eintrag noch nicht existiert, wird der vorherige Abschnitt geteilt. Ist dessen Laenge bekannt, wird sie proportional auf die beiden neuen Abschnitte verteilt.
 - Beim Loeschen der letzten Verbindung an einer solchen Grenze kann der zugehoerige `physLengths`-Eintrag wieder entfernt und die Laenge mit dem vorherigen Abschnitt zusammengefuehrt werden.
+- Der Modellaufbau prueft verbundene `_middle_N`-Handles trotzdem defensiv. Falls ein importiertes oder aelteres Diagramm eine Wire an `_middle_N` enthaelt, aber kein passender `physLengths.startIndex === N` existiert, wird `N` als notwendige Abschnittsgrenze behandelt. Fehlt dadurch eine Abschnittslaenge, bricht die Simulation mit einer klaren Meldung ab, statt die Wire an einen falschen oder losen Knoten zu haengen.
 
 Fuer die Simulation:
 
 - Ein LED-Streifen wird erst in `physLengths`-Abschnitte aufgeteilt.
 - Je Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` die Anzahl logischer LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts, `ledsPerMeter` meint physikalische LEDs pro Meter.
 - Jede logische LED wird als ein digitales LED-Netzelement in Reihe modelliert.
-- `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N`.
+- Zwischen zwei benachbarten Abschnitten entstehen interne Supply- und GND-Circuit-Nodes. An diesen Knoten endet die LED-Kette des vorherigen Abschnitts und beginnt die LED-Kette des naechsten Abschnitts.
+- `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N` und muss elektrisch mit genau diesen internen Grenzknoten verbunden werden: `24V_middle_N`/`12V_middle_N`/`5V_middle_N` mit dem Supply-Grenzknoten, `GND_middle_N` mit dem GND-Grenzknoten.
+- Eine externe Wire, die an einem `_middle_N`-Handle angeschlossen ist, wird dadurch nicht als separater loser Pin modelliert, sondern speist genau an der entsprechenden Stelle in die LED-Schiene ein.
 - Spannungen an `_middle_N` werden nur fuer solche Abschnittsgrenzen angezeigt, die wirklich in `physLengths` existieren.
 
 Beispiel aus `example3.json`:
@@ -955,7 +958,8 @@ Elemente:
    - `No simulation has been run yet`
    - `Simulation is running...` waehrend der Berechnung
    - `Simulation failed` bei Check-, Solver- oder Modellfehler
-   - Bei Erfolg nur nutzerverstaendliche Zusammenfassung anzeigen, z.B. Anzahl Diagramm-Komponenten und Anzahl simulierter Wires.
+   - Bei Erfolg nur nutzerverstaendliche Zusammenfassung anzeigen, z.B. Anzahl simulierter Komponenten und Anzahl simulierter Wires.
+   - Diese Zahlen zaehlen nur den wirklich simulierten Modellanteil: Komponenten nur, wenn fuer sie mindestens ein elementares Simulationselement erzeugt wurde; Wires nur, wenn beide Wire-Enden an Circuit-Nodes liegen, die von Simulationselement-Terminals benutzt werden. Ausgenommene Diagramm-Komponenten, optionale/unsichtbare Elemente, WireInfo-Nodes und rein informative bzw. nicht modellierte Wires werden nicht mitgezaehlt.
    - Technische Modellstatistiken wie Circuit-Nodes, Elementanzahl, Pin-Results und Wire-Results nicht in der normalen UI anzeigen.
 5. Check-Ergebnisse
    - Liste analog Diagramm-Checks

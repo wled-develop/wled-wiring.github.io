@@ -63,6 +63,10 @@ class UnionFind {
       this.parent.set(rootB, rootA);
     }
   }
+
+  values() {
+    return Array.from(this.parent.keys());
+  }
 }
 
 const isHiddenByCondition = (node: Node<ComponentDataType>, handle: HandleDataType) => (
@@ -91,6 +95,25 @@ const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) =
   x: node.position.x + handle.x,
   y: node.position.y + handle.y,
 });
+
+type DigitalLedSectionPlan = {
+  startIndex: number;
+  logicLedCount: number;
+  supplyPinIds: string[];
+  gndPinIds: string[];
+};
+
+type DigitalLedElementUse = Extract<ComponentSimulationElementUse, {type: "digitalLed"}>;
+
+type DigitalLedElementPlan = {
+  element: DigitalLedElementUse;
+  parameters: Record<string, SimulationParameterPrimitive> | undefined;
+  sections: DigitalLedSectionPlan[];
+};
+
+const isDigitalLedElement = (
+  element: ComponentSimulationElementUse,
+): element is DigitalLedElementUse => element.type === "digitalLed";
 
 const netClassifications: Record<CheckNetClassification, SimulationNetClassification | undefined> = {
   gnd_net_type: "gnd",
@@ -384,6 +407,253 @@ const collectReferenceCandidate = (
   };
 };
 
+const simulationPinId = (
+  nodeId: string,
+  elementId: string,
+  rail: "supply" | "gnd",
+  segment: string,
+  index: number,
+) => `${nodeId}::simulation:${elementId}:${rail}:${segment}:${index}`;
+
+const middleHandleId = (baseHandleId: string, index: number) => `${baseHandleId}_middle_${index}`;
+
+const terminalBaseHandleId = (handleId: string) => (
+  handleId.replace(/_(start|end)$/, "")
+);
+
+const sortedLedPhysLengths = (
+  node: Node<ComponentDataType>,
+  requiredBoundaryIndexes: Set<number>,
+) => {
+  const nodeLength = node.data.nodeLength || 1;
+  const byStartIndex = new Map<number, number | undefined>();
+  byStartIndex.set(0, undefined);
+
+  node.data.physLengths?.forEach((physLength) => {
+    if(
+      Number.isInteger(physLength.startIndex) &&
+      physLength.startIndex >= 0 &&
+      physLength.startIndex < nodeLength
+    ) {
+      byStartIndex.set(physLength.startIndex, physLength.length);
+    }
+  });
+
+  requiredBoundaryIndexes.forEach((startIndex) => {
+    if(startIndex > 0 && startIndex < nodeLength && !byStartIndex.has(startIndex)) {
+      byStartIndex.set(startIndex, undefined);
+    }
+  });
+
+  return Array.from(byStartIndex.entries())
+    .map(([startIndex, length]) => ({startIndex, length}))
+    .sort((a, b) => a.startIndex - b.startIndex);
+};
+
+const connectedMiddleBoundaryIndexes = (
+  node: Node<ComponentDataType>,
+  edges: Edge<EdgeDataType>[],
+  baseHandleIds: string[],
+) => {
+  const baseHandleIdSet = new Set(baseHandleIds);
+  const indexes = new Set<number>();
+
+  edges.forEach((edge) => {
+    const handleId = edge.source === node.id ? edge.sourceHandle : edge.target === node.id ? edge.targetHandle : undefined;
+    if(!handleId) return;
+
+    const match = /^(.+)_middle_(\d+)$/.exec(handleId);
+    if(!match || !baseHandleIdSet.has(match[1])) return;
+
+    indexes.add(Number(match[2]));
+  });
+
+  return indexes;
+};
+
+const findMiddleHandlePinId = (
+  node: Node<ComponentDataType>,
+  baseHandleId: string,
+  boundaryIndex: number,
+) => {
+  const expectedHandleId = middleHandleId(baseHandleId, boundaryIndex);
+  const handle = visibleHandles(node).find((candidate) => (
+    candidate.hid === expectedHandleId ||
+    (candidate.repeatIndex === boundaryIndex && candidate.hid === expectedHandleId)
+  ));
+
+  return handle ? pinId(node.id, handle.hid) : undefined;
+};
+
+const collectLedBoundaryPinId = (
+  node: Node<ComponentDataType>,
+  element: DigitalLedElementUse,
+  rail: "supply" | "gnd",
+  boundaryIndex: number,
+  terminalPins: Record<string, string>,
+  unionFind: UnionFind,
+) => {
+  const nodeLength = node.data.nodeLength || 1;
+
+  if(rail === "supply") {
+    if(boundaryIndex === 0) return terminalPins.supplyIn;
+    if(boundaryIndex === nodeLength) return terminalPins.supplyOut;
+  } else {
+    if(boundaryIndex === 0) return terminalPins.gndIn;
+    if(boundaryIndex === nodeLength) return terminalPins.gndOut;
+  }
+
+  const boundaryPinId = simulationPinId(node.id, element.id, rail, "boundary", boundaryIndex);
+  unionFind.add(boundaryPinId);
+
+  const terminalName = rail === "supply" ? "supplyIn" : "gndIn";
+  const baseHandleId = terminalBaseHandleId(String(element.terminals[terminalName]));
+  const concreteMiddlePinId = findMiddleHandlePinId(node, baseHandleId, boundaryIndex);
+
+  if(concreteMiddlePinId) {
+    unionFind.union(boundaryPinId, concreteMiddlePinId);
+  }
+
+  return boundaryPinId;
+};
+
+const collectDigitalLedElementPlans = (
+  nodes: Node<ComponentDataType>[],
+  edges: Edge<EdgeDataType>[],
+  settings: SimulationSettings,
+  handleByPinId: Map<string, CheckHandle>,
+  unionFind: UnionFind,
+  issues: SimulationCheckIssue[],
+) => {
+  const plans = new Map<string, DigitalLedElementPlan>();
+
+  nodes.forEach((node) => {
+    node.data.simdata?.elements
+      ?.filter(isDigitalLedElement)
+      .forEach((element) => {
+        const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+        if(terminalResolution.status !== "ok") return;
+
+        const resolvedParameters = resolveParameters(element, node, settings, issues);
+        const parameters = scaleDigitalLedParameters(element, node, resolvedParameters, issues);
+        const ledsPerMeter = parameters?.ledsPerMeter;
+        const physLedsPerLogicLed = parameters?.physLedsPerLogicLed;
+
+        if(
+          typeof ledsPerMeter !== "number" ||
+          typeof physLedsPerLogicLed !== "number" ||
+          !Number.isFinite(ledsPerMeter) ||
+          !Number.isFinite(physLedsPerLogicLed) ||
+          ledsPerMeter <= 0 ||
+          physLedsPerLogicLed <= 0
+        ) {
+          issues.push(issue(
+            `simulation-led-segments:${node.id}:${element.id}:parameters`,
+            "LED strip segmentation failed",
+            "Digital LED simulation needs numeric ledsPerMeter and physLedsPerLogicLed parameters.",
+            [{type: "node", nodeId: node.id}],
+          ));
+          return;
+        }
+
+        const nodeLength = node.data.nodeLength || 1;
+        const physLengths = sortedLedPhysLengths(
+          node,
+          connectedMiddleBoundaryIndexes(node, edges, [
+            terminalBaseHandleId(element.terminals.supplyIn),
+            terminalBaseHandleId(element.terminals.gndIn),
+          ]),
+        );
+        const sections = physLengths.flatMap((physLength, index): DigitalLedSectionPlan[] => {
+          const endIndex = physLengths[index + 1]?.startIndex ?? nodeLength;
+          const lengthM = physLength.length;
+
+          if(typeof lengthM !== "number" || !Number.isFinite(lengthM) || lengthM <= 0) {
+            issues.push(issue(
+              `simulation-led-segments:${node.id}:${element.id}:${physLength.startIndex}:length`,
+              "LED strip segment length is missing",
+              `LED segment starting at index ${physLength.startIndex} needs a positive physical length.`,
+              [{type: "node", nodeId: node.id}],
+            ));
+            return [];
+          }
+
+          const logicLedCount = Math.round(lengthM * ledsPerMeter / physLedsPerLogicLed);
+          if(logicLedCount <= 0) return [];
+
+          const supplyPinIds = Array.from({length: logicLedCount + 1}, (_unused, ledIndex) => {
+            if(ledIndex === 0) {
+              return collectLedBoundaryPinId(
+                node,
+                element,
+                "supply",
+                physLength.startIndex,
+                terminalResolution.terminals,
+                unionFind,
+              );
+            }
+            if(ledIndex === logicLedCount) {
+              return collectLedBoundaryPinId(
+                node,
+                element,
+                "supply",
+                endIndex,
+                terminalResolution.terminals,
+                unionFind,
+              );
+            }
+
+            const id = simulationPinId(node.id, element.id, "supply", `${physLength.startIndex}:led`, ledIndex);
+            unionFind.add(id);
+            return id;
+          });
+
+          const gndPinIds = Array.from({length: logicLedCount + 1}, (_unused, ledIndex) => {
+            if(ledIndex === 0) {
+              return collectLedBoundaryPinId(
+                node,
+                element,
+                "gnd",
+                physLength.startIndex,
+                terminalResolution.terminals,
+                unionFind,
+              );
+            }
+            if(ledIndex === logicLedCount) {
+              return collectLedBoundaryPinId(
+                node,
+                element,
+                "gnd",
+                endIndex,
+                terminalResolution.terminals,
+                unionFind,
+              );
+            }
+
+            const id = simulationPinId(node.id, element.id, "gnd", `${physLength.startIndex}:led`, ledIndex);
+            unionFind.add(id);
+            return id;
+          });
+
+          return [{
+            startIndex: physLength.startIndex,
+            logicLedCount,
+            supplyPinIds,
+            gndPinIds,
+          }];
+        });
+
+        plans.set(`${node.id}:${element.id}`, {
+          element,
+          parameters,
+          sections,
+        });
+      });
+  });
+
+  return plans;
+};
+
 export const buildSimulationModel = (
   nodes: Node<ComponentDataType>[],
   edges: Edge<EdgeDataType>[],
@@ -407,11 +677,19 @@ export const buildSimulationModel = (
   });
 
   unionShortBridgeTerminals(nodes, handleByPinId, unionFind, issues);
+  const digitalLedElementPlans = collectDigitalLedElementPlans(
+    nodes,
+    edges,
+    settings,
+    handleByPinId,
+    unionFind,
+    issues,
+  );
 
   const rootToCircuitNodeId = new Map<string, string>();
   const pinToCircuitNodeId = new Map<string, string>();
 
-  handleByPinId.forEach((_handle, id) => {
+  unionFind.values().forEach((id) => {
     const root = unionFind.find(id);
     const circuitNodeId = rootToCircuitNodeId.get(root) || `circuit:${rootToCircuitNodeId.size + 1}`;
     rootToCircuitNodeId.set(root, circuitNodeId);
@@ -536,6 +814,46 @@ export const buildSimulationModel = (
     const elementIds: string[] = [];
 
     node.data.simdata?.elements?.forEach((element) => {
+      const digitalLedElementPlan = element.type === "digitalLed"
+        ? digitalLedElementPlans.get(`${node.id}:${element.id}`)
+        : undefined;
+
+      if(digitalLedElementPlan) {
+        digitalLedElementPlan.sections.forEach((section) => {
+          for(let ledIndex = 0; ledIndex < section.logicLedCount; ledIndex += 1) {
+            const elementId = `component:${node.id}:${element.id}:section-${section.startIndex}:led-${ledIndex + 1}`;
+            const terminals = {
+              supplyIn: pinToCircuitNodeId.get(section.supplyPinIds[ledIndex]),
+              supplyOut: pinToCircuitNodeId.get(section.supplyPinIds[ledIndex + 1]),
+              gndIn: pinToCircuitNodeId.get(section.gndPinIds[ledIndex]),
+              gndOut: pinToCircuitNodeId.get(section.gndPinIds[ledIndex + 1]),
+            };
+
+            if(!terminals.supplyIn || !terminals.supplyOut || !terminals.gndIn || !terminals.gndOut) {
+              continue;
+            }
+
+            elements.push({
+              id: elementId,
+              componentId: node.id,
+              sourceElementId: element.id,
+              type: element.type as ComponentSimulationElementType,
+              terminals: {
+                supplyIn: terminals.supplyIn,
+                supplyOut: terminals.supplyOut,
+                gndIn: terminals.gndIn,
+                gndOut: terminals.gndOut,
+              },
+              parameters: digitalLedElementPlan.parameters,
+            });
+            elementIds.push(elementId);
+          }
+        });
+        return;
+      }
+
+      if(element.type === "digitalLed") return;
+
       const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
       if(terminalResolution.status !== "ok") return;
 

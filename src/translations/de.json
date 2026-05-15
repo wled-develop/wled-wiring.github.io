@@ -289,7 +289,7 @@
                                        "running":  "Simulation wird ausgeführt...",
                                        "invalidated":  "Simulationsergebnisse wurden entfernt, weil sich das Diagramm geändert hat.",
                                        "modelReadyTitle":  "Simulationsmodell erstellt",
-                                       "modelReadyDescription":  "{{components}} Diagramm-Komponente(n), {{wires}} simulierte Wire(s).",
+                                       "modelReadyDescription":  "{{components}} simulierte Komponente(n), {{wires}} simulierte Wire(s).",
                                        "failedTitle":  "Simulation fehlgeschlagen",
                                        "failedDescription":  "Das Simulationsmodell konnte nicht erstellt werden. Bitte prüfe die Meldungen unten.",
                                        "noIssues":  "Keine Simulationsmeldungen.",
