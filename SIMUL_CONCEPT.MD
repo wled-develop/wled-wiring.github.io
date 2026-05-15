@@ -799,13 +799,16 @@ Stromanzeige:
 - Pfeil aus dem Pin heraus, wenn `currentA > 0`.
 - Pfeil in den Pin hinein, wenn `currentA < 0`.
 - Wert immer als Betrag mit zwei Nachkommastellen.
+- Pin-Stroeme werden nur an Pins mit mindestens einer angeschlossenen Wire angezeigt. Interne Komponentenstroeme ohne externe Wire-Verbindung werden nicht als Pin-Label dargestellt.
 - An `SolderJoint`-Komponenten werden keine Stroeme angezeigt.
 
 Spannungsanzeige:
 
 - Position neben dem betroffenen Pin.
 - Wert mit Vorzeichen, zwei Nachkommastellen und Einheit `V`.
+- Normale Pin-Spannungen werden nur an Pins mit mindestens einer angeschlossenen Wire angezeigt. Unverbundene normale Pins bleiben ohne Spannungslabel, auch wenn intern ein Wert berechnet wurde.
 - Fuer LED-Supply-Pins wird die Differenz zum zugeordneten GND-Pin angezeigt.
+- LED-Streifen-Spannungspunkte sind eine Ausnahme: vorgesehene Supply-Start-/End-/Middle-Punkte duerfen auch ohne direkt angeschlossene Wire angezeigt werden, wenn dafuer ein Simulationsergebnis existiert.
 - Fuer LED-GND- und LED-PWM-Pins wird keine Spannung angezeigt.
 - An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
 
@@ -822,6 +825,9 @@ Darstellungskonzept:
 - Nicht in `ComponentDataType` speichern.
 - Nicht in Export-JSON persistieren.
 - Zoom- und pan-stabil: Overlay-Positionen werden aus ReactFlow-Viewport und Handle-Positionen abgeleitet und bei Pan/Zoom automatisch neu berechnet.
+- Die Labelposition darf nicht aus `postype` abgeleitet werden. Fuer Overlay-Labels wird bevorzugt die tatsaechliche angeschlossene Wire-Geometrie verwendet: Am Pin wird der erste Wire-Segmentvektor bestimmt, und das Label wird auf der dem Wire-Verlauf gegenueberliegenden Seite platziert. Dadurch liegt es eher auf der Komponentenseite und ueberdeckt Wires seltener.
+- Falls keine eindeutige Wire-Geometrie bestimmt werden kann, wird `prefferedLineDirection` des Handles inklusive Komponentenrotation als Fallback verwendet. Falls auch diese fehlt, kann als letzter Fallback die Richtung vom Komponentenmittelpunkt zum Pin bzw. zum naechsten Komponentenrand genutzt werden. `postype` wird fuer Simulation-Overlay-Labels nicht verwendet.
+- Overlay-Labels haben eine begrenzte Zoom-Skalierung. Bei moderatem Herauszoomen skalieren sie kleiner mit. Bei starkem Herauszoomen wird die Skalierung gedeckelt, sodass Labels nicht groesser werden und weniger stark ueberlappen; volle Lesbarkeit bei maximalem Zoom-out ist nicht erforderlich.
 - Stromrichtungspfeile direkt am Pin, deutlich sichtbar, z.B. blau/cyan fuer Strom.
 - Spannungslabels in einer zweiten Ebene mit heller Flaeche, dunkler Schrift und farbigem Rand, z.B. amber/orange fuer Spannung.
 - Bei vielen Labels an einer Komponente werden Labels auf Slots um den Node verteilt. Kurze Hinweislinien verbinden Label und Pin. Dadurch ueberlappen Werte nicht direkt mit Pins oder Nachbarkomponenten.
