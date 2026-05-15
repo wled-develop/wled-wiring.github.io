@@ -641,6 +641,36 @@ type SimulationWireResult = {
 };
 ```
 
+LED-Streifen-Ergebnisse:
+
+```ts
+type SimulationLedElementVoltageResult = {
+  elementId: string;
+  nodeId: string;
+  sourceElementId?: string;
+  deltaVoltageV?: number;
+};
+
+type SimulationLedStripVoltageSummaryResult = {
+  nodeId: string;
+  sourceElementId?: string;
+  minDeltaVoltageV?: number;
+  elementCount: number;
+};
+```
+
+Fuer jedes intern erzeugte LED-Netzelement eines digitalen LED-Streifens wird nach erfolgreicher Simulation die lokale Differenzspannung berechnet:
+
+- `deltaVoltageV = V(supplyOut) - V(gndOut)` des jeweiligen expandierten LED-Netzelements.
+- Die Werte werden als Simulationsergebnis gespeichert, aber noch nicht dauerhaft einzeln im Diagramm angezeigt.
+- Die spaetere Detailanzeige fuer einzelne LED-Netzelemente wird separat definiert.
+
+Aus allen `deltaVoltageV`-Werten eines LED-Streifens wird zusaetzlich eine Zusammenfassung berechnet:
+
+- `minDeltaVoltageV = Math.min(...deltaVoltageV)`
+- Anzeigeformat im Diagramm: `ΔVmin=2.22V`
+- Diese Anzeige wird zusammen mit den anderen Simulationsergebnissen angezeigt.
+
 Wire-Strom und Spannungsabfall werden nicht dauerhaft als Label auf jedem Wire angezeigt, um das Diagramm nicht zu ueberladen. Sie sollen aber per Hover oder Select am Wire verfuegbar sein.
 
 Konvention fuer `currentA`:
@@ -685,6 +715,10 @@ Anzeige-Regel:
     - `_end`: Supply-Ende gegen `GND_end`
     - `_middle_N`: Supply-Mitte gegen `GND_middle_N`
 - Fuer die Differenzanzeige wird ein leicht versetzter Spannungspfeil vom Supply-Pin zum GND-Pin gezeichnet. Das Label wird als `ΔV=0.15V` angezeigt und per Hinweispfeil mit der Mitte dieses Spannungspfeils verbunden.
+- Zusaetzlich wird fuer den gesamten LED-Streifen die minimale interne LED-Netzelement-Differenzspannung angezeigt. Das Label wird als `ΔVmin=2.22V` formatiert.
+- Die `ΔVmin`-Anzeige wird erst nach allen Strom-, Spannungs- und Spannungsdifferenzanzeigen platziert, damit sie deren bereits belegte Bereiche beruecksichtigen kann.
+- Fuer die Platzierung wird zuerst eine Position nahe der Mitte der LED-Komponente bewertet. Wenn dort bereits viele Anzeigen liegen oder Ueberdeckungen entstehen, werden weitere Kandidaten entlang des LED-Streifens bewertet und die Position mit mehr freiem Platz gewaehlt.
+- Von der `ΔVmin`-Anzeige fuehrt ein Hinweispfeil auf kuerzestem Weg zum LED-Streifen. Der Hinweispfeil endet am Komponentenrand und nicht in der Mitte des Streifens.
 
 Beispiele:
 
@@ -823,6 +857,7 @@ Spannungsanzeige:
 - LED-Supply-Pins werden bei normalen Pin-Spannungslabels wie andere Pins behandelt.
 - LED-Streifen-Spannungspunkte sind eine Ausnahme: vorgesehene Supply-Start-/End-/Middle-Punkte duerfen auch ohne direkt angeschlossene Wire angezeigt werden, wenn dafuer ein Simulationsergebnis existiert. Diese Ausnahme betrifft nur explizite LED-Spannungspunkte mit Simulationsergebnis; normale LED-Supply-Pins bleiben ansonsten wie andere Pins an die Wire-Verbindung gekoppelt.
 - Zusaetzlich wird fuer ein LED-Supply/GND-Pin-Paar eine Spannungsdifferenz angezeigt: Ein Spannungspfeil wird leicht versetzt vom Supply-Pin zum zugeordneten GND-Pin gezeichnet. Ueber oder unter dem LED-Streifen wird eine Delta-Anzeige platziert, z.B. `ΔV=0.15V`. Von dieser Anzeige fuehrt ein Hinweispfeil zur Mitte des Spannungspfeils.
+- Fuer LED-Streifen wird zusaetzlich `ΔVmin=2.22V` angezeigt. Diese Anzeige fasst die kleinste lokale Differenzspannung aller intern erzeugten LED-Netzelemente des Streifens zusammen. Sie wird als letzte Simulationsergebnis-Anzeige platziert, bevorzugt nahe der Streifenmitte und bei Platzmangel entlang des Streifens verschoben. Der Hinweispfeil endet auf kuerzestem Weg am Komponentenrand.
 - An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
 - Spannungsanzeigen sollen so platziert werden, dass sie keine Pins bzw. Handle-Bereiche, Wires oder andere Spannungs- oder Stromanzeigen ueberdecken.
 

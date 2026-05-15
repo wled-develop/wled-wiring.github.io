@@ -263,6 +263,20 @@ export type SimulationWireResult = {
   resistanceOhm?: number;
 };
 
+export type SimulationLedElementVoltageResult = {
+  elementId: string;
+  nodeId: string;
+  sourceElementId?: string;
+  deltaVoltageV?: number;
+};
+
+export type SimulationLedStripVoltageSummaryResult = {
+  nodeId: string;
+  sourceElementId?: string;
+  minDeltaVoltageV?: number;
+  elementCount: number;
+};
+
 export type SimulationTarget =
   | {type: "node"; nodeId: string}
   | {type: "pin"; nodeId: string; handleId: string}
@@ -286,6 +300,8 @@ export type SimulationResult = {
   pinResults: SimulationPinResult[];
   virtualPinResults: SimulationVirtualPinResult[];
   wireResults: SimulationWireResult[];
+  ledElementVoltageResults: SimulationLedElementVoltageResult[];
+  ledStripVoltageSummaryResults: SimulationLedStripVoltageSummaryResult[];
   checkIssues: SimulationCheckIssue[];
   status: SimulationStatus;
 };

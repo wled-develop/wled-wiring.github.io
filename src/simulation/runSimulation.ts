@@ -368,6 +368,53 @@ const createCircuitVoltages = (
   return circuitVoltages;
 };
 
+const createLedElementVoltageResults = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+) => (
+  model.elements.flatMap((element) => {
+    if(element.type !== "digitalLed" || !element.componentId) return [];
+
+    const supplyVoltage = circuitVoltages.get(element.terminals.supplyOut);
+    const gndVoltage = circuitVoltages.get(element.terminals.gndOut);
+
+    return [{
+      elementId: element.id,
+      nodeId: element.componentId,
+      sourceElementId: element.sourceElementId,
+      deltaVoltageV: supplyVoltage !== undefined && gndVoltage !== undefined
+        ? supplyVoltage - gndVoltage
+        : undefined,
+    }];
+  })
+);
+
+const createLedStripVoltageSummaryResults = (
+  ledElementVoltageResults: ReturnType<typeof createLedElementVoltageResults>,
+) => {
+  const grouped = new Map<string, typeof ledElementVoltageResults>();
+
+  ledElementVoltageResults.forEach((result) => {
+    const key = `${result.nodeId}:${result.sourceElementId ?? ""}`;
+    const group = grouped.get(key) ?? [];
+    group.push(result);
+    grouped.set(key, group);
+  });
+
+  return Array.from(grouped.values()).map((group) => {
+    const deltaVoltages = group.flatMap((result) => (
+      result.deltaVoltageV !== undefined ? [result.deltaVoltageV] : []
+    ));
+
+    return {
+      nodeId: group[0].nodeId,
+      sourceElementId: group[0].sourceElementId,
+      minDeltaVoltageV: deltaVoltages.length > 0 ? Math.min(...deltaVoltages) : undefined,
+      elementCount: group.length,
+    };
+  });
+};
+
 const createSimulationResult = (
   model: SimulationModel,
   diagramFingerprint: string,
@@ -376,6 +423,8 @@ const createSimulationResult = (
   values: number[],
 ): SimulationResult => {
   const circuitVoltages = createCircuitVoltages(model, linearModel, values);
+  const ledElementVoltageResults = createLedElementVoltageResults(model, circuitVoltages);
+  const ledStripVoltageSummaryResults = createLedStripVoltageSummaryResults(ledElementVoltageResults);
   const pinCurrentById = new Map<string, number>();
   const pinIdsByCircuitNodeId = new Map<string, string[]>();
 
@@ -433,6 +482,8 @@ const createSimulationResult = (
       voltageV: voltageForCircuitNode(model, linearModel.circuitNodeIndexById, values, pin.circuitNodeId),
     })),
     wireResults,
+    ledElementVoltageResults,
+    ledStripVoltageSummaryResults,
     checkIssues,
     status: checkIssues.some((item) => item.severity === "error")
       ? "error"

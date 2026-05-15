@@ -9,7 +9,7 @@ import type { SimulationPinResult } from "./simulationTypes";
 
 type OverlayLabel = {
   id: string;
-  kind: "voltage" | "voltageDelta" | "wireCurrent" | "wireHover";
+  kind: "voltage" | "voltageDelta" | "voltageDeltaMin" | "wireCurrent" | "wireHover";
   valueLines: string[];
   x: number;
   y: number;
@@ -17,6 +17,12 @@ type OverlayLabel = {
   anchorY: number;
   width: number;
   height: number;
+  targetBounds?: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
 };
 
 type OverlayArrow = {
@@ -56,6 +62,7 @@ const WIRE_OBSTACLE_PADDING = 5;
 
 const formatVoltage = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} V`;
 const formatDeltaVoltage = (value: number) => `\u0394V=${value.toFixed(2)}V`;
+const formatMinDeltaVoltage = (value: number) => `\u0394Vmin=${value.toFixed(2)}V`;
 const formatCurrent = (value: number) => `${Math.abs(value).toFixed(2)} A`;
 
 const pinResultHasVoltage = (result: SimulationPinResult) => result.voltageV !== undefined;
@@ -567,6 +574,107 @@ const createVoltageDeltaOverlay = (
   };
 };
 
+const nodeScreenBounds = (
+  node: Node<ComponentDataType>,
+  viewport: {x: number; y: number; zoom: number},
+) => {
+  const width = node.measured?.width ?? node.width ?? node.data.image?.width ?? 0;
+  const height = node.measured?.height ?? node.height ?? node.data.image?.height ?? 0;
+  const topLeft = screenPoint(node.position, viewport);
+
+  return {
+    left: topLeft.x,
+    right: topLeft.x + width * viewport.zoom,
+    top: topLeft.y,
+    bottom: topLeft.y + height * viewport.zoom,
+    centerX: topLeft.x + width * viewport.zoom / 2,
+    centerY: topLeft.y + height * viewport.zoom / 2,
+  };
+};
+
+const chooseLedStripSummaryPosition = (
+  bounds: ReturnType<typeof nodeScreenBounds>,
+  size: {width: number; height: number},
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+) => {
+  const gap = 24;
+  const width = bounds.right - bounds.left;
+  const height = bounds.bottom - bounds.top;
+  const isHorizontal = width >= height;
+  const shifts = [0, -0.18, 0.18, -0.32, 0.32, -0.44, 0.44];
+  const candidates = shifts.flatMap((shift) => {
+    if(isHorizontal) {
+      const x = bounds.centerX + shift * width;
+      return [
+        {x, y: bounds.top - gap},
+        {x, y: bounds.bottom + gap},
+      ];
+    }
+
+    const y = bounds.centerY + shift * height;
+    return [
+      {x: bounds.left - gap, y},
+      {x: bounds.right + gap, y},
+    ];
+  });
+
+  return candidates
+    .map((candidate, index) => {
+      const rect = labelRect({...candidate, ...size});
+      const obstaclePenalty = obstacles.reduce((sum, obstacle) => sum + rectOverlapPenalty(rect, obstacle), 0);
+      const labelPenalty = existingLabels.reduce((sum, label) => (
+        sum + rectOverlapPenalty(rect, labelRect(label)) * 8
+      ), 0);
+      const distancePenalty = Math.hypot(candidate.x - bounds.centerX, candidate.y - bounds.centerY) * 0.06;
+      const orderPenalty = index * 0.35;
+      return {candidate, penalty: obstaclePenalty + labelPenalty + distancePenalty + orderPenalty};
+    })
+    .sort((a, b) => a.penalty - b.penalty)[0].candidate;
+};
+
+const closestPointOnRectBoundary = (
+  point: XYPoint,
+  bounds: {left: number; right: number; top: number; bottom: number},
+) => ({
+  x: Math.min(bounds.right, Math.max(bounds.left, point.x)),
+  y: Math.min(bounds.bottom, Math.max(bounds.top, point.y)),
+});
+
+const createLedStripMinDeltaLabel = (
+  node: Node<ComponentDataType>,
+  sourceElementId: string | undefined,
+  minDeltaVoltageV: number,
+  viewport: {x: number; y: number; zoom: number},
+  scale: number,
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+): OverlayLabel => {
+  const valueLines = [formatMinDeltaVoltage(minDeltaVoltageV)];
+  const size = estimateLabelSize(valueLines, scale);
+  const bounds = nodeScreenBounds(node, viewport);
+  const position = chooseLedStripSummaryPosition(bounds, size, existingLabels, obstacles);
+  const anchor = closestPointOnRectBoundary(position, bounds);
+
+  return {
+    id: `led-delta-min:${node.id}:${sourceElementId ?? "strip"}`,
+    kind: "voltageDeltaMin",
+    valueLines,
+    x: position.x,
+    y: position.y,
+    anchorX: anchor.x,
+    anchorY: anchor.y,
+    width: size.width,
+    height: size.height,
+    targetBounds: {
+      left: bounds.left,
+      right: bounds.right,
+      top: bounds.top,
+      bottom: bounds.bottom,
+    },
+  };
+};
+
 const roundedCurrentIsZero = (value: number) => Math.abs(value) < 0.005;
 
 const createWireCurrentOverlay = (
@@ -688,9 +796,23 @@ const resolveLabelOverlaps = (labels: OverlayLabel[]) => {
   return resolved;
 };
 
+const updateTargetBoundaryAnchors = (labels: OverlayLabel[]) => (
+  labels.map((label) => {
+    if(label.kind !== "voltageDeltaMin" || !label.targetBounds) return label;
+
+    const anchor = closestPointOnRectBoundary(label, label.targetBounds);
+    return {
+      ...label,
+      anchorX: anchor.x,
+      anchorY: anchor.y,
+    };
+  })
+);
+
 const leaderLineNeeded = (label: OverlayLabel) => (
   label.kind === "voltage" ||
   label.kind === "voltageDelta" ||
+  label.kind === "voltageDeltaMin" ||
   label.kind === "wireCurrent" ||
   label.kind === "wireHover" ||
   Math.hypot(label.x - label.anchorX, label.y - label.anchorY) > LEADER_LINE_THRESHOLD
@@ -845,8 +967,27 @@ export const SimulationOverlay = () => {
       }
     }
 
+    nodes
+      .filter(isLedNode)
+      .forEach((node) => {
+        simulationResult.ledStripVoltageSummaryResults
+          .filter((summary) => summary.nodeId === node.id && summary.minDeltaVoltageV !== undefined)
+          .forEach((summary) => {
+            if(summary.minDeltaVoltageV === undefined) return;
+            labels.push(createLedStripMinDeltaLabel(
+              node,
+              summary.sourceElementId,
+              summary.minDeltaVoltageV,
+              viewport,
+              scale,
+              labels,
+              obstacles,
+            ));
+          });
+      });
+
     return {
-      labels: resolveLabelOverlaps(labels),
+      labels: updateTargetBoundaryAnchors(resolveLabelOverlaps(labels)),
       arrows,
     };
   }, [edges, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
@@ -931,12 +1072,12 @@ export const SimulationOverlay = () => {
             y1={label.y}
             x2={label.anchorX}
             y2={label.anchorY}
-            stroke={label.kind === "voltage" || label.kind === "voltageDelta"
+            stroke={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
               ? "rgba(250, 140, 22, 0.58)"
               : "rgba(38, 38, 38, 0.46)"}
             strokeDasharray="3 3"
             strokeWidth={1}
-            markerEnd={label.kind === "voltage" || label.kind === "voltageDelta"
+            markerEnd={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
               ? "url(#simulation-voltage-arrowhead)"
               : "url(#simulation-leader-arrowhead)"}
           />
@@ -948,12 +1089,12 @@ export const SimulationOverlay = () => {
           style={{
             background: label.kind === "voltage"
               ? "rgba(255, 255, 255, 0.92)"
-              : label.kind === "voltageDelta"
+              : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
                 ? "rgba(255, 247, 230, 0.94)"
               : "rgba(230, 244, 255, 0.94)",
             border: label.kind === "voltage"
               ? "1px solid rgba(250, 173, 20, 0.56)"
-              : label.kind === "voltageDelta"
+              : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
                 ? "1px solid rgba(250, 140, 22, 0.62)"
               : "1px solid rgba(22, 119, 255, 0.48)",
             borderRadius: 4,
