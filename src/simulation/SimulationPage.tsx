@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { createSimulationFingerprint } from "./simulationFingerprint";
 import { logSimulationDebug } from "./simulationDebug";
 import { runSimulation as runDeterministicSimulation } from "./runSimulation";
+import { useSimulationResultStore } from "./simulationResultStore";
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
@@ -60,6 +61,7 @@ export const SimulationPage = () => {
   const reactFlow = useReactFlow<Node<ComponentDataType>, Edge<EdgeDataType>>();
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
+  const setSimulationOverlayResult = useSimulationResultStore((state) => state.setResult);
   const [settings, setSettings] = useState<SimulationSettings>({
     ledColorMode: "RGB_WHITE",
     brightnessPercent: 100,
@@ -89,6 +91,7 @@ export const SimulationPage = () => {
     setIssues(null);
     setModelStats(null);
     setWasInvalidated(false);
+    setSimulationOverlayResult(null);
 
     const simulation = runDeterministicSimulation(
       reactFlow.getNodes(),
@@ -101,12 +104,14 @@ export const SimulationPage = () => {
 
     if(simulation.ok) {
       setResultFingerprint(simulation.result.diagramFingerprint);
+      setSimulationOverlayResult(simulation.result);
       setModelStats(getSimulationModelStats(simulation.model));
       setStatus("success");
       return;
     }
 
     setResultFingerprint(simulation.diagramFingerprint);
+    setSimulationOverlayResult(null);
     setStatus("failed");
   };
 
@@ -116,6 +121,7 @@ export const SimulationPage = () => {
     setModelStats(null);
     setResultFingerprint(null);
     setWasInvalidated(false);
+    setSimulationOverlayResult(null);
   };
 
   useEffect(() => {
@@ -127,7 +133,8 @@ export const SimulationPage = () => {
     setModelStats(null);
     setResultFingerprint(null);
     setWasInvalidated(true);
-  }, [currentFingerprint, resultFingerprint, status]);
+    setSimulationOverlayResult(null);
+  }, [currentFingerprint, resultFingerprint, setSimulationOverlayResult, status]);
 
   return (
     <Flex gap="small" vertical>

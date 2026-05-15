@@ -1019,7 +1019,7 @@ Optional:
 7. [x] `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen. Umgesetzt in `src/simulation/SimulationPage.tsx`.
 8. [x] Ergebnis-Invalidierung per Fingerprint einbauen. Umgesetzt in `src/simulation/simulationFingerprint.ts` und `src/simulation/SimulationPage.tsx`.
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
-10. Overlay fuer Pin-Strom/Spannung anzeigen.
+10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren.
 12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
 13. Simulation-Checks ergaenzen.
