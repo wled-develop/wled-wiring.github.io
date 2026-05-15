@@ -2,7 +2,7 @@
 
 ## Ziel
 
-Der Solver soll fuer WLED-Wiring-Diagramme robuste DC-Ergebnisse liefern: Stroeme und Spannungen an Pins, Wires und LED-Streifen-Zwischenpunkten. Eine Nachkommastelle fuer Strom und Spannung reicht aus. Deshalb ist Stabilitaet und gute Fehlerdiagnose wichtiger als sehr hohe numerische Genauigkeit.
+Der Solver soll fuer WLED-Wiring-Diagramme robuste DC-Ergebnisse liefern: Stroeme und Spannungen an Pins, Wires und LED-Streifen-Zwischenpunkten. Die abgeleiteten Simulationsergebnisse muessen drei Nachkommastellen liefern; die UI rundet diese Werte fuer die Diagrammanzeige auf zwei Nachkommastellen. Interne Berechnungen laufen ohne Rundung auf Ergebnis- oder Anzeigeaufloesung.
 
 Das Netz kann viele Knoten enthalten, weil digitale LED-Streifen als viele einzelne LED-Elemente in Reihe modelliert werden. Der Solver muss deshalb sparse Datenstrukturen verwenden und darf keine dichten `N x N`-Matrizen fuer grosse Streifen erzwingen.
 
@@ -19,7 +19,7 @@ Lineare Elemente werden direkt gestempelt:
 
 Spezialelemente werden iterativ aktualisiert:
 
-- PSU mit Stromlimit und `rDegradeOhm`
+- PSU mit Stromlimit und aus `voltageDropPctAt150Current` abgeleiteter Spannungsdegradation
 - DCDC-Wandler mit dynamischem Ausgangsstromlimit
 - digitale LED-Stromsenken, optional spannungsabhaengig
 - PWM-DC-Lasten
@@ -83,7 +83,7 @@ Bis zum Limit wird die PSU als ideale Spannungsquelle mit `U_nominal` gestempelt
 Nach einer Loesung wird der Quellenstrom ausgewertet:
 
 - `I <= Ilimit`: Quelle bleibt ideal.
-- `I > Ilimit`: Zielspannung fuer naechste Iteration wird `U = U_nominal - rDegradeOhm * I`.
+- `I > Ilimit`: Zielspannung fuer naechste Iteration wird aus `voltageDropPctAt150Current` abgeleitet. Der Wert beschreibt, auf welchen Prozentanteil der Nominalspannung die Quelle bei `I = 1.5 * Ilimit` faellt; daraus kann intern eine lineare Degradationssteigung fuer den Bereich zwischen `Ilimit` und `1.5 * Ilimit` berechnet werden.
 
 Der Solver iteriert, bis sich die Spannung und der Strom nur noch gering aendern oder eine maximale Iterationszahl erreicht ist. Bei jeder Ueberschreitung von `Ilimit` wird ein Simulations-Check-Fehler erzeugt, auch wenn die degradierte Spannung konvergiert.
 
@@ -105,9 +105,9 @@ Pro Iteration:
    IoutLimitDynamic = max(0, Vin * IinAvailable * efficiency / Uout)
    ```
 
-Praktischer fuer die erste Version: `IinAvailable` wird durch vorgelagerte PSU-/Netzloesung iterativ begrenzt. Wenn der Wandler mehr Ausgangsstrom fordert als aus Eingangsleistung und Wirkungsgrad verfuegbar ist, wird `UoutTarget` wie bei einer PSU ueber `rDegradeOhm` reduziert.
+Praktischer fuer die erste Version: `IinAvailable` wird durch vorgelagerte PSU-/Netzloesung iterativ begrenzt. Wenn der Wandler mehr Ausgangsstrom fordert als aus Eingangsleistung und Wirkungsgrad verfuegbar ist, wird `UoutTarget` wie bei einer PSU ueber die aus `voltageDropPctAt150Current` abgeleitete Degradationssteigung reduziert.
 
-Dieser Ansatz ist nicht perfekt, aber ausreichend fuer eine Nachkommastelle und liefert sinnvolle Ueberlastmeldungen.
+Dieser Ansatz ist nicht perfekt, aber ausreichend fuer drei Nachkommastellen im Ergebnis und liefert sinnvolle Ueberlastmeldungen.
 
 ### Digitale LED
 
@@ -143,9 +143,9 @@ Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
    - DCDC-Ausgangslimit
    - LED-Strom bei Unterspannung
 8. Konvergenz pruefen:
-   - maximale Spannungsdifferenz < `0.02 V`
-   - maximale Stromdifferenz < `0.02 A`
-   - oder alle angezeigten Werte wuerden sich nach Rundung auf eine Nachkommastelle nicht mehr aendern
+   - maximale Spannungsdifferenz der Ergebnisgroessen < `0.0005 V`
+   - maximale Stromdifferenz der Ergebnisgroessen < `0.0005 A`
+   - oder alle Ergebniswerte wuerden sich nach Rundung auf drei Nachkommastellen nicht mehr aendern
 9. Bei Nichtkonvergenz nach z.B. 50 Iterationen: Ergebnis als Fehler markieren.
 
 ## Performance fuer lange LED-Streifen
@@ -161,14 +161,15 @@ Digitale LED-Streifen koennen hunderte oder tausende Einzelelemente erzeugen. De
 
 Ausgabe:
 
-- Spannung: eine Nachkommastelle
-- Strom: eine Nachkommastelle
+- Spannung im Ergebnis: drei Nachkommastellen; Diagrammanzeige: zwei Nachkommastellen
+- Strom im Ergebnis: drei Nachkommastellen; Diagrammanzeige: zwei Nachkommastellen
 
 Interne Rechnung:
 
 - `number` reicht.
 - Widerstaende nie exakt `0` stempeln; Kurzschluesse vorher per Union-Find zusammenfassen.
-- Sehr kleine Widerstaende unterhalb eines Grenzwerts entweder als Kurzschluss behandeln oder auf einen Mindestwert clampen.
+- Sehr kleine reale Widerstaende nicht wegen ihres geringen Einzel-Spannungsabfalls wegoptimieren. Wenn mehrere kleine Widerstaende in Reihe liegen, muessen ihre Spannungsabfaelle intern einzeln berechnet und erst nach der Summierung auf Ergebnisgenauigkeit gerundet werden.
+- Nur explizite Kurzschlussbruecken werden per Union-Find zusammengefasst. Numerische Mindestwerte duerfen hoechstens vor Division durch Null oder extrem schlecht konditionierten Matrizen schuetzen und muessen deutlich unterhalb praktisch relevanter Wire-/Serienwiderstaende liegen.
 
 ## Fehlerfaelle
 

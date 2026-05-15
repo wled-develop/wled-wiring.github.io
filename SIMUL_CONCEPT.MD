@@ -399,7 +399,7 @@ Digitale LED-Streifen:
 
 - Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType
 - `physLengths[i].length` ist verbindlich in Metern
-- pro Abschnitt wird aus `round(lengthM * ledsPerMeter)` berechnet, wie viele einzelne LEDs der Abschnitt hat
+- pro Abschnitt wird aus `round(lengthM * ledsPerMeter)` berechnet, wie viele einzelne LEDs der Abschnitt hat; `lengthM` ist dabei die Laenge dieses LED-Streifen-Abschnitts
 - fuer jede einzelne LED wird ein digitales LED-Netzelement in Reihe erzeugt
 - Serienwiderstaende werden pro LED angegeben
 - dadurch koennen Spannungen an einzelnen `_middle_N`-Pins berechnet werden
@@ -571,7 +571,8 @@ Der Bereich `Simulate current flow` soll mindestens enthalten:
 3. Einstellungen:
    - LED-Farbwahl: `R`, `G`, `B`, `RGB-White`, `Separate-White`, `Separate-White + RGB-White`
    - Helligkeit in Prozent
-4. Ergebnisliste der Simulations-Checks, analog zur Liste in der Diagrammpruefung
+4. Statusanzeige fuer den Simulationszustand
+5. Ergebnisliste der Simulations-Checks, analog zur Liste in der Diagrammpruefung
 
 Vorgeschlagene Struktur:
 
@@ -580,11 +581,15 @@ type SimulationSettings = {
   ledColorMode: 'R' | 'G' | 'B' | 'RGB_WHITE' | 'SEPARATE_WHITE' | 'SEPARATE_AND_RGB_WHITE';
   brightnessPercent: number;
 };
+
+type SimulationStatus = 'idle' | 'running' | 'success' | 'failed' | 'blocked';
 ```
 
 Die UI sollte `brightnessPercent` zunaechst auf `0..100` begrenzen. Intern sollte die Simulation mit `0..1` arbeiten.
 
 Simulationseinstellungen sind lokaler UI-State und nicht Undo-/Redo-faehig.
+
+Da die Simulation bei groesseren Diagrammen oder langen LED-Streifen etwas dauern kann, muss die UI einen laufenden Zustand anzeigen. Beim Klick auf `Simulate` wird der Status sofort auf `running` gesetzt. Der Button `Simulate` wird waehrenddessen deaktiviert oder zeigt einen Busy-Zustand, z.B. `Simulating...`. Der Statusbereich zeigt eine kurze Meldung wie `Simulation wird ausgefuehrt...`. Nach Abschluss wechselt der Status auf `success` oder `failed`; bei Abbruch durch Diagramm-Check-Fehler bleibt der Status `failed` bzw. `blocked` mit passender Meldung.
 
 ## Simulationsergebnis
 
@@ -639,15 +644,15 @@ Konvention fuer `currentA`:
 
 Die Anzeige zeigt den Betrag immer positiv:
 
-- `Math.abs(currentA).toFixed(1) + ' A'`
+- `Math.abs(currentA).toFixed(2) + ' A'`
 - Pfeilrichtung zeigt das Vorzeichen.
 
 Spannung:
 
 - Normale Pin-Spannung wird als absolute Knotenspannung gegen Simulationsreferenz/GND angezeigt.
-- Anzeigeformat: positive oder negative Zahl mit einer Nachkommastelle und Einheit `V`.
+- Anzeigeformat: positive oder negative Zahl mit zwei Nachkommastellen und Einheit `V`.
 
-Eine Nachkommastelle bei Strom und Spannung reicht fuer die erste Version aus.
+Simulationsergebnisse werden mit drei Nachkommastellen erzeugt. Die Diagrammanzeige rundet diese Werte auf zwei Nachkommastellen. Interne Berechnungen duerfen nicht auf diese Ergebnis- oder Anzeigeaufloesung gerundet werden: Auch sehr kleine einzelne Widerstaende mit kleinem Spannungsabfall muessen erhalten bleiben, weil sich viele solche Spannungsabfaelle in einer Reihenschaltung zu einem relevanten Gesamtwert aufsummieren koennen.
 
 ## LED-Streifen: zusaetzliche Spannungsanzeige
 
@@ -711,7 +716,7 @@ Die Beziehung zu `_middle_N`-Handles ist:
 Fuer die Simulation:
 
 - Ein LED-Streifen wird erst in `physLengths`-Abschnitte aufgeteilt.
-- Je Abschnitt wird aus `round(lengthM * ledsPerMeter)` die Anzahl einzelner LEDs berechnet.
+- Je Abschnitt wird aus `round(lengthM * ledsPerMeter)` die Anzahl einzelner LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts.
 - Jede einzelne LED wird als ein digitales LED-Netzelement in Reihe modelliert.
 - `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N`.
 - Spannungen an `_middle_N` werden nur fuer solche Abschnittsgrenzen angezeigt, die wirklich in `physLengths` existieren.
@@ -757,6 +762,8 @@ Schritte:
 
 ## Solver-Strategie
 
+Das detaillierte Solver-Konzept ist in `SOLVER.MD` beschrieben. Dieser Abschnitt beschreibt nur die Einbindung in das Simulationskonzept und die Startstrategie fuer die erste Implementierung.
+
 Fuer die erste Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet. Er soll eine MNA-Matrix loesen koennen und mindestens Gaussian Elimination mit Pivoting enthalten. Diese Loesung ist bewusst auf kleine bis mittlere Testmodelle begrenzt und dient dazu, Modellaufbau, Element-Stempel, Checks und Ergebnisableitung schnell und nachvollziehbar zu verifizieren.
 
 Der Solver soll trotzdem von Anfang an ueber ein austauschbares Interface angebunden werden:
@@ -773,19 +780,21 @@ Dadurch kann spaeter ein Sparse-Solver oder eine externe numerische Bibliothek e
 
 Die Ergebnisse sollen direkt am Diagramm angezeigt werden.
 
+Wenn eine Simulation laeuft, soll der Nutzer auch im Diagramm erkennen, dass gerade gerechnet wird. Das Overlay kann dafuer einen dezenten globalen Busy-Indikator anzeigen, z.B. oben im Diagrammbereich oder nahe der Toolbar. Dieser Zustand darf nicht wie ein berechnetes Ergebnis wirken: Strom-/Spannungslabels werden erst nach erfolgreicher Simulation aktualisiert. Bestehende alte Ergebnislabels duerfen waehrend einer neuen Simulation entweder entfernt oder sichtbar als nicht aktuell markiert werden; bevorzugt werden sie beim Start der neuen Simulation entfernt, damit keine alten Werte mit laufenden Berechnungen verwechselt werden.
+
 Stromanzeige:
 
 - Position neben dem betroffenen Pin.
 - Pfeil plus Wert.
 - Pfeil aus dem Pin heraus, wenn `currentA > 0`.
 - Pfeil in den Pin hinein, wenn `currentA < 0`.
-- Wert immer als Betrag mit einer Nachkommastelle.
+- Wert immer als Betrag mit zwei Nachkommastellen.
 - An `SolderJoint`-Komponenten werden keine Stroeme angezeigt.
 
 Spannungsanzeige:
 
 - Position neben dem betroffenen Pin.
-- Wert mit Vorzeichen, einer Nachkommastelle und Einheit `V`.
+- Wert mit Vorzeichen, zwei Nachkommastellen und Einheit `V`.
 - Fuer LED-Supply-Pins wird die Differenz zum zugeordneten GND-Pin angezeigt.
 - Fuer LED-GND- und LED-PWM-Pins wird keine Spannung angezeigt.
 - An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
@@ -799,6 +808,7 @@ Wire-Anzeige:
 Darstellungskonzept:
 
 - Eigene Overlay-Komponente, z.B. `SimulationOverlay`, die `SimulationResult` und Node-/Handle-Positionen liest.
+- Overlay kann zusaetzlich `simulationStatus === 'running'` lesen und dann einen nicht-interaktiven Busy-Indikator anzeigen.
 - Nicht in `ComponentDataType` speichern.
 - Nicht in Export-JSON persistieren.
 - Zoom- und pan-stabil: Overlay-Positionen werden aus ReactFlow-Viewport und Handle-Positionen abgeleitet und bei Pan/Zoom automatisch neu berechnet.
@@ -928,12 +938,15 @@ Elemente:
    - fuehrt Simulation aus
    - startet Checks
    - setzt `simulationResult`
+   - setzt waehrenddessen `simulationStatus = 'running'`
 3. Button `Delete simulation results`
    - setzt `simulationResult = null`
+   - setzt `simulationStatus = 'idle'`
    - entfernt Overlay
    - entfernt Simulations-Highlights
 4. Statusbereich
    - `No simulation has been run yet`
+   - `Simulation is running...` waehrend der Berechnung
    - `Simulation failed` bei Check-, Solver- oder Modellfehler
 5. Check-Ergebnisse
    - Liste analog Diagramm-Checks
@@ -1020,11 +1033,12 @@ Optional:
 26. Diagrammaenderung loescht Ergebnisse sofort.
 27. `Simulate` verwendet ein vorhandenes Diagramm-Check-Ergebnis, wenn dessen Diagramm-Fingerprint unveraendert ist.
 28. Diagramm-Check-Warnungen blockieren die Simulation erstmal nicht; nur `error` blockiert.
-29. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und Lookup-Tabellen.
+29. Waehrend einer laufenden Simulation wird `simulationStatus = 'running'` angezeigt; der Nutzer sieht den Zustand im Sidebar-Statusbereich und optional als dezenten Busy-Indikator im Diagramm.
+30. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und Lookup-Tabellen.
 30. Field-Referenzen verweisen auf die `technicalID`/HID des Eingabefelds und uebernehmen dessen aktuellen Wert.
 31. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
 32. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.
-33. Die Anzahl einzelner LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter)` berechnet.
+33. Die Anzahl einzelner LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
 34. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt.
 35. Serienwiderstaende digitaler LED-Streifen werden pro LED angegeben.
 36. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
