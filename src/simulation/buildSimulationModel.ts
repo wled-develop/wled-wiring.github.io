@@ -240,6 +240,51 @@ const resolveParameters = (
   return resolved;
 };
 
+const scaleDigitalLedParameters = (
+  element: ComponentSimulationElementUse,
+  node: Node<ComponentDataType>,
+  parameters: Record<string, SimulationParameterPrimitive> | undefined,
+  issues: SimulationCheckIssue[],
+) => {
+  if(element.type !== "digitalLed" || !parameters) {
+    return parameters;
+  }
+
+  const physLedsPerLogicLed = parameters.physLedsPerLogicLed;
+  if(typeof physLedsPerLogicLed !== "number" || !Number.isFinite(physLedsPerLogicLed) || physLedsPerLogicLed <= 0) {
+    issues.push(issue(
+      `simulation-led-grouping:${node.id}:${element.id}`,
+      "Invalid LED grouping",
+      "Digital LED simulation needs a positive physLedsPerLogicLed value.",
+      [{type: "node", nodeId: node.id}],
+    ));
+    return parameters;
+  }
+
+  const scaled = {...parameters};
+  const supplyResistanceOhm = scaled.supplyResistanceOhm;
+  const gndResistanceOhm = scaled.gndResistanceOhm;
+  const ledsPerMeter = scaled.ledsPerMeter;
+
+  if(typeof supplyResistanceOhm === "number") {
+    scaled.supplyResistanceOhm = supplyResistanceOhm * physLedsPerLogicLed;
+    scaled.physicalSupplyResistanceOhm = supplyResistanceOhm;
+  }
+
+  if(typeof gndResistanceOhm === "number") {
+    scaled.gndResistanceOhm = gndResistanceOhm * physLedsPerLogicLed;
+    scaled.physicalGndResistanceOhm = gndResistanceOhm;
+  }
+
+  if(typeof ledsPerMeter === "number") {
+    scaled.logicLedsPerMeter = ledsPerMeter / physLedsPerLogicLed;
+  }
+
+  scaled.currentScaleFactor = physLedsPerLogicLed;
+
+  return scaled;
+};
+
 const terminalPinIds = (
   node: Node<ComponentDataType>,
   element: ComponentSimulationElementUse,
@@ -471,13 +516,15 @@ export const buildSimulationModel = (
       );
       const elementId = `component:${node.id}:${element.id}`;
 
+      const parameters = resolveParameters(element, node, settings, issues);
+
       elements.push({
         id: elementId,
         componentId: node.id,
         sourceElementId: element.id,
         type: element.type as ComponentSimulationElementType,
         terminals: resolvedTerminals,
-        parameters: resolveParameters(element, node, settings, issues),
+        parameters: scaleDigitalLedParameters(element, node, parameters, issues),
       });
       elementIds.push(elementId);
     });

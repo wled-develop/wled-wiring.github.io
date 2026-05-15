@@ -109,6 +109,7 @@ export type DigitalLedSimulationElementUse = ComponentSimulationElementBase<
     gndResistanceOhm: SimulationParameterRef;
     ledType: SimulationParameterRef;
     ledsPerMeter: SimulationParameterRef;
+    physLedsPerLogicLed: SimulationParameterRef;
     currentLookup: SimulationParameterRef;
   }
 >;

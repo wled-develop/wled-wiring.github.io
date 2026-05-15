@@ -43,6 +43,21 @@ export const PSU_USB_WIRES: Node = {
                 color: "#757575"
             } as CompInputFieldDataType,
         ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "source",
+                    type: "voltageSource",
+                    terminals: {positive: "VOUT", negative: "GND"},
+                    parameters: {
+                        voltageV: 5,
+                        currentLimitA: {field: "source_current"},
+                        voltageDropPctAt150Current: 50,
+                    },
+                },
+            ],
+        },
         handles: [
         {
             borderColor: "red",

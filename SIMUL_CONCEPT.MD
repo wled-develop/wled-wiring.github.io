@@ -236,6 +236,7 @@ Bei Ueberschreiten des Stromlimits erzeugt der Simulations-Check eine Fehlermeld
 Beispiel:
 
 - `PSU`: Spannungsquelle zwischen Supply-Ausgang und GND, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
+- `PSU_USB_WIRES`: Spannungsquelle zwischen `VOUT` und `GND`, feste Ausgangsspannung `5 V`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
 
 Die GND-Referenz des Simulationsmodells wird an die Spannungsquelle gesetzt, die das hoechste Stromlimit hat. Bei mehreren gleich grossen Limits wird eine deterministische Auswahl verwendet und ein Info-Hinweis kann erzeugt werden.
 
@@ -316,7 +317,7 @@ Beispiel:
 
 ### Digitales LED-Netzelement
 
-Das digitale LED-Netzelement modelliert genau eine einzelne LED eines digitalen LED-Streifens.
+Das digitale LED-Netzelement modelliert genau eine logische LED eines digitalen LED-Streifens. Eine logische LED kann je nach Streifen aus einer oder mehreren physikalischen LEDs bestehen. Diese Gruppierung wird ueber `physLedsPerLogicLed` beschrieben.
 
 Terminals:
 
@@ -337,6 +338,7 @@ Parameter:
 - `gndResistanceOhm`
 - `ledType`
 - `ledsPerMeter`
+- `physLedsPerLogicLed`
 - Lookup-Tabelle fuer Strom bei Farbe `R` in Abhaengigkeit der lokalen LED-Spannung
 - Lookup-Tabelle fuer Strom bei Farbe `G` in Abhaengigkeit der lokalen LED-Spannung
 - Lookup-Tabelle fuer Strom bei Farbe `B` in Abhaengigkeit der lokalen LED-Spannung
@@ -344,7 +346,7 @@ Parameter:
 - Lookup-Tabelle fuer Strom bei Farbe `Separate-White` in Abhaengigkeit der lokalen LED-Spannung
 - Lookup-Tabelle fuer Strom bei Kombination `Separate-White + RGB-White` in Abhaengigkeit der lokalen LED-Spannung
 
-Der Stromwert der LED-Stromsenke wird aus der passenden Lookup-Tabelle bestimmt und mit der Helligkeit skaliert.
+`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. Die Werte in `simdata` bleiben pro physikalischer LED angegeben: `supplyResistanceOhm`, `gndResistanceOhm` und der Strom aus der Lookup-Tabelle werden fuer das digitale LED-Netzelement mit `physLedsPerLogicLed` multipliziert. Der Stromwert der LED-Stromsenke wird also aus der passenden Lookup-Tabelle bestimmt, mit der Helligkeit skaliert und danach fuer die logische LED entsprechend der Gruppierung hochskaliert.
 
 `RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
 
@@ -358,6 +360,7 @@ parameters: {
   gndResistanceOhm: 0.002,
   ledType: "WS2814_24V",
   ledsPerMeter: 60,
+  physLedsPerLogicLed: 6,
   currentLookup: {
     ledLookup: "WS2814_24V",
     colorMode: "settings.ledColorMode",
@@ -397,11 +400,12 @@ Die konkrete Zuordnung eines PWM-Netzes zu einem LED-Streifen-Kanal kommt aus `s
 
 Digitale LED-Streifen:
 
-- Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType
+- Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType; der Wert beschreibt physikalische LEDs pro Meter
+- Parameter `physLedsPerLogicLed` beschreibt die Gruppierung physikalischer LEDs zu einer logischen LED
 - `physLengths[i].length` ist verbindlich in Metern
-- pro Abschnitt wird aus `round(lengthM * ledsPerMeter)` berechnet, wie viele einzelne LEDs der Abschnitt hat; `lengthM` ist dabei die Laenge dieses LED-Streifen-Abschnitts
-- fuer jede einzelne LED wird ein digitales LED-Netzelement in Reihe erzeugt
-- Serienwiderstaende werden pro LED angegeben
+- pro Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet, wie viele logische LEDs der Abschnitt hat; `lengthM` ist dabei die Laenge dieses LED-Streifen-Abschnitts
+- fuer jede logische LED wird ein digitales LED-Netzelement in Reihe erzeugt
+- Serienwiderstaende werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert
 - dadurch koennen Spannungen an einzelnen `_middle_N`-Pins berechnet werden
 
 `WAGO_2x` und `WAGO_3x`:
@@ -716,8 +720,8 @@ Die Beziehung zu `_middle_N`-Handles ist:
 Fuer die Simulation:
 
 - Ein LED-Streifen wird erst in `physLengths`-Abschnitte aufgeteilt.
-- Je Abschnitt wird aus `round(lengthM * ledsPerMeter)` die Anzahl einzelner LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts.
-- Jede einzelne LED wird als ein digitales LED-Netzelement in Reihe modelliert.
+- Je Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` die Anzahl logischer LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts, `ledsPerMeter` meint physikalische LEDs pro Meter.
+- Jede logische LED wird als ein digitales LED-Netzelement in Reihe modelliert.
 - `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N`.
 - Spannungen an `_middle_N` werden nur fuer solche Abschnittsgrenzen angezeigt, die wirklich in `physLengths` existieren.
 
@@ -986,7 +990,7 @@ Optional:
 5. [x] Erste `simdata`-Daten fuer wenige Komponenten eintragen. Umgesetzt fuer:
    - `Resistor`
    - `miniOTOFuse`
-   - PSU-Komponenten
+   - PSU-Komponenten inklusive `PSU_USB_WIRES` mit fester `5 V`-Ausgangsspannung
    - ein digitaler LED-Streifen
    - `WAGO_2x`
    - `WAGO_3x`
@@ -1035,19 +1039,20 @@ Optional:
 28. Diagramm-Check-Warnungen blockieren die Simulation erstmal nicht; nur `error` blockiert.
 29. Waehrend einer laufenden Simulation wird `simulationStatus = 'running'` angezeigt; der Nutzer sieht den Zustand im Sidebar-Statusbereich und optional als dezenten Busy-Indikator im Diagramm.
 30. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und Lookup-Tabellen.
-30. Field-Referenzen verweisen auf die `technicalID`/HID des Eingabefelds und uebernehmen dessen aktuellen Wert.
-31. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
-32. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.
-33. Die Anzahl einzelner LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
-34. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt.
-35. Serienwiderstaende digitaler LED-Streifen werden pro LED angegeben.
-36. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
-37. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
-38. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
-39. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
-40. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
-41. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
-42. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
-43. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
-44. Erste Simulation-Fixtures werden gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
-45. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
+31. Field-Referenzen verweisen auf die `technicalID`/HID des Eingabefelds und uebernehmen dessen aktuellen Wert.
+32. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
+33. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.
+34. Die Anzahl logischer LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
+35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische LEDs pro Meter.
+36. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`.
+37. Serienwiderstaende digitaler LED-Streifen und LED-Lookup-Stroeme werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
+38. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
+39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
+40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
+41. Die Wire-Toolbar speichert AWG als Zahlenwert in `physCrosssection` und die Einheit als `"AWG"` in `physCrosssectionUnit`.
+42. Wire-Strom, Spannungsabfall und Widerstand sollen per Hover oder Select am Wire angezeigt werden.
+43. Als erste konkrete Solver-Implementierung wird ein kleiner eigener Dense-Solver fuer fruehe Tests verwendet.
+44. Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sind Diagramm-Check-Fehler; falls sie trotzdem auftreten, sind sie Simulationsfehler.
+45. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
+46. Erste Simulation-Fixtures werden gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+47. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.

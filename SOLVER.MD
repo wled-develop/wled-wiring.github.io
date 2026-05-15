@@ -4,7 +4,7 @@
 
 Der Solver soll fuer WLED-Wiring-Diagramme robuste DC-Ergebnisse liefern: Stroeme und Spannungen an Pins, Wires und LED-Streifen-Zwischenpunkten. Die abgeleiteten Simulationsergebnisse muessen drei Nachkommastellen liefern; die UI rundet diese Werte fuer die Diagrammanzeige auf zwei Nachkommastellen. Interne Berechnungen laufen ohne Rundung auf Ergebnis- oder Anzeigeaufloesung.
 
-Das Netz kann viele Knoten enthalten, weil digitale LED-Streifen als viele einzelne LED-Elemente in Reihe modelliert werden. Der Solver muss deshalb sparse Datenstrukturen verwenden und darf keine dichten `N x N`-Matrizen fuer grosse Streifen erzwingen.
+Das Netz kann viele Knoten enthalten, weil digitale LED-Streifen als viele logische LED-Elemente in Reihe modelliert werden. Der Solver muss deshalb sparse Datenstrukturen verwenden und darf keine dichten `N x N`-Matrizen fuer grosse Streifen erzwingen.
 
 ## Grundansatz
 
@@ -111,13 +111,15 @@ Dieser Ansatz ist nicht perfekt, aber ausreichend fuer drei Nachkommastellen im 
 
 ### Digitale LED
 
-Eine einzelne digitale LED besteht aus:
+Eine einzelne digitale LED im Solver entspricht einer logischen LED des Streifens, nicht zwingend einer physikalischen LED. Je nach Streifen werden mehrere physikalische LEDs zu einer logischen LED gruppiert; die Gruppengroesse kommt aus `physLedsPerLogicLed`.
+
+Eine logische digitale LED besteht aus:
 
 - Supply-Serienwiderstand
 - GND-Serienwiderstand
 - Stromsenke zwischen lokalem Supply- und lokalem GND-Knoten
 
-Der Zielstrom kommt aus LED-Typ, Farbmodus und Helligkeit.
+Der Zielstrom kommt aus LED-Typ, Farbmodus und Helligkeit. Lookup-Strom, Supply-Serienwiderstand und GND-Serienwiderstand sind in `simdata` pro physikalischer LED angegeben und werden fuer die logische LED mit `physLedsPerLogicLed` multipliziert. Die Anzahl der Solver-Elemente pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `ledsPerMeter` meint physikalische LEDs pro Meter.
 
 Fuer die erste Version darf die Stromsenke als konstante DC-Stromsenke modelliert werden, solange `Vled` oberhalb einer Mindestspannung liegt. Optional wird bei niedriger Spannung der Strom reduziert, z.B. linear:
 

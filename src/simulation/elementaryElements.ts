@@ -52,6 +52,7 @@ export const ELEMENTARY_ELEMENT_METADATA = {
       "gndResistanceOhm",
       "ledType",
       "ledsPerMeter",
+      "physLedsPerLogicLed",
       "currentLookup",
     ],
     optionalParameters: [],
