@@ -1028,7 +1028,7 @@ Optional:
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
-12. Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen.
+12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als erste lineare DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Nichtlineare Iterationen fuer PSU-/DCDC-Degradation und spannungsabhaengige LED-Stroeme bleiben Folgearbeit.
 13. Simulation-Checks ergaenzen.
 14. LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren.
 15. Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
