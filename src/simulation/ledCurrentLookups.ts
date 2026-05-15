@@ -10,34 +10,34 @@ export type LedCurrentLookup = Record<LedSimulationColorMode, readonly LedCurren
 export const LED_CURRENT_LOOKUPS: Record<string, LedCurrentLookup> = {
   WS2814_24V: {
     R: [
-      {voltageV: 18, currentA: 0.002},
-      {voltageV: 20, currentA: 0.006},
-      {voltageV: 24, currentA: 0.01},
+      {voltageV: 18, currentA: 0.020},
+      {voltageV: 20, currentA: 0.025},
+      {voltageV: 24, currentA: 0.030},
     ],
     G: [
-      {voltageV: 18, currentA: 0.002},
-      {voltageV: 20, currentA: 0.006},
-      {voltageV: 24, currentA: 0.01},
+      {voltageV: 18, currentA: 0.020},
+      {voltageV: 20, currentA: 0.025},
+      {voltageV: 24, currentA: 0.030},
     ],
     B: [
-      {voltageV: 18, currentA: 0.002},
-      {voltageV: 20, currentA: 0.006},
-      {voltageV: 24, currentA: 0.01},
+      {voltageV: 18, currentA: 0.020},
+      {voltageV: 20, currentA: 0.025},
+      {voltageV: 24, currentA: 0.030},
     ],
     RGB_WHITE: [
-      {voltageV: 18, currentA: 0.006},
-      {voltageV: 20, currentA: 0.018},
-      {voltageV: 24, currentA: 0.03},
+      {voltageV: 18, currentA: 0.030},
+      {voltageV: 20, currentA: 0.035},
+      {voltageV: 24, currentA: 0.040},
     ],
     SEPARATE_WHITE: [
-      {voltageV: 18, currentA: 0},
-      {voltageV: 20, currentA: 0},
-      {voltageV: 24, currentA: 0},
+      {voltageV: 18, currentA: 30},
+      {voltageV: 20, currentA: 35},
+      {voltageV: 24, currentA: 40},
     ],
     SEPARATE_AND_RGB_WHITE: [
-      {voltageV: 18, currentA: 0.006},
-      {voltageV: 20, currentA: 0.018},
-      {voltageV: 24, currentA: 0.03},
+      {voltageV: 18, currentA: 0.050},
+      {voltageV: 20, currentA: 0.060},
+      {voltageV: 24, currentA: 0.070},
     ],
   },
 };

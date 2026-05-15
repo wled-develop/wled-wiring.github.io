@@ -235,7 +235,7 @@ const resolveParameter = (
 
   return {
     ok: true,
-    value: `${ref.ledLookup}:${settings.ledColorMode}`,
+    value: ref.ledLookup,
   };
 };
 
