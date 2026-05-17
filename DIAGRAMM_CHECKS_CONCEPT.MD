@@ -394,6 +394,301 @@ Targets sind aktuell `node` oder `edge`. Ein Handle wird indirekt ueber seine No
 
 Einige schwere Netzfehler setzen `priorityBlockedNetIds`. Dadurch werden nachgelagerte generische Checks fuer dasselbe Netz unterdrueckt. Ziel ist, dass der Nutzer zuerst die urspruenglichere Ursache sieht, z.B. "Netzspannung und Kleinspannung verbunden" statt zusaetzlich "unterschiedliche Ausgangstypen verbunden".
 
+## Konzept fuer eindeutige Fehlermeldungen
+
+### Problem
+
+Wenn eine spezifische Regel denselben technischen Fehler genauer beschreibt als eine allgemeine Regel, kann ohne Gegenmassnahme trotzdem mehr als eine Meldung entstehen.
+
+Beispiel:
+
+- Eine neue Spezialregel `groundAndSupplyPolaritySwapped` meldet: "Plus und GND sind verbunden".
+- Die allgemeine Regel `mixedClassifications` koennte fuer dasselbe Netz zusaetzlich melden: "Unterschiedliche Ausgangstypen verbunden".
+
+Fuer Nutzer ist die zweite Meldung in diesem Fall nicht hilfreich. Pro eigentlichem Fehler sollte nur die beste, konkreteste Meldung sichtbar sein.
+
+Aktuell gibt es bereits einen einfachen Ansatz: `priorityBlockedNetIds`. Einige schwere Netzwerkregeln markieren ein Netz als blockiert, damit spaetere generische Netzwerkregeln fuer dieses Netz nicht mehr laufen. Das funktioniert fuer einfache Faelle innerhalb von `runNetworkRules`, ist aber noch kein allgemeines Konzept fuer alle Regeln und alle Target-Arten.
+
+### Zielbild
+
+Die Check-Engine sollte Issues nicht nur sammeln, sondern vor der Ausgabe normalisieren:
+
+1. Spezifische Regeln duerfen allgemeine Regeln fuer denselben Fehlerbereich verdraengen.
+2. Die UI bekommt moeglichst nur eine Meldung pro Ursache.
+3. Bei mehreren passenden Meldungen gewinnt die Meldung mit hoeherer Spezifitaet.
+4. Technisch unterschiedliche Fehler am selben Netz duerfen weiterhin mehrere Meldungen erzeugen, wenn sie wirklich unterschiedliche Ursachen beschreiben.
+
+### Konzept: Issue-Fingerprint und Suppression
+
+Jedes Issue sollte zusaetzlich zu `id`, `ruleId`, `severity` und `targets` eine maschinenlesbare Deduplizierungsinformation bekommen.
+
+Vorschlag fuer neue optionale Felder:
+
+```ts
+type DiagramCheckIssue = {
+  id: string;
+  ruleId?: string;
+  severity: DiagramCheckSeverity;
+  priority?: number;
+  specificity?: number;
+  suppresses?: string[];
+  suppressedBy?: string[];
+  fingerprint?: {
+    scope: 'net' | 'component' | 'handle' | 'edge' | 'diagram';
+    key: string;
+    problem: string;
+  };
+  title: string;
+  shortDescription: string;
+  description: string;
+  recommendation?: string;
+  targets?: DiagramCheckTarget[];
+};
+```
+
+Die Idee:
+
+- `fingerprint.scope` beschreibt, worauf sich der Fehler bezieht.
+- `fingerprint.key` beschreibt das konkrete Objekt, z.B. Netz-ID, Node-ID, Edge-ID oder Handle-Key.
+- `fingerprint.problem` beschreibt die Fehlerfamilie, z.B. `mixed-classification`, `polarity`, `missing-source`, `voltage-mismatch`.
+- `specificity` beschreibt, wie konkret die Meldung ist. Hoeher gewinnt.
+- `suppresses` kann explizite generische Problemtypen nennen, die durch dieses Issue ersetzt werden.
+- `suppressedBy` kann umgekehrt ausdruecken, welche spezifischen Problemtypen dieses Issue verdraengen duerfen.
+
+### Beispiel
+
+Spezifische Regel:
+
+```ts
+{
+  id: `network-ground-supply-swapped-${net.id}`,
+  ruleId: 'network-rules',
+  severity: 'error',
+  specificity: 90,
+  fingerprint: {
+    scope: 'net',
+    key: net.id,
+    problem: 'polarity-ground-supply',
+  },
+  suppresses: ['mixed-classification'],
+  ...
+}
+```
+
+Allgemeine Regel:
+
+```ts
+{
+  id: `network-mixed-classifications-${net.id}`,
+  ruleId: 'network-rules',
+  severity: 'error',
+  specificity: 10,
+  fingerprint: {
+    scope: 'net',
+    key: net.id,
+    problem: 'mixed-classification',
+  },
+  suppressedBy: ['polarity-ground-supply', 'mains-low-voltage-mixed', 'pe-active-mixed'],
+  ...
+}
+```
+
+Wenn beide Issues fuer dasselbe Netz entstehen, bleibt nur `polarity-ground-supply` sichtbar.
+
+### Deduplizierungs-Pipeline
+
+Statt Regeln direkt ungefiltert an die UI zu geben, sollte `runDiagramCheck()` eine Nachverarbeitung ausfuehren:
+
+1. Alle Regeln erzeugen zunaechst ihre Issues.
+2. Issues ohne `fingerprint` bleiben sichtbar, ausser sie werden explizit ueber Targets dedupliziert.
+3. Issues werden nach Scope und Key gruppiert.
+4. Innerhalb einer Gruppe werden Suppression-Regeln angewendet:
+   - Wenn Issue A in `suppresses` den `problem` von Issue B nennt, wird B entfernt.
+   - Wenn Issue B in `suppressedBy` den `problem` von Issue A nennt, wird B entfernt.
+5. Wenn mehrere Issues denselben Fingerprint haben, gewinnt:
+   - hoehere Severity (`error` vor `warning` vor `info`),
+   - danach hoehere `specificity`,
+   - danach hoehere `priority`,
+   - danach stabil die zuerst erzeugte Meldung.
+6. Die gefilterte Liste wird nach Severity, Priority und Erzeugungsreihenfolge sortiert.
+
+Pseudo-Code:
+
+```ts
+const normalizeDiagramCheckIssues = (issues: DiagramCheckIssue[]) => {
+  const visible = new Set(issues);
+
+  issues.forEach((candidate) => {
+    issues.forEach((other) => {
+      if(candidate === other) return;
+      if(!sameScopeAndKey(candidate, other)) return;
+
+      const candidateProblem = candidate.fingerprint?.problem;
+      const otherProblem = other.fingerprint?.problem;
+      if(!candidateProblem || !otherProblem) return;
+
+      if(candidate.suppresses?.includes(otherProblem)) {
+        visible.delete(other);
+      }
+
+      if(other.suppressedBy?.includes(candidateProblem)) {
+        visible.delete(other);
+      }
+    });
+  });
+
+  return chooseBestDuplicateFingerprints([...visible]);
+};
+```
+
+### Scope-Regeln
+
+Damit nicht versehentlich echte Mehrfachfehler verschwinden, sollte Deduplizierung nur innerhalb klarer Scopes passieren.
+
+Empfohlene Scopes:
+
+- `net`: gleiche `net.id`
+- `component`: gleiche `node.id`
+- `handle`: gleicher `handle.key`
+- `edge`: gleiche `edge.id`
+- `diagram`: globale Issues, z.B. leeres Diagramm
+
+Ein komponentenbezogener Fehler sollte nicht automatisch einen netzbezogenen Fehler unterdruecken, ausser das ist explizit modelliert. Beispiel: `component-power-missing` und `network-supply-input-without-source` koennen dieselbe Ursache beschreiben, aber aus unterschiedlicher Perspektive. Wenn spaeter nur eine davon sichtbar sein soll, braucht es eine bewusste Suppression-Beziehung.
+
+### Spezifitaetsstufen
+
+Als einfache Konvention:
+
+- `specificity: 100`: sehr konkrete Spezialregel fuer Komponente oder klaren Fehler, z.B. `sn74Ahct125nUsedChannelInputMissing`
+- `specificity: 80`: konkrete Netz-Sonderregel, z.B. `groundAndSupplyPolaritySwapped`, `fuseBypassed`
+- `specificity: 50`: normale fachliche Regel, z.B. `supplyVoltageMismatch`
+- `specificity: 20`: generische Regel, z.B. `mixedClassifications`
+- `specificity: 10`: Fallback-/Debug-Regel
+
+Damit kann eine neue Spezialregel eingefuehrt werden, ohne alle alten Regeln manuell umzubauen.
+
+### Alternative: Regelphasen mit Blocklisten
+
+Eine einfachere, kurzfristig umsetzbare Variante ist eine Erweiterung von `priorityBlockedNetIds`.
+
+Regeln laufen dann in Phasen:
+
+1. Kritische Spezialregeln
+2. Spezifische Netzregeln
+3. Allgemeine Netzregeln
+4. Komponentenregeln
+5. Hinweise und Debug-Regeln
+
+Jede Phase kann Blocklisten setzen:
+
+- `blockedNetProblems: Map<netId, Set<problem>>`
+- `blockedComponentProblems: Map<nodeId, Set<problem>>`
+- `blockedHandleProblems: Map<handleKey, Set<problem>>`
+
+Beispiel:
+
+- `groundAndSupplyPolaritySwapped` setzt fuer Netz X `mixed-classification` auf blockiert.
+- `mixedClassifications` prueft vor dem Erzeugen eines Issues, ob `mixed-classification` fuer Netz X blockiert ist.
+
+Diese Variante ist leichter in die bestehende Struktur einzubauen, bleibt aber staerker an die konkrete Reihenfolge der Regeln gekoppelt. Die Fingerprint-Normalisierung ist langfristig robuster, weil Regeln unabhaengiger voneinander Issues erzeugen koennen.
+
+### Empfehlung
+
+Kurzfristig:
+
+- `priorityBlockedNetIds` zu einer allgemeinen Blockstruktur erweitern.
+- Neue Spezialregeln sollen beim Melden explizit generische Problemtypen fuer denselben Scope blockieren.
+- Besonders `mixedClassifications` sollte nur noch als Fallback laufen, wenn kein spezifischer Mischfehler fuer dieses Netz erzeugt wurde.
+
+Langfristig:
+
+- `DiagramCheckIssue` um `fingerprint`, `specificity`, `suppresses` und `suppressedBy` erweitern.
+- Eine zentrale Funktion `normalizeDiagramCheckIssues()` zwischen Regelausfuehrung und UI einfuehren.
+- Regelimplementierungen duerfen dann ruhig mehrere potenzielle Issues erzeugen; die Normalisierung entscheidet, welche Meldung fuer Nutzer am besten ist.
+
+Damit bleibt die Regelbasis erweiterbar, ohne dass die UI bei jedem neuen Spezialcheck mehr doppelte oder widerspruechliche Meldungen zeigt.
+
+### Schaltbarer Diagnosemodus fuer alle Issues
+
+Zusätzlich zum normalen Nutzer-Modus sollte es einen per Schalter aktivierbaren Diagnosemodus geben, in dem keine oder nur minimale Deduplizierung stattfindet. In diesem Modus sollen sowohl allgemeine als auch spezifischere Meldungen angezeigt werden.
+
+Ziel:
+
+- pruefen, ob neue Spezialregeln tatsaechlich ausloesen
+- sehen, welche generischen Regeln denselben Fehler ebenfalls erkennen
+- erkennen, ob eine allgemeine Regel zu breit oder zu eng greift
+- Suppression-Beziehungen testen, ohne die Rohdaten zu verlieren
+- Regelentwicklung und Regressionstests einfacher machen
+
+Moegliche Namen:
+
+- `SHOW_ALL_DIAGRAM_CHECK_ISSUES`
+- `ENABLE_DIAGRAM_CHECK_DIAGNOSTICS`
+- `DIAGRAM_CHECK_DEDUPLICATION_MODE`
+
+Empfohlen waere kein reiner Boolean, sondern ein Modus:
+
+```ts
+type DiagramCheckDeduplicationMode =
+  | 'user-friendly'
+  | 'diagnostic';
+```
+
+Verhalten:
+
+- `user-friendly`: Standardmodus. Issues werden normalisiert, generische Doppelmeldungen werden unterdrueckt.
+- `diagnostic`: Alle erzeugten Issues bleiben sichtbar. Optional kann die UI anzeigen, welche Issues im Standardmodus unterdrueckt wuerden.
+
+Noch hilfreicher waere ein dritter Modus:
+
+```ts
+type DiagramCheckDeduplicationMode =
+  | 'user-friendly'
+  | 'diagnostic'
+  | 'diagnostic-with-suppression-markers';
+```
+
+In `diagnostic-with-suppression-markers` wuerden alle Issues angezeigt, aber unterdrueckte Issues werden markiert, z.B. mit einem Tag "wuerde im Nutzer-Modus unterdrueckt". Dadurch kann man pruefen, ob die Deduplizierung korrekt arbeitet, ohne die Rohmeldungen zu verstecken.
+
+Moegliche Implementierung:
+
+```ts
+const DIAGRAM_CHECK_DEDUPLICATION_MODE: DiagramCheckDeduplicationMode = 'user-friendly';
+
+export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
+  const rawIssues = runAllDiagramCheckRules(jsonData);
+
+  if (DIAGRAM_CHECK_DEDUPLICATION_MODE === 'diagnostic') {
+    return rawIssues;
+  }
+
+  return normalizeDiagramCheckIssues(rawIssues, {
+    includeSuppressed: DIAGRAM_CHECK_DEDUPLICATION_MODE === 'diagnostic-with-suppression-markers',
+  });
+}
+```
+
+Dafuer muesste `normalizeDiagramCheckIssues()` optional nicht nur die sichtbaren Issues zurueckgeben, sondern auch Metadaten:
+
+```ts
+type NormalizedDiagramCheckIssue = DiagramCheckIssue & {
+  suppressed?: boolean;
+  suppressedByIssueIds?: string[];
+};
+```
+
+Die UI koennte dann im Diagnosemodus zusaetzlich anzeigen:
+
+- ob ein Issue im normalen Modus sichtbar waere
+- durch welches spezifischere Issue es unterdrueckt wuerde
+- welchen `fingerprint` und welche `specificity` es hat
+
+Der Schalter sollte nicht prominent fuer normale Nutzer sichtbar sein. Geeignete Orte:
+
+- Entwickler-Konstante neben `SHOW_NET_DEBUG`
+- Feature-Flag-Datei fuer Diagramm-Checks
+- spaeter optional ein Debug-Bereich in der Regeluebersicht
+
 ## UI-Stand
 
 Die Sidebar `DiagramCheckPage` bietet aktuell:
@@ -418,3 +713,323 @@ Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er loka
 - Viele interne Komponentenbeziehungen sind explizit codiert, z.B. LED-Mehrfacheinspeisungen, Fuse-Verbindungen und SN74AHCT125N-Kanaele.
 - Targets zeigen aktuell Node und Wire, aber nicht separat einen konkreten Pin als eigenes UI-Ziel.
 - Die Regeltexte sind i18n-basiert; die technische Regeldefinition und die sichtbaren Beschreibungen koennen auseinanderlaufen, wenn Uebersetzungen nicht mitgepflegt werden.
+
+## Vorschlaege fuer weitere Regeln
+
+Die folgenden Regeln sind noch nicht implementiert. Sie sind als fachliche und technische Kandidaten fuer naechste Ausbaustufen gedacht.
+
+### Netz- und Signalregeln
+
+#### `digitalBackupPairMismatch`
+
+Warnung oder Fehler, wenn LED-Streifen mit Backup-Datenleitung nur teilweise verbunden sind.
+
+Beispiel: Ein Streifen hat `dig_in` und `dig_backup_in`, aber nur einer der beiden Eingaenge ist angeschlossen. Bei WS2813/WS2815/WS2818/WS2805-artigen Komponenten ist das oft beabsichtigt pruefenswert, weil Backup-Line und Main-Data-Line in vielen Setups gemeinsam geplant werden muessen.
+
+Moegliche Logik:
+
+- Komponenten mit `dig_backup_in` oder `dig_backup_out` identifizieren.
+- Wenn `dig_backup_in.mustBeConnected === true`, ist der Fall bereits teilweise durch `requiredPinUnconnected` abgedeckt.
+- Ergaenzend pruefen, ob Main- und Backup-Datenpfade konsistent von einer Quelle bzw. vom vorherigen LED-Segment kommen.
+- Severity eher `warning`, wenn Backup optional ist; `error`, wenn die Komponentendefinition den Pin als Pflicht markiert.
+
+#### `clockedLedClockMissing`
+
+Fehler, wenn ein LED-Typ mit Clock-Leitung eine Datenverbindung hat, aber die Clock-Leitung fehlt.
+
+Beispiel: APA102-artige Streifen brauchen neben `dig_in` auch `dig_clock_in`. Ein reiner Datenanschluss reicht nicht.
+
+Moegliche Logik:
+
+- Pro Komponente pruefen, ob `dig_clock_in` vorhanden ist.
+- Wenn ein `dig_in` oder `dig_out` des Bauteils verdrahtet ist, muss der korrespondierende Clock-Pin ebenfalls in einem passenden digitalen Clock-Netz liegen.
+- Optional auch `dig_clock_out` fuer weitergereichte Segmente pruefen.
+
+#### `signalOutputWithoutConsumer`
+
+Warnung, wenn ein Signal-Ausgang verdrahtet ist, aber keine passende Signal-Senke erreicht.
+
+Aktuell gibt es Checks fuer Eingange ohne Quelle und mehrere Quellen. Der Gegenfall, also ein Ausgang ohne erkennbaren Verbraucher, kann auf vergessene Verbindungen oder falsch gesetzte Pin-Funktionen hinweisen.
+
+Moegliche Logik:
+
+- Fuer Digital, PWM, Analog, Audio, USB je Signaldefinition alle klassifizierten Signalnetze betrachten.
+- Wenn passende Quellen vorhanden sind, aber keine passende Senke im Netz oder ueber `signalReachableHandles()` gefunden wird, Warnung erzeugen.
+- Passive Serienkomponenten wie `Resistor` beruecksichtigen.
+
+#### `dataDirectionWrong`
+
+Fehler, wenn bei gerichteten LED-Signalen Ausgang-zu-Ausgang oder Eingang-zu-Eingang-Verbindungen entstehen, ohne dass eine passende Quelle-Senke-Struktur vorhanden ist.
+
+Teilweise wird das bereits indirekt durch `multipleSignalSources` oder `signalSinkWithoutSource` erkannt. Eine eigene Regel koennte nutzerfreundlichere Meldungen liefern, z.B. "Data-Out eines LED-Streifens wurde mit Data-Out des naechsten Streifens verbunden".
+
+Moegliche Logik:
+
+- Digitale Netze mit nur `dig_out`-Handles und ohne `dig_in` als Ausgang-ohne-Senke melden.
+- Netze mit nur `dig_in`-Handles und ohne erreichbare Quelle als Eingang-ohne-Quelle melden.
+- Fuer LED-Komponenten die physischen Namen `DI`, `DO`, `BI`, `BO`, `CI`, `CO` in der Meldung hervorheben.
+
+#### `mixedDigitalSignalTypes`
+
+Fehler oder Warnung, wenn Main-Data, Backup-Data und Clock unplausibel miteinander vermischt werden.
+
+Aktuell erzeugen `dig_out`, `dig_clock_out` und `dig_backup_out` alle `digital_net_type`. Dadurch wird z.B. eine Verbindung von Clock-Out auf Data-In nicht zwingend als eigener Spezialfall beschrieben.
+
+Moegliche Logik:
+
+- Innerhalb digitaler Netze Subtypen aus den Funktionen ableiten: `data`, `clock`, `backup`.
+- Fehler, wenn ein Netz mehrere digitale Subtypen mischt, z.B. `dig_clock_out` mit `dig_in`.
+- Erlaubte Sonderfaelle explizit definieren, falls es Komponenten gibt, bei denen ein Pin mehrere Rollen haben darf.
+
+### Versorgungsregeln
+
+#### `groundAndSupplyPolaritySwapped`
+
+Fehler, wenn ein Netz GND- und Supply-Klassifikation gleichzeitig enthaelt und dadurch wahrscheinlich Plus und Minus verbunden wurden.
+
+Aktuell faellt das unter `mixedClassifications`. Eine eigene Regel waere hilfreicher, weil sie den haeufigen und kritischen Fehler direkter benennt.
+
+Moegliche Logik:
+
+- Component-Linked Net mit `gnd_net_type` und `suppl_net_type` erkennen.
+- Prioritaet hoeher als generisches `mixedClassifications`.
+- Targets: alle beteiligten GND- und Supply-Handles plus Wires.
+
+#### `supplyVoltageUnknown`
+
+Warnung, wenn ein Supply-Netz zwar eine Quelle hat, deren Spannung aber nicht aufgeloest werden kann.
+
+Viele weitere Checks, z.B. `supplyVoltageMismatch` und `digitalSignalVoltageMismatch`, koennen nur arbeiten, wenn `resolveVoltageOut()` eine Zahl liefert. Eine unbekannte Spannung sollte sichtbar sein.
+
+Moegliche Logik:
+
+- Supply-Netze mit genau einer unabhaengigen Quelle betrachten.
+- Wenn `resolveVoltageOut(source)` `undefined` liefert und im Netz `suppl_in`-Verbraucher haengen, Warnung erzeugen.
+- Empfehlung: Spannungswert an der Quelle oder am abhaengigen Feld setzen.
+
+#### `supplyInputOnlyInternallyPowered`
+
+Warnung, wenn eine Komponente nur ueber eine intern weitergereichte Versorgung als versorgt erscheint, aber keine externe Quelle erreichbar ist.
+
+Das kann bei Komponenten mit mehreren `suppl_in`-Pins oder internen Pass-Throughs relevant sein. Ziel ist, Faelle zu erkennen, in denen eine Komponente scheinbar ein Supply-Netz hat, dieses aber nur aus Eingangs-Pins besteht.
+
+Moegliche Logik:
+
+- Pro Komponente `supplyInputHasExternalSource()` erweitern oder eigene Reachability nutzen.
+- Pruefen, ob die Quelle wirklich von einer anderen Komponente mit `suppl_out` kommt.
+- Severity `warning`, um False Positives bei passiven Verteilern zu vermeiden.
+
+#### `fuseBypassed`
+
+Warnung oder Fehler, wenn ein abgesicherter Ausgang und ein ungesicherter Eingang derselben Fuse-Komponente extern wieder zusammengeschaltet werden.
+
+Bei Fuse-Boards kann ein Nutzer versehentlich die Sicherung umgehen, indem Eingang und Ausgang ausserhalb der Komponente verbunden werden.
+
+Moegliche Logik:
+
+- `internalConnections.kind === 'fuse'` als bekannte Fuse-Paare nutzen.
+- Wenn `fromHandle` und `toHandle` nicht nur ueber den Fuse-Layer, sondern bereits im selben Elementary Net liegen, wurde die Sicherung extern ueberbrueckt.
+- Severity `error`, weil die Schutzfunktion aufgehoben ist.
+
+#### `fuseCurrentMissingOrUnderspecified`
+
+Info oder Warnung, wenn ein Fuse-Element bzw. Fuse-Board keine erkennbare Nennstromangabe hat.
+
+Diese Regel wird erst richtig wertvoll, wenn Komponenten konsistent Stromwerte oder Sicherungswerte in `inputFields` tragen.
+
+Moegliche Logik:
+
+- Komponenten mit `internalConnections.kind === 'fuse'` oder technischer ID `miniOTOFuse` / `FUSE_Board` erkennen.
+- Input-Felder fuer Sicherungswert pruefen.
+- Bei fehlendem Wert Info ausgeben: "Sicherung dimensionieren".
+
+### Komponentenregeln
+
+#### `unusedRequiredFunctionalGroup`
+
+Warnung, wenn eine Komponente teilweise genutzt wird, aber zugehoerige Pflichtgruppe unvollstaendig bleibt.
+
+Beispiel: Ein Controller-Pin fuer Data ist verbunden, aber GND oder Versorgung der Zielkomponente fehlt. Einzelne fehlende Pins werden schon erkannt; eine Gruppierungsregel koennte die Ursache besser erklaeren.
+
+Moegliche Logik:
+
+- Komponententypen koennen optionale Gruppen definieren, z.B. LED-Eingangsgruppe: `V+`, `GND`, `DI`, optional `BI`/`CI`.
+- Wenn mindestens ein Pin der Gruppe verbunden ist, muessen definierte Mindestpins der Gruppe plausibel verbunden sein.
+- Erfordert wahrscheinlich zusaetzliche Metadaten in Komponentendefinitionen.
+
+#### `componentHasOnlyOneTerminalConnected`
+
+Warnung fuer passive Zweipol-Komponenten, bei denen nur ein Anschluss verbunden ist.
+
+Beispiele: Widerstand, Kondensator, Sicherung. Ein einzelner angeschlossener Pin ist fast immer ein unvollstaendiger Aufbau.
+
+Moegliche Logik:
+
+- Komponenten mit genau zwei sichtbaren elektrischen Handles erkennen.
+- Wenn genau ein Handle `connectedEdges.length > 0` hat, Warnung erzeugen.
+- Ausnahmen fuer reine Markierungs-/Info-Komponenten ausschliessen.
+
+#### `capacitorPolarityMismatch`
+
+Fehler, wenn ein gepolter Kondensator mit Plus an GND oder Minus an Supply angeschlossen ist.
+
+Moegliche Logik:
+
+- Elektrolytkondensatoren ueber technische ID oder Metadaten erkennen.
+- Plus-Handle darf nicht in `gnd_net_type` liegen.
+- Minus-Handle sollte in `gnd_net_type` liegen oder zumindest nicht in einem Supply-Netz mit positiver Quelle.
+- Fuer Keramikkondensatoren nicht anwenden.
+
+#### `levelShifterSupplyMismatch`
+
+Fehler oder Warnung, wenn ein Level-Shifter mit unpassender Versorgung fuer seine Signalpegel verwendet wird.
+
+Beispiel: SN74AHCT125N braucht eine passende Versorgung, damit 3.3-V-Eingaenge zu 5-V-Ausgaengen werden. Wenn VCC fehlt oder nicht 5 V ist, koennen digitale Pegelchecks allein irrefuehrend sein.
+
+Moegliche Logik:
+
+- Fuer `SN74AHCT125N` VCC- und GND-Pins identifizieren.
+- VCC muss in einem Supply-Netz mit aufgeloester Spannung innerhalb der erlaubten Toleranz liegen.
+- Wenn ein Kanal benutzt wird, Versorgung besonders strikt pruefen.
+
+### Netzspannungs- und Sicherheitsregeln
+
+#### `mainsConnectorIncomplete`
+
+Fehler, wenn eine Netzspannungs-Komponente nur teilweise angeschlossen ist.
+
+Beispiel: Ein Netzteil mit `line_in` und `neutral_in` hat nur L oder nur N verbunden. `mainsInputMissing` erkennt dies bereits pro Eingang, aber eine eigene Regel kann die Komponente als unvollstaendigen Netzanschluss zusammenfassen.
+
+Moegliche Logik:
+
+- Komponenten mit mindestens einem `line_in` oder `neutral_in` erkennen.
+- Wenn einer der beiden Anschluesse verbunden ist, aber der andere fehlt, gezielte Meldung ausgeben.
+- PE separat als Warnung oder Fehler je Komponententyp behandeln.
+
+#### `protectiveEarthMissingForMetalOrMainsDevice`
+
+Warnung oder Fehler, wenn eine Komponente mit PE-Anschluss diesen nicht verbunden hat.
+
+Die aktuelle `mainsInputMissing`-Regel erkennt `pe_in`, wenn es nicht im passenden PE-Netz liegt. Eine separate Regel koennte fuer sicherheitsrelevante Komponenten eine hoehere Prioritaet oder klarere Empfehlung liefern.
+
+Moegliche Logik:
+
+- Komponenten mit `pe_in` erkennen.
+- Wenn `line_in` oder `neutral_in` genutzt wird, muss `pe_in` ebenfalls passend verbunden sein, sofern vorhanden.
+- Severity je nach Komponententyp: Netzteil/Metallgehaeuse eher `error`, einfache Steckerzeichnung eventuell `warning`.
+
+#### `mainsWireConnectedToLowVoltageComponent`
+
+Fehler, wenn ein L/N/PE-Netz direkt an eine Komponente geht, die keinen passenden Netzspannungsanschluss besitzt.
+
+Das wird teilweise ueber Netzklassifikation erkannt, aber eine eigene Komponentensicht koennte klarer sagen: "Diese Komponente ist nicht fuer Netzspannung vorgesehen".
+
+Moegliche Logik:
+
+- Netze mit `L_net_type`, `N_net_type` oder `PE_net_type` betrachten.
+- Alle beteiligten Handles ohne passende `line_in`, `line_out`, `neutral_in`, `neutral_out`, `pe_in`, `pe_out` markieren.
+- Prioritaet hoch, da sicherheitskritisch.
+
+### Wire- und Diagrammqualitaetsregeln
+
+#### `wireWithoutPhysicalParameters`
+
+Info oder Warnung, wenn eine Wire in einem Power-Netz keine Laenge oder keinen Querschnitt hat.
+
+Fuer reine logische Signalverbindungen ist das oft egal. Fuer Versorgung und spaetere Simulation ist es wichtig.
+
+Moegliche Logik:
+
+- Wires in Netzen mit `suppl_net_type` oder `gnd_net_type` betrachten.
+- Edge-Daten auf physikalische Laenge und Querschnitt pruefen.
+- Severity `info` fuer kleine Projekte, `warning` wenn Simulation aktiviert wird.
+
+#### `powerWireCrossSectionTooSmall`
+
+Warnung, wenn ein Power-Wire anhand bekannter Lastdaten wahrscheinlich zu duenn ist.
+
+Diese Regel braucht zusaetzliche Strom-/Lastinformationen und ist daher eher ein spaeterer Ausbau oder eine Bruecke zur Simulation.
+
+Moegliche Logik:
+
+- Supply-Netz, Verbraucher und Sicherungswerte aggregieren.
+- Drahtquerschnitt gegen geschaetzte Maximalstroeme pruefen.
+- Als konservative Warnung formulieren, solange keine echte Simulation laeuft.
+
+#### `duplicateParallelWire`
+
+Info oder Warnung, wenn zwei identische Handles durch mehrere Wires parallel verbunden sind.
+
+Das kann absichtlich sein, ist in einem Diagramm aber oft ein versehentlich doppelt gezogener Draht.
+
+Moegliche Logik:
+
+- Edges nach normalisiertem Paar `(source, sourceHandle, target, targetHandle)` gruppieren.
+- Gegenrichtung als gleiches Paar behandeln.
+- Wenn mehr als eine Wire in derselben Gruppe liegt, Info oder Warnung erzeugen.
+
+#### `wireConnectedToHiddenOrMissingHandle`
+
+Fehler, wenn eine Wire auf einen Handle zeigt, der durch aktuelle Auswahl versteckt ist oder gar nicht mehr existiert.
+
+Der Netzaufbau ignoriert solche Wires aktuell still, weil der Handle nicht im sichtbaren Handle-Set liegt. Fuer Nutzer waere eine explizite Meldung hilfreicher.
+
+Moegliche Logik:
+
+- Beim Aufbau des Check-Kontexts alle Edges erfassen, deren `sourceHandle` oder `targetHandle` nicht in `handleByKey` existiert.
+- Unterscheiden zwischen "Handle existiert in Komponentendefinition, ist aber hidden" und "Handle-ID existiert gar nicht".
+- Severity `error`, weil die Wire elektrisch wirkungslos ist.
+
+#### `isolatedComponent`
+
+Info, wenn eine technische Komponente keinerlei angeschlossene Wires hat.
+
+Das ist fuer frisch platzierte Komponenten normal, kann nach einem Check aber als Hinweis helfen.
+
+Moegliche Logik:
+
+- Komponenten ohne angeschlossene Edges erkennen.
+- Reine Zeichen-/Info-Komponenten wie `InfoNode`, `LineBoxNode`, `WireInfoNode` ausschliessen.
+- Severity `info`.
+
+### Metadaten- und Konsistenzregeln
+
+#### `componentDefinitionIncompleteForChecks`
+
+Info fuer Entwickler oder Debug-Modus, wenn eine Komponente fuer Checks zu wenig Metadaten hat.
+
+Beispiele:
+
+- elektrische Handles ohne `functions`
+- Supply-Eingaenge ohne `tolVmin` / `tolVmax`
+- Ausgaenge ohne `Vout` oder aufloesbare `VoutDependency`
+- Pins mit unklarer oder unbekannter Funktion
+
+Moegliche Logik:
+
+- Nur in Debug-Modus oder optionaler Entwicklerregel anzeigen.
+- Nicht als Nutzerfehler darstellen, sondern als Hinweis zur Komponentendefinition.
+
+#### `ambiguousMultiFunctionHandle`
+
+Warnung im Entwicklerkontext, wenn ein Handle mehrere Funktionen hat und dadurch Netzklassifikation unklar wird.
+
+Da die Klassifikation fuer einige Signale nur exklusive Funktionen nutzt, koennen Multi-Function-Handles absichtlich weniger stark klassifiziert werden. Das sollte fuer Komponentenautoren sichtbar sein.
+
+Moegliche Logik:
+
+- Handles mit mehreren klassifikationsrelevanten Funktionen finden.
+- Pruefen, ob diese Kombination in einer erlaubten Liste steht.
+- Sonst Entwicklerhinweis ausgeben.
+
+## Priorisierung der vorgeschlagenen Regeln
+
+Sinnvolle Reihenfolge fuer die Umsetzung:
+
+1. `wireConnectedToHiddenOrMissingHandle`, weil still ignorierte Wires schwer zu verstehen sind.
+2. `groundAndSupplyPolaritySwapped`, weil es einen kritischen Spezialfall besser benennt als `mixedClassifications`.
+3. `mixedDigitalSignalTypes`, weil digitale Data-/Clock-/Backup-Verwechslungen bei LED-Projekten realistisch sind.
+4. `componentHasOnlyOneTerminalConnected`, weil es mit wenig Metadaten viele unvollstaendige Bauteile erkennt.
+5. `supplyVoltageUnknown`, weil es erklaert, warum andere Spannungschecks eventuell nicht greifen.
+6. `fuseBypassed`, sobald Fuse-Boards und Sicherungen staerker genutzt werden.
+7. `wireWithoutPhysicalParameters`, als Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
