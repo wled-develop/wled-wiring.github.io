@@ -193,6 +193,48 @@ export const MHC_V43: Node = {
                 nominalCurrentField: "Fuse",
             },
         ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "vin-vout-fuse",
+                    type: "fuse",
+                    terminals: {a: "VIN", b: "VOUT"},
+                    parameters: {
+                        resistanceOhm: {
+                            table: {
+                                "4": 0.011,
+                                "5": 0.009,
+                                "7.5": 0.006,
+                                "10": 0.0045,
+                                "15": 0.003,
+                            },
+                            by: {select: "Fuse"},
+                            default: 0.006,
+                        },
+                        nominalCurrentA: {select: "Fuse"},
+                    },
+                },
+                {
+                    id: "controller-idle-load",
+                    type: "constantPowerSink",
+                    terminals: {positive: "VIN", negative: "GND1"},
+                    parameters: {
+                        powerW: 0.5,
+                        minVoltageV: 3,
+                    },
+                },
+                {id: "gnd-bridge-1-2", type: "shortBridge", terminals: {a: "GND1", b: "GND2"}},
+                {id: "gnd-bridge-1-3", type: "shortBridge", terminals: {a: "GND1", b: "GND3"}},
+                {id: "gnd-bridge-1-4", type: "shortBridge", terminals: {a: "GND1", b: "GND4"}},
+                {id: "gnd-bridge-1-5", type: "shortBridge", terminals: {a: "GND1", b: "GND5"}},
+                {id: "gnd-bridge-1-6", type: "shortBridge", terminals: {a: "GND1", b: "GND6"}},
+                {id: "gnd-bridge-1-7", type: "shortBridge", terminals: {a: "GND1", b: "GND7"}},
+                {id: "gnd-bridge-1-8", type: "shortBridge", terminals: {a: "GND1", b: "GND8"}},
+                {id: "rs485-ch1-gnd-bridge", type: "shortBridge", terminals: {a: "GND1", b: "RS485CH1GND"}},
+                {id: "rs485-ch2-gnd-bridge", type: "shortBridge", terminals: {a: "GND1", b: "RS485CH2GND"}},
+            ],
+        },
         handles: [
             {
                 "borderColor": "red",

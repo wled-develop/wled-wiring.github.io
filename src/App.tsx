@@ -76,6 +76,7 @@ import '@xyflow/react/dist/style.css';
 
 import {initialNodes, nodeTypes } from './components';
 import {edgeTypes} from './wires';
+import { SimulationOverlay } from './simulation/SimulationOverlay.tsx';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -799,6 +800,7 @@ const FlowApp = () => {
               offset={0}
               gap={16}
               />
+              <SimulationOverlay />
               <Controls 
                 onFitView={()=>{
                   const NodesBounds=reactFlow.getNodes().map((node) => ({id: node.id, rect: reactFlow.getNodesBounds([node.id])}));

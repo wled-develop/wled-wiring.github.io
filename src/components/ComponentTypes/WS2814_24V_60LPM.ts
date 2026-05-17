@@ -22,6 +22,32 @@ export const WS2814_24V_60LPM: Node = {
         borderWidth: 2,
         resizableX: true,
         physLengthStep: 0.016667,
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "strip-led",
+                    type: "digitalLed",
+                    terminals: {
+                        supplyIn: "24V_start",
+                        supplyOut: "24V_end",
+                        gndIn: "GND_start",
+                        gndOut: "GND_end",
+                    },
+                    parameters: {
+                        supplyResistanceOhm: 0.002,
+                        gndResistanceOhm: 0.002,
+                        ledType: "WS2814_24V",
+                        ledsPerMeter: 60,
+                        physLedsPerLogicLed: 6,
+                        currentLookup: {
+                            ledLookup: "WS2814_24V",
+                            colorMode: "settings.ledColorMode",
+                        },
+                    },
+                },
+            ],
+        },
         handles: [
         {
             hid: "24V_start",

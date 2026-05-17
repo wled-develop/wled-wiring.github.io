@@ -280,7 +280,35 @@
                               },
                     "simulation":  {
                                        "title":  "Stromfluss simulieren",
-                                       "comingSoon":  "Simulation der Stromverteilung wird später implementiert. Stay tuned!"
+                                       "inDevelopmentTitle":  "Simulationen sind noch in Entwicklung",
+                                       "comingSoon":  "Simulation der Stromverteilung wird später implementiert. Stay tuned!",
+                                       "settings":  "Einstellungen",
+                                       "brightness":  "Helligkeit: {{value}}%",
+                                       "buttonRun":  "Simulieren",
+                                       "buttonDelete":  "Ergebnisse löschen",
+                                       "notRun":  "Noch keine Simulation ausgeführt.",
+                                       "running":  "Simulation wird ausgeführt...",
+                                       "invalidated":  "Simulationsergebnisse wurden entfernt, weil sich das Diagramm geändert hat.",
+                                       "modelReadyTitle":  "Simulationsmodell erstellt",
+                                       "modelReadyDescription":  "{{components}} simulierte Komponente(n), {{wires}} simulierte Wire(s).",
+                                       "failedTitle":  "Simulation fehlgeschlagen",
+                                       "failedDescription":  "Das Simulationsmodell konnte nicht erstellt werden. Bitte prüfe die Meldungen unten.",
+                                       "noIssues":  "Keine Simulationsmeldungen.",
+                                       "issueCount":  "{{count}} Simulationsmeldung(en)",
+                                       "affectedElements":  "Betroffene Elemente",
+                                       "severity":  {
+                                                        "error":  "Fehler",
+                                                        "warning":  "Warnung",
+                                                        "info":  "Hinweis"
+                                                    },
+                                       "colorModes":  {
+                                                          "rgbWhite":  "RGB-Weiss",
+                                                          "separateWhite":  "Separates Weiss",
+                                                          "separateAndRgbWhite":  "Separates + RGB-Weiss",
+                                                          "red":  "Rot",
+                                                          "green":  "Gruen",
+                                                          "blue":  "Blau"
+                                                      }
                                    },
                     "tools":  {
                                   "title":  "Tools",

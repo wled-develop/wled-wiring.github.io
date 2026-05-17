@@ -20,6 +20,13 @@ export const WAGO_3X: Node = {
         borderWidth: 2,
         resizableX: false,
         rotatable: true,
+        simdata: {
+            version: 1,
+            elements: [
+                {id: "terminal-bridge-1-2", type: "shortBridge", terminals: {a: "1", b: "2"}},
+                {id: "terminal-bridge-1-3", type: "shortBridge", terminals: {a: "1", b: "3"}},
+            ],
+        },
         handles: [
             {
                 borderColor: "black",

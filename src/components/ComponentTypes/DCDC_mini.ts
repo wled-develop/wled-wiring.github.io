@@ -46,6 +46,26 @@ export const DCDC_mini: Node = {
                         color: "black"
                     } as CompInputFieldDataType,
                 ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "dcdc",
+                    type: "dcdcConverter",
+                    terminals: {
+                        inPositive: "IN",
+                        inNegative: "GND1",
+                        outPositive: "OUT",
+                        outNegative: "GND2",
+                    },
+                    parameters: {
+                        outputVoltageV: {field: "source_voltage"},
+                        efficiency: 0.9,
+                        voltageDropPctAt150Current: 50,
+                    },
+                },
+            ],
+        },
         handles: [
             {
                 borderColor: "red",

@@ -37,6 +37,7 @@ import { useSelectedElementsCount } from "../utils/useSelectedElementsCount.ts";
 import { createDiagramCheckContext } from "../check/checkContext.ts";
 import { useZustandStore } from "../utils/pathfinder_functions.ts";
 import { routeWireWithPathfinder } from "../utils/rotateWireRouting.ts";
+import { useSimulationResultStore } from "../simulation/simulationResultStore.ts";
 
 const ROUNDN=1;
 const SEGMENT_DRAG_THRESHOLD = 4;
@@ -369,6 +370,7 @@ export default function EditableWire ({
   const reactFlowInstance=useReactFlow();
   const { takeSnapshot } = useUndoRedo();
   const pathFindingEnabled = useZustandStore((state) => state.pathFindingEnabled);
+  const setSimulationWireHover = useSimulationResultStore((state) => state.setWireHover);
   const edgePointDragSnapshotTakenRef = useRef(false);
   const segmentDragCleanupRef = useRef<(() => void) | null>(null);
   const suppressSegmentTouchDragUntilRef = useRef(0);
@@ -1777,8 +1779,23 @@ export default function EditableWire ({
             strokeWidth={10}
             strokeLinecap="round"
             className="react-flow__edge-interaction"
+            onMouseMove={(event) => {
+              const flowPosition = reactFlowInstance.screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+              });
+              setSimulationWireHover({
+                edgeId: id,
+                x: flowPosition.x,
+                y: flowPosition.y,
+              });
+            }}
+            onMouseLeave={() => {
+              setSimulationWireHover(null);
+            }}
             onMouseDown={(event) => {
               if(event.button !== 0) return;
+              setSimulationWireHover(null);
               setWireToolbarAnchorFromPointer(event.clientX, event.clientY, index);
             }}
             onTouchStart={(event) => {

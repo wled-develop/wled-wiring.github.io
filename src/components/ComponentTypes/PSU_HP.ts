@@ -55,6 +55,25 @@ export const PSU_HP: Node = {
                 color: "black"
             } as CompInputFieldDataType,
         ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "source",
+                    type: "voltageSource",
+                    terminals: {positive: "Vout1", negative: "GND1"},
+                    parameters: {
+                        voltageV: {field: "source_voltage"},
+                        currentLimitA: {field: "source_current"},
+                        voltageDropPctAt150Current: 50,
+                    },
+                },
+                {id: "vout-bridge-1-2", type: "shortBridge", terminals: {a: "Vout1", b: "Vout2"}},
+                {id: "vout-bridge-1-3", type: "shortBridge", terminals: {a: "Vout1", b: "Vout3"}},
+                {id: "gnd-bridge-1-2", type: "shortBridge", terminals: {a: "GND1", b: "GND2"}},
+                {id: "gnd-bridge-1-3", type: "shortBridge", terminals: {a: "GND1", b: "GND3"}},
+            ],
+        },
         handles: [
         {
             hid: "Vout1",

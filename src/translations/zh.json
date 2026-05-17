@@ -280,7 +280,35 @@
                               },
                     "simulation":  {
                                        "title":  "电流模拟",
-                                       "comingSoon":  "电源分配模拟将在未来实现。敬请期待！"
+                                       "inDevelopmentTitle":  "模拟功能仍在开发中",
+                                       "comingSoon":  "电源分配模拟将在未来实现。敬请期待！",
+                                       "settings":  "设置",
+                                       "brightness":  "亮度：{{value}}%",
+                                       "buttonRun":  "开始模拟",
+                                       "buttonDelete":  "删除结果",
+                                       "notRun":  "尚未运行模拟。",
+                                       "running":  "正在运行模拟...",
+                                       "invalidated":  "图纸已更改，模拟结果已移除。",
+                                       "modelReadyTitle":  "模拟模型已创建",
+                                       "modelReadyDescription":  "{{components}} 个已模拟组件，{{wires}} 条已模拟导线。",
+                                       "failedTitle":  "模拟失败",
+                                       "failedDescription":  "无法创建模拟模型。请检查下面的消息。",
+                                       "noIssues":  "没有模拟消息。",
+                                       "issueCount":  "{{count}} 条模拟消息",
+                                       "affectedElements":  "受影响的元素",
+                                       "severity":  {
+                                                        "error":  "错误",
+                                                        "warning":  "警告",
+                                                        "info":  "信息"
+                                                    },
+                                       "colorModes":  {
+                                                          "rgbWhite":  "RGB 白光",
+                                                          "separateWhite":  "独立白光",
+                                                          "separateAndRgbWhite":  "独立 + RGB 白光",
+                                                          "red":  "红色",
+                                                          "green":  "绿色",
+                                                          "blue":  "蓝色"
+                                                      }
                                    },
                     "tools":  {
                                   "title":  "工具",
