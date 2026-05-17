@@ -1,1 +1,1 @@
-export const ENABLE_SIMULATION_CONTROLS = false;
+export const ENABLE_SIMULATION_CONTROLS = true;
