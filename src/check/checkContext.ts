@@ -110,10 +110,6 @@ const getNodeHandleById = (node: Node<ComponentDataType>, handleId: string) => (
   allVisibleHandles(node).find((handle) => handle.hid === handleId)
 );
 
-const isPassiveTerminalNode = (node: Node<ComponentDataType>) => (
-  ['Kerko', 'Resistor'].includes(node.data.technicalID)
-);
-
 const isPassiveJoinNode = (node: Node<ComponentDataType>) => (
   ['SolderJoint', 'WAGO_2X', 'WAGO_3X'].includes(node.data.technicalID)
 );
@@ -133,48 +129,12 @@ const allVisibleHandles = (node: Node<ComponentDataType>) => (
 );
 
 const inferRawFunctions = (
-  node: Node<ComponentDataType>,
   handle: HandleDataType,
 ): CheckHandleFunction[] => (
-  isPassiveTerminalNode(node)
-    ? ((handle.functions || []).filter((fn) => fn !== 'dig_in' && fn !== 'dig_out') as CheckHandleFunction[])
-    : ((handle.functions || []) as CheckHandleFunction[])
+  (handle.functions || []) as CheckHandleFunction[]
 );
 
-const inferFunctions = (
-  node: Node<ComponentDataType>,
-  handle: HandleDataType,
-  rawFunctions: CheckHandleFunction[],
-): CheckHandleFunction[] => {
-  const functions = new Set<CheckHandleFunction>(rawFunctions);
-  const handleText = `${handle.hid} ${handle.name || ''} ${handle.description || ''}`.toLowerCase();
-
-  if (rawFunctions.includes('usb_full')) {
-    functions.add('suppl_in');
-  }
-  if (node.data.group === 'led') {
-    if (/(\b|_)(5v|12v|24v|48v)(\b|_)|supply input/.test(handleText)) {
-      functions.add('suppl_in');
-    }
-    if (/\bgnd\b|ground/.test(handleText)) {
-      functions.add('gnd');
-    }
-    if (/data.*start|data.*input/.test(handleText) && !functions.has('not_connected')) {
-      functions.add('dig_in');
-    }
-    if (/data.*end|data.*output/.test(handleText) && !functions.has('not_connected')) {
-      functions.add('dig_out');
-    }
-    if (/clock.*start|clock.*input/.test(handleText) && !functions.has('not_connected')) {
-      functions.add('dig_clock_in');
-    }
-    if (/clock.*end|clock.*output/.test(handleText) && !functions.has('not_connected')) {
-      functions.add('dig_clock_out');
-    }
-  }
-
-  return Array.from(functions);
-};
+const inferFunctions = (rawFunctions: CheckHandleFunction[]): CheckHandleFunction[] => rawFunctions;
 
 const hasVoltageOutputFunction = (functions: CheckHandleFunction[]) => (
   functions.some((fn) => (
@@ -242,8 +202,8 @@ const buildCheckHandle = (
   handle: HandleDataType,
   edges: Edge<EdgeDataType>[],
 ): CheckHandle => {
-  const rawFunctions = inferRawFunctions(node, handle);
-  const functions = inferFunctions(node, handle, rawFunctions);
+  const rawFunctions = inferRawFunctions(handle);
+  const functions = inferFunctions(rawFunctions);
   const voltageRange = inferVoltageRange(handle, functions);
 
   return {
