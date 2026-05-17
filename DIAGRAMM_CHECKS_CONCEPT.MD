@@ -195,6 +195,8 @@ Alle betroffenen Ground-Netze werden als Targets markiert. Die betroffenen Netze
 
 Fehler, wenn ein Netz gleichzeitig Netzspannung (`L_net_type` oder `N_net_type`) und Kleinspannungs-/Signal-Klassifikationen enthaelt.
 
+Wichtig: Diese Regel erkennt nur Mischungen, bei denen die Kleinspannungsseite selbst eine Netzklassifikation beitraegt. Da z.B. `suppl_net_type` aktuell ueber `suppl_out` entsteht, kann eine Verbindung von `line_out` auf einen reinen `suppl_in`-Eingang ohne weitere Quelle durch diese Regel allein unentdeckt bleiben. Dafuer ist die vorgeschlagene Regel `mainsWireConnectedToLowVoltageComponent` wichtig.
+
 Als Kleinspannungs-/Signal-Klassifikationen gelten:
 
 - `gnd_net_type`
@@ -379,6 +381,51 @@ Wenn ein verwendeter Kanal erkannt wurde, werden zwei Dinge geprueft:
 
 Fehlt eine dieser Bedingungen, wird ein Fehler erzeugt.
 
+## Priorisierung der bestehenden Regeln
+
+Die folgende Tabelle beschreibt, wie die aktuell implementierten Regeln in einem kuenftigen Deduplizierungs- und Sortierkonzept priorisiert werden sollten.
+
+Empfohlene Bedeutung:
+
+- `Severity`: sichtbare fachliche Schwere.
+- `Specificity`: wie konkret die Meldung ist. Hoeher gewinnt gegen generischere Meldungen im selben Scope.
+- `Sort-Prioritaet`: Reihenfolge innerhalb sichtbarer Meldungen. Niedrigere Zahl bedeutet weiter oben.
+- `Scope`: Ebene fuer Deduplizierung und Suppression.
+
+| Regel | Severity | Specificity | Sort-Prioritaet | Scope | Priorisierung / Suppression |
+| --- | --- | ---: | ---: | --- | --- |
+| `diagram-empty` | `info` | 80 | 100 | `diagram` | Sollte allein angezeigt werden, wenn keine Nodes existieren. Alle anderen Regeln laufen dann nicht. |
+| `groundMissing` (Network) | `error` | 50 | 30 | `diagram` | Wichtiger Basisfehler ohne einzelnes Netz als Scope. Sollte nicht durch komponentenbezogene Ground-Meldungen unterdrueckt werden, kann aber im UI vor diesen stehen. |
+| `groundMultiple` | `error` | 70 | 20 | `diagram` | Betrifft mehrere Netze gemeinsam. Darf generische Mixed-Classification-Meldungen fuer betroffene Ground-Netze unterdruecken, aber keine spezifischen Sicherheitsfehler wie Mains-/PE-/Polarity-Mischungen. |
+| `mainsLowVoltageMixed` | `error` | 90 | 5 | `net` | Sicherheitskritisch. Muss vor generischen Netzfehlern stehen und `mixedClassifications` fuer dasselbe Netz unterdruecken. |
+| `peActiveMixed` | `error` | 90 | 6 | `net` | Sicherheitskritisch. Muss `mixedClassifications` fuer dasselbe Netz unterdruecken. |
+| `rs485Mixed` | `error` | 80 | 25 | `net` | Spezifischer als `mixedClassifications`; soll diese fuer dasselbe Netz unterdruecken. |
+| `mixedClassifications` | `error` | 20 | 80 | `net` | Fallback-Regel. Nur anzeigen, wenn kein spezifischer Mischfehler fuer dasselbe Netz existiert. |
+| `multipleSupplySources` | `error` | 70 | 35 | `net` | Konkreter Supply-Fehler. Sollte vor `supplyVoltageMismatch` stehen, weil bei mehreren Quellen die eindeutige Spannung nicht bestimmbar ist. |
+| `signalSinkWithoutSource` | `error` | 60 | 50 | `net`/`handle` | Sollte pro betroffenem Signaltyp und Netz erscheinen. Kann durch spezifischere Signalfehler wie `mixedDigitalSignalTypes` oder `dataDirectionWrong` unterdrueckt werden. |
+| `digitalSignalVoltageMismatch` | `error` | 75 | 45 | `handle` | Konkreter als allgemeine Signalquellen-Regeln. Sollte nicht durch `signalSinkWithoutSource` verdeckt werden. |
+| `multipleSignalSources` | `error` | 65 | 55 | `net` | Wichtig, aber nach sicherheits- und versorgungsbezogenen Fehlern. Kann durch spezifischere Direction-/Subtype-Regeln unterdrueckt werden. |
+| `supplyInputWithoutSource` | `error` | 60 | 40 | `net` | Grundlegender Versorgungsfehler. Sollte vor komponentenbezogenem `powerMissing` stehen, wenn beide dieselbe Ursache beschreiben. |
+| `supplySourceWithoutConsumer` | `warning` | 45 | 120 | `net` | Hinweischarakter. Sollte von konkreten Fehlern im selben Netz unterdrueckt werden, z.B. Mischfehler oder mehrere Quellen. |
+| `supplyVoltageMismatch` | `error` | 75 | 42 | `net`/`handle` | Konkreter Spannungsfehler. Sollte nur laufen/anzeigen, wenn genau eine Quelle bekannt ist und keine priorisierten Netzmischfehler existieren. |
+| `requiredPinUnconnected` | `error` | 70 | 32 | `handle` | Sehr konkret. Sollte fuer Pflichtpins sichtbar bleiben, kann aber in spaeteren Gruppenregeln als Teilursache zusammengefasst werden. |
+| `groundMissing` (Component) | `error` | 55 | 60 | `component` | Konkrete Komponentenperspektive. Kann zusammen mit Network-`groundMissing` auftreten; spaeter ggf. als Detail unter einer globalen Ground-Meldung gruppieren. |
+| `powerMissing` | `error` | 55 | 58 | `component` | Kann dieselbe Ursache wie `supplyInputWithoutSource` haben. Bei Deduplizierung sollte die Netzmeldung gewinnen, wenn sie den ganzen betroffenen Versorgungspfad besser beschreibt; die Komponentenmeldung kann als Detail erhalten bleiben. |
+| `mainsInputMissing` | `error` | 70 | 12 | `component`/`handle` | Sicherheitsrelevant und konkret. Sollte vor allgemeinen Komponentenfehlern stehen. |
+| `sn74Ahct125nUsedChannelInputMissing` | `error` | 100 | 38 | `component`/`handle` | Sehr spezifisch. Sollte allgemeinere digitale Signalfehler fuer die betroffenen Pins/Kanaele unterdruecken, aber nicht Versorgung/GND-Fehler des Chips. |
+
+## Priorisierung der bestehenden Regelgruppen
+
+Empfohlene Reihenfolge im normalen Nutzer-Modus:
+
+1. Diagrammweite Blocker, z.B. `diagram-empty`.
+2. Sicherheitskritische Netzspannungsfehler: `mainsLowVoltageMixed`, `peActiveMixed`, `mainsInputMissing`.
+3. Kritische Basisnetze: `groundMultiple`, `groundMissing`.
+4. Versorgungsstruktur: `multipleSupplySources`, `supplyInputWithoutSource`, `supplyVoltageMismatch`.
+5. Pflichtpins und komponentenspezifische harte Fehler: `requiredPinUnconnected`, `sn74Ahct125nUsedChannelInputMissing`, `powerMissing`.
+6. Signalintegritaet: `digitalSignalVoltageMismatch`, `signalSinkWithoutSource`, `multipleSignalSources`, `rs485Mixed`.
+7. Fallbacks und Warnungen: `mixedClassifications`, `supplySourceWithoutConsumer`.
+
 ## Priorisierung und Targeting
 
 Issues enthalten:
@@ -559,13 +606,15 @@ Ein komponentenbezogener Fehler sollte nicht automatisch einen netzbezogenen Feh
 
 Als einfache Konvention:
 
-- `specificity: 100`: sehr konkrete Spezialregel fuer Komponente oder klaren Fehler, z.B. `sn74Ahct125nUsedChannelInputMissing`
-- `specificity: 80`: konkrete Netz-Sonderregel, z.B. `groundAndSupplyPolaritySwapped`, `fuseBypassed`
-- `specificity: 50`: normale fachliche Regel, z.B. `supplyVoltageMismatch`
-- `specificity: 20`: generische Regel, z.B. `mixedClassifications`
-- `specificity: 10`: Fallback-/Debug-Regel
+- `specificity: 90-100`: sehr konkrete Spezialregel fuer Komponente, Sicherheit oder klaren Fehler, z.B. `sn74Ahct125nUsedChannelInputMissing`, `groundAndSupplyPolaritySwapped`
+- `specificity: 70-89`: konkrete fachliche Regel, z.B. `supplyVoltageMismatch`, `mixedDigitalSignalTypes`
+- `specificity: 40-69`: normale Regel oder hilfreiche Warnung, z.B. `powerMissing`, `supplyVoltageUnknown`
+- `specificity: 20-39`: generische Regel, z.B. `mixedClassifications`, `duplicateParallelWire`
+- `specificity: 10-19`: Fallback-/Debug-Regel
 
 Damit kann eine neue Spezialregel eingefuehrt werden, ohne alle alten Regeln manuell umzubauen.
+
+Eine spezifischere Regel sollte eine allgemeinere Meldung aber nicht automatisch unterdruecken, wenn dadurch ein `error` nur noch als `warning` sichtbar waere. Solche Downgrades sollten nur ueber explizite `suppresses`-Beziehungen erlaubt sein.
 
 ### Alternative: Regelphasen mit Blocklisten
 
@@ -610,7 +659,7 @@ Damit bleibt die Regelbasis erweiterbar, ohne dass die UI bei jedem neuen Spezia
 
 ### Schaltbarer Diagnosemodus fuer alle Issues
 
-Zusätzlich zum normalen Nutzer-Modus sollte es einen per Schalter aktivierbaren Diagnosemodus geben, in dem keine oder nur minimale Deduplizierung stattfindet. In diesem Modus sollen sowohl allgemeine als auch spezifischere Meldungen angezeigt werden.
+Zusaetzlich zum normalen Nutzer-Modus sollte es einen per Schalter aktivierbaren Diagnosemodus geben, in dem keine oder nur minimale Deduplizierung stattfindet. In diesem Modus sollen sowohl allgemeine als auch spezifischere Meldungen angezeigt werden.
 
 Ziel:
 
@@ -738,6 +787,8 @@ Moegliche Logik:
 Fehler, wenn ein LED-Typ mit Clock-Leitung eine Datenverbindung hat, aber die Clock-Leitung fehlt.
 
 Beispiel: APA102-artige Streifen brauchen neben `dig_in` auch `dig_clock_in`. Ein reiner Datenanschluss reicht nicht.
+
+Bei manchen Komponenten ist der Clock-Eingang bereits ueber `mustBeConnected` abgedeckt. Diese Regel waere trotzdem sinnvoll, weil sie Data/Clock als zusammengehoerige Signalgruppe bewertet und eine klarere Meldung liefern kann als ein einzelner Pflichtpin-Fehler.
 
 Moegliche Logik:
 
@@ -924,6 +975,8 @@ Fehler, wenn ein L/N/PE-Netz direkt an eine Komponente geht, die keinen passende
 
 Das wird teilweise ueber Netzklassifikation erkannt, aber eine eigene Komponentensicht koennte klarer sagen: "Diese Komponente ist nicht fuer Netzspannung vorgesehen".
 
+Diese Regel ist besonders wichtig, weil die bestehende Netzklassifikation stark quellenorientiert ist. Ein Netz mit `line_out` und einem reinen Kleinspannungs-Eingang wie `suppl_in` kann nur als `L_net_type` klassifiziert werden und dadurch nicht zwingend unter `mainsLowVoltageMixed` fallen.
+
 Moegliche Logik:
 
 - Netze mit `L_net_type`, `N_net_type` oder `PE_net_type` betrachten.
@@ -1024,12 +1077,51 @@ Moegliche Logik:
 
 ## Priorisierung der vorgeschlagenen Regeln
 
-Sinnvolle Reihenfolge fuer die Umsetzung:
+Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeigeprioritaet und nach Umsetzungsprioritaet.
 
-1. `wireConnectedToHiddenOrMissingHandle`, weil still ignorierte Wires schwer zu verstehen sind.
-2. `groundAndSupplyPolaritySwapped`, weil es einen kritischen Spezialfall besser benennt als `mixedClassifications`.
-3. `mixedDigitalSignalTypes`, weil digitale Data-/Clock-/Backup-Verwechslungen bei LED-Projekten realistisch sind.
-4. `componentHasOnlyOneTerminalConnected`, weil es mit wenig Metadaten viele unvollstaendige Bauteile erkennt.
-5. `supplyVoltageUnknown`, weil es erklaert, warum andere Spannungschecks eventuell nicht greifen.
-6. `fuseBypassed`, sobald Fuse-Boards und Sicherungen staerker genutzt werden.
-7. `wireWithoutPhysicalParameters`, als Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
+- `Umsetzung`: empfohlene Reihenfolge fuer die Entwicklung. `1` bedeutet sehr frueh.
+- `Severity`: erwartete Standardschwere.
+- `Specificity`: wie stark die Regel allgemeinere Meldungen verdraengen sollte.
+- `Sort-Prioritaet`: Anzeigeprioritaet im Nutzer-Modus. Niedrigere Zahl bedeutet weiter oben.
+
+| Regel | Umsetzung | Severity | Specificity | Sort-Prioritaet | Scope | Priorisierung / Suppression |
+| --- | ---: | --- | ---: | ---: | --- | --- |
+| `wireConnectedToHiddenOrMissingHandle` | 1 | `error` | 90 | 10 | `edge`/`handle` | Sehr frueh umsetzen, weil der Netzaufbau solche Wires aktuell ignoriert. Sollte Folgefehler unterdruecken, die nur entstehen, weil das Wire elektrisch nicht beruecksichtigt wurde. |
+| `mainsWireConnectedToLowVoltageComponent` | 2 | `error` | 95 | 4 | `component`/`handle` | Sicherheitskritisch und deckt Faelle ab, die quellenbasierte Netzklassifikation uebersehen kann. Sollte zusammen mit `mainsLowVoltageMixed` dedupliziert oder gruppiert werden; im Zweifel gewinnt die klarere Meldung mit betroffener Komponente. |
+| `groundAndSupplyPolaritySwapped` | 3 | `error` | 95 | 8 | `net` | Kritischer Spezialfall. Muss `mixedClassifications` fuer dasselbe Netz unterdruecken und vor normalen Supply-/Ground-Folgefehlern stehen. |
+| `mixedDigitalSignalTypes` | 4 | `error` | 85 | 44 | `net` | Sollte generische digitale `signalSinkWithoutSource`- oder `multipleSignalSources`-Meldungen fuer dasselbe digitale Netz unterdruecken, wenn die Ursache eine Data-/Clock-/Backup-Verwechslung ist. |
+| `componentHasOnlyOneTerminalConnected` | 5 | `warning` | 65 | 110 | `component` | Guenstig umzusetzen und hilfreich. Sollte nicht haertere Pflichtpin-Fehler unterdruecken; eher als zusaetzlicher Hinweis oder durch `requiredPinUnconnected` unterdrueckbar. |
+| `supplyVoltageUnknown` | 6 | `warning` | 55 | 95 | `net` | Sollte angezeigt werden, wenn Spannungschecks nicht aussagekraeftig sind. Wird von konkretem `supplyVoltageMismatch` unterdrueckt, sobald die Spannung bekannt ist. |
+| `fuseBypassed` | 7 | `error` | 90 | 18 | `net`/`component` | Sicherheits-/Schutzfunktionsfehler. Sollte allgemeine Fuse- oder Mixed-Netz-Hinweise fuer dieselben Fuse-Paare unterdruecken. |
+| `wireWithoutPhysicalParameters` | 8 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
+| `clockedLedClockMissing` | 9 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken. |
+| `dataDirectionWrong` | 10 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
+| `digitalBackupPairMismatch` | 11 | `warning` oder `error` | 75 | 70 | `component`/`handle` | Prioritaet abhaengig davon, ob Backup-Pin als Pflicht markiert ist. Sollte bei Pflichtpins hinter `requiredPinUnconnected` stehen, sonst als spezifische LED-Warnung. |
+| `signalOutputWithoutConsumer` | 12 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
+| `levelShifterSupplyMismatch` | 13 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
+| `capacitorPolarityMismatch` | 14 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
+| `mainsConnectorIncomplete` | 15 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
+| `protectiveEarthMissingForMetalOrMainsDevice` | 16 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
+| `supplyInputOnlyInternallyPowered` | 17 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
+| `fuseCurrentMissingOrUnderspecified` | 18 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
+| `unusedRequiredFunctionalGroup` | 19 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
+| `powerWireCrossSectionTooSmall` | 20 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
+| `duplicateParallelWire` | 21 | `info` oder `warning` | 35 | 170 | `edge` | Qualitaetshinweis. Sollte von echten elektrischen Fehlern unterdrueckt oder weit unten angezeigt werden. |
+| `isolatedComponent` | 22 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
+| `componentDefinitionIncompleteForChecks` | 23 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
+| `ambiguousMultiFunctionHandle` | 24 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
+
+## Empfohlene Umsetzungsreihenfolge
+
+Als praktische Roadmap:
+
+1. `wireConnectedToHiddenOrMissingHandle`: schafft Vertrauen in den Netzaufbau und verhindert stille Fehler.
+2. `mainsWireConnectedToLowVoltageComponent`: schliesst eine wichtige Sicherheitsluecke, weil L/N/PE auf reine Kleinspannungs-Eingaenge nicht immer ueber Netzklassifikation auffaellt.
+3. `groundAndSupplyPolaritySwapped`: kritischer, haeufiger Spezialfall mit klarerer Meldung als `mixedClassifications`.
+4. `mixedDigitalSignalTypes`: wichtig fuer LED-Projekte mit Data, Clock und Backup.
+5. `componentHasOnlyOneTerminalConnected`: schnell implementierbar und erkennt viele unvollstaendige Bauteile.
+6. `supplyVoltageUnknown`: erklaert, warum Spannungschecks nicht greifen.
+7. `fuseBypassed`: wichtig fuer Schutzfunktionen, sobald Fuse-Boards genutzt werden.
+8. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
+
+Weitere Mains-Regeln wie `mainsConnectorIncomplete` und `protectiveEarthMissingForMetalOrMainsDevice` haben fachlich ebenfalls hohe Anzeigeprioritaet, sind aber teilweise schon durch `mainsInputMissing` abgedeckt und koennen deshalb nach der direkten Low-Voltage-Fehlanschlussregel folgen.
