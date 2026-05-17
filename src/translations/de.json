@@ -280,6 +280,7 @@
                               },
                     "simulation":  {
                                        "title":  "Stromfluss simulieren",
+                                       "inDevelopmentTitle":  "Simulationen sind noch in Entwicklung",
                                        "comingSoon":  "Simulation der Stromverteilung wird später implementiert. Stay tuned!",
                                        "settings":  "Einstellungen",
                                        "brightness":  "Helligkeit: {{value}}%",

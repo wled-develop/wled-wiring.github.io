@@ -3,13 +3,14 @@ import { useState, type CSSProperties } from 'react';
 import { useTranslation } from "react-i18next";
 
 import type { CollapseProps } from 'antd';
-import { Collapse, theme } from 'antd';
+import { Alert, Collapse, theme } from 'antd';
 
 import {ComponentPage} from './ComponentPage';
 import {ImportExportPage} from './ImportExportPage';
 import {DiagramCheckPage} from './DiagramCheckPage';
 import {ToolsPage} from './ToolsPage';
 import { SimulationPage } from '../simulation/SimulationPage';
+import { ENABLE_SIMULATION_CONTROLS } from '../simulation/simulationFeatureFlags';
 
 const Sidebar = () => {
   const {t} = useTranslation(['main']);
@@ -27,6 +28,17 @@ const Sidebar = () => {
     borderBottomStyle: 'solid',
     borderBottomWidth: 1,
   };
+
+  const simulationPanel = ENABLE_SIMULATION_CONTROLS
+    ? <SimulationPage />
+    : (
+      <Alert
+        type="info"
+        showIcon
+        message={t('sidebar.simulation.inDevelopmentTitle')}
+        description={t('sidebar.simulation.comingSoon')}
+      />
+    );
   
   const getItems: (panelStyle: CSSProperties) => CollapseProps['items'] = (panelStyle) => [
   {
@@ -50,7 +62,7 @@ const Sidebar = () => {
   {
     key: '4',
     label: <span>{t('sidebar.simulation.title')}</span>,
-    children: <SimulationPage />,
+    children: simulationPanel,
     style: panelStyle,
   },
   {

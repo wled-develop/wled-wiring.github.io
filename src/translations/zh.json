@@ -280,6 +280,7 @@
                               },
                     "simulation":  {
                                        "title":  "电流模拟",
+                                       "inDevelopmentTitle":  "模拟功能仍在开发中",
                                        "comingSoon":  "电源分配模拟将在未来实现。敬请期待！",
                                        "settings":  "设置",
                                        "brightness":  "亮度：{{value}}%",

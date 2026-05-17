@@ -280,6 +280,7 @@
                               },
                     "simulation":  {
                                        "title":  "Simulate current flow",
+                                       "inDevelopmentTitle":  "Simulations are still in development",
                                        "comingSoon":  "Simulation of power distribution will be implemented in future. Stay tuned!",
                                        "settings":  "Settings",
                                        "brightness":  "Brightness: {{value}}%",
