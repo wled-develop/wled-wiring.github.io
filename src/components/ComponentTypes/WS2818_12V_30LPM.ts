@@ -152,6 +152,7 @@ export const WS2818_12V_30LPM: Node = {
             name: "Backup output",
             functions: ["dig_backup_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "DATA_end",

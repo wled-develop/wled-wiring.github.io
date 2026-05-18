@@ -273,6 +273,8 @@ Aktuelle Signaldefinitionen:
 - Audio: Quelle `audio_out`; Senke `audio_in`
 - USB: Quelle `usb_power_out`; Senke `usb_full`
 
+Hinweis zu analogen LED-Streifen: `pwm_in_R`, `pwm_in_G`, `pwm_in_B`, `pwm_in_W` und `pwm_in_WW` werden dort aktuell als negativ geschaltete Lastanschluesse verwendet, nicht als klassische Logiksignal-Eingaenge. Fuer diese Handles sollten Spannungs-/Signalchecks perspektivisch anders arbeiten als bei reinen PWM-Logikpins, z.B. ueber eine eigene Lastanschluss-Funktion oder ueber Komponentenmetadaten, die Common-Anode-LED-Lasten von Signalinputs unterscheiden. Bis dahin sollten fehlende `tolVmin`/`tolVmax` an diesen analogen Strip-Pins nicht automatisch als Definitionsfehler bewertet werden.
+
 Digitale Senken haben eine Sonderbehandlung: Sie gelten auch dann als aufgeloest, wenn ueber `signalReachableHandles()` eine digitale Quelle erreichbar ist oder eine gueltige Bias-Verbindung existiert.
 
 Eine digitale Bias-Verbindung gilt als gueltig, wenn:

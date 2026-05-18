@@ -152,6 +152,7 @@ export const WS2815_12V_30LPM: Node = {
             name: "Backup output",
             functions: ["dig_backup_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "DATA_end",
@@ -235,6 +236,8 @@ export const WS2815_12V_30LPM: Node = {
             description: "Must be tied to GND",
             name: "Backup",
             functions: ["not_connected"],
+            repeated: "yes",
+            repeatAtFirst: "no"
         } as HandleDataType,
         {
             hid: "DATA_middle",

@@ -27,7 +27,7 @@ export const ESP32C3D1mini: Node = {
                 "borderType": "dotted",
                 "description": "USB (power and data)",
                 "functions": [
-                    "usb_in"
+                    "usb_full"
                 ],
                 "height": 40,
                 "hid": "USB",

@@ -64,6 +64,7 @@ export const WS2813_5V_60LPM: Node = {
             description: "Must be tied to GND",
             name: "Backup input",
             prefferedLineDirection: "left",
+            functions: ["dig_backup_in"],
             tolVmin: 4.5,
             tolVmax: 5,
         } as HandleDataType,
@@ -86,6 +87,7 @@ export const WS2813_5V_60LPM: Node = {
             description: "",
             name: "DATA input",
             prefferedLineDirection: "left",
+            functions: ["dig_in"],
             tolVmin: 4.5,
             tolVmax: 5,
         } as HandleDataType,
@@ -107,6 +109,7 @@ export const WS2813_5V_60LPM: Node = {
             description: "",
             name: "GND pin",
             prefferedLineDirection: "left",
+            functions: ["gnd"],
         } as HandleDataType,
         {
             hid: "5V_end",
@@ -148,6 +151,8 @@ export const WS2813_5V_60LPM: Node = {
             description: "",
             name: "Backup output",
             prefferedLineDirection: "right",
+            functions: ["dig_backup_out"],
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "DATA_end",
@@ -167,6 +172,7 @@ export const WS2813_5V_60LPM: Node = {
             description: "",
             name: "DATA output",
             prefferedLineDirection: "right",
+            functions: ["dig_out"],
             Vout: 5,
         } as HandleDataType,
         {
@@ -187,6 +193,7 @@ export const WS2813_5V_60LPM: Node = {
             description: "",
             name: "GND pin",
             prefferedLineDirection: "right",
+            functions: ["gnd"],
         } as HandleDataType,
         {
             hid: "5V_middle",
@@ -271,7 +278,8 @@ export const WS2813_5V_60LPM: Node = {
             description: "GND",
             name: "GND pin",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["gnd"],
         } as HandleDataType,
         ]
     } as ComponentDataType,

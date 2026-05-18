@@ -64,6 +64,7 @@ export const WS2812B_5V_30LPM: Node = {
             description: "",
             name: "DATA input",
             prefferedLineDirection: "left",
+            functions: ["dig_in"],
             tolVmin: 4.5,
             tolVmax: 5,
         } as HandleDataType,
@@ -84,6 +85,7 @@ export const WS2812B_5V_30LPM: Node = {
             position: Position.Left,
             description: "", name: "GND pin",
             prefferedLineDirection: "left",
+            functions: ["gnd"],
         } as HandleDataType,
         {
             hid: "5V_end",
@@ -125,6 +127,7 @@ export const WS2812B_5V_30LPM: Node = {
             description: "",
             name: "DATA output",
             prefferedLineDirection: "right",
+            functions: ["dig_out"],
             Vout: 5,
         } as HandleDataType,
         {
@@ -145,6 +148,7 @@ export const WS2812B_5V_30LPM: Node = {
             description: "",
             name: "GND pin",
             prefferedLineDirection: "right",
+            functions: ["gnd"],
         } as HandleDataType,
         {
             hid: "5V_middle",
@@ -208,7 +212,8 @@ export const WS2812B_5V_30LPM: Node = {
             description: "GND",
             name: "GND pin",
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            functions: ["gnd"],
         } as HandleDataType,
         ]
     } as ComponentDataType,

@@ -152,6 +152,7 @@ export const APA102_5V_30LPM: Node = {
             name: "Clock output",
             functions: ["dig_clock_out"],
             prefferedLineDirection: "right",
+            Vout: 5,
         } as HandleDataType,
         {
             hid: "DATA_end",

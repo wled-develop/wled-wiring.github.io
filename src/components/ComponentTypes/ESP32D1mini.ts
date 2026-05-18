@@ -126,8 +126,7 @@ export const ESP32D1mini: Node = {
             "borderType": "dashed",
             "description": "Digital In (input only)",
             "functions": [
-                "dig_in",
-                "dig_out"
+                "dig_in"
             ],
             "height": 8,
             "hid": "GPIO34",
