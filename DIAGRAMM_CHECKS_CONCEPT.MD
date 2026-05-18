@@ -285,6 +285,8 @@ Eine digitale Bias-Verbindung gilt als gueltig, wenn:
 
 Passive Signal-Komponenten `Kerko` und `Resistor` werden dabei nicht als digitale Bias-Ziele betrachtet.
 
+LED-Backup-Eingaenge haben eine zusaetzliche Sonderbehandlung: Ein `dig_backup_in` eines LED-Streifens gilt fuer `signalSinkWithoutSource` als aufgeloest, wenn sein Netz `gnd_net_type` hat und der zugehoerige `dig_in`/`DATA_start` nicht von einem vorgelagerten LED-Streifen gespeist wird. Damit wird der empfohlene Anschluss des ersten Backup-Eingangs an GND nicht faelschlich als fehlende digitale Quelle gemeldet. Wird der Data-Eingang dagegen von einem vorherigen LED-Streifen gespeist, muss der Backup-Eingang weiterhin vom passenden `dig_backup_out` dieses vorgelagerten Streifens kommen.
+
 ### `digitalSignalVoltageMismatch`
 
 Fehler, wenn ein digitaler Eingang mit einer digitalen Quelle verbunden ist, deren aufgeloeste Ausgangsspannung ausserhalb von `tolVmin` / `tolVmax` des Eingangs liegt.

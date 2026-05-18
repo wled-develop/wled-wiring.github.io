@@ -507,10 +507,6 @@ const hasValidDigitalBias = (context: DiagramCheckContext, handle: CheckHandle) 
     });
 };
 
-const hasResolvedDigitalSink = (context: DiagramCheckContext, handle: CheckHandle) => (
-  hasReachableDigitalSource(context, handle) || hasValidDigitalBias(context, handle)
-);
-
 const hasDigitalBiasConsumer = (context: DiagramCheckContext, net: CheckNet) => (
   net.handles.some((handle) => hasValidDigitalBias(context, handle))
 );
@@ -730,6 +726,27 @@ const ledUpstreamDataSource = (context: DiagramCheckContext, dataIn: CheckHandle
 
   return sources.length === 1 ? sources[0] : undefined;
 };
+
+const isFirstLedBackupInputTiedToGround = (
+  context: DiagramCheckContext,
+  handle: CheckHandle,
+) => {
+  if (handle.node.data.group !== 'led' || !hasFunction(handle, 'dig_backup_in')) return false;
+
+  const backupNet = context.getNetByHandle(handle);
+  if (!backupNet?.classifications.includes('gnd_net_type')) return false;
+
+  const nodeHandles = context.handles.filter((candidate) => candidate.node.id === handle.node.id);
+  const dataIn = digitalDataIn(nodeHandles);
+
+  return Boolean(dataIn && !ledUpstreamDataSource(context, dataIn));
+};
+
+const hasResolvedDigitalSink = (context: DiagramCheckContext, handle: CheckHandle) => (
+  hasReachableDigitalSource(context, handle) ||
+  hasValidDigitalBias(context, handle) ||
+  isFirstLedBackupInputTiedToGround(context, handle)
+);
 
 const checkDigitalBackupPairMismatch = (context: DiagramCheckContext) => {
   const issues: DiagramCheckIssue[] = [];
