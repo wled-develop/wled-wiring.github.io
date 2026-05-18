@@ -45,6 +45,14 @@ export type CheckNet = {
   sinkHandles: CheckHandle[];
 };
 
+export type CheckInvalidWire = {
+  edge: Edge<EdgeDataType>;
+  side: 'source' | 'target';
+  node?: Node<ComponentDataType>;
+  handleId?: string | null;
+  reason: 'missing-node' | 'missing-handle' | 'hidden-handle';
+};
+
 export type DiagramCheckContext = {
   nodes: Node<ComponentDataType>[];
   edges: Edge<EdgeDataType>[];
@@ -53,6 +61,7 @@ export type DiagramCheckContext = {
   elementaryNets: CheckNet[];
   fusedNets: CheckNet[];
   componentLinkedNets: CheckNet[];
+  invalidWires: CheckInvalidWire[];
   getHandle: (nodeId: string, handleId?: string | null) => CheckHandle | undefined;
   getNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
   getElementaryNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
@@ -126,6 +135,13 @@ const allVisibleHandles = (node: Node<ComponentDataType>) => (
     ...(node.data.handles || []),
     ...(node.data.repeatedHandleArray || []),
   ].filter((handle) => !isHiddenByCondition(node, handle))
+);
+
+const allHandles = (node: Node<ComponentDataType>) => (
+  [
+    ...(node.data.handles || []),
+    ...(node.data.repeatedHandleArray || []),
+  ]
 );
 
 const inferRawFunctions = (
@@ -604,6 +620,35 @@ export function createDiagramCheckContext(
   );
   const nets = componentLinkedNets;
   const netByHandleKeyMap = netByHandleKey(nets);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const invalidWires: CheckInvalidWire[] = edges.flatMap((edge): CheckInvalidWire[] => {
+    const refs: { side: 'source' | 'target'; nodeId: string; handleId?: string | null }[] = [
+      { side: 'source', nodeId: edge.source, handleId: edge.sourceHandle },
+      { side: 'target', nodeId: edge.target, handleId: edge.targetHandle },
+    ];
+
+    return refs.flatMap((ref): CheckInvalidWire[] => {
+      const node = nodeById.get(ref.nodeId);
+      if (!node) {
+        return [{ edge, side: ref.side, handleId: ref.handleId, reason: 'missing-node' }];
+      }
+      if (!ref.handleId) {
+        return [{ edge, side: ref.side, node, handleId: ref.handleId, reason: 'missing-handle' }];
+      }
+
+      const visibleHandle = allVisibleHandles(node).some((handle) => handle.hid === ref.handleId);
+      if (visibleHandle) return [];
+
+      const knownHiddenHandle = allHandles(node).some((handle) => handle.hid === ref.handleId);
+      return [{
+        edge,
+        side: ref.side,
+        node,
+        handleId: ref.handleId,
+        reason: knownHiddenHandle ? 'hidden-handle' : 'missing-handle',
+      }];
+    });
+  });
 
   edges.forEach((edge) => {
     if (!edge.sourceHandle || !edge.targetHandle) return;
@@ -740,6 +785,7 @@ export function createDiagramCheckContext(
     elementaryNets,
     fusedNets,
     componentLinkedNets,
+    invalidWires,
     getHandle: (nodeId, handleId) => (handleId ? handleByKey.get(keyOf(nodeId, handleId)) : undefined),
     getNetByHandle: (handle) => netByHandleKeyMap.get(handle.key),
     getElementaryNetByHandle: (handle) => elementaryNetByHandleKey.get(handle.key),

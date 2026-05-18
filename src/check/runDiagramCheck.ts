@@ -3,13 +3,19 @@ import type { Edge, Node } from '@xyflow/react';
 import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
 import { createDiagramCheckContext } from './checkContext';
-import type { DiagramCheckIssue } from './diagramCheckTypes';
+import type { DiagramCheckDeduplicationMode, DiagramCheckIssue } from './diagramCheckTypes';
 import { normalizeDiagramCheckIssues } from './normalizeDiagramCheckIssues';
 import { diagramCheckRules } from './rules';
+
+export const DEFAULT_DIAGRAM_CHECK_DEDUPLICATION_MODE: DiagramCheckDeduplicationMode = 'user-friendly';
 
 type DiagramExportModel = {
   nodes?: Node<ComponentDataType>[];
   edges?: Edge<EdgeDataType>[];
+};
+
+type RunDiagramCheckOptions = {
+  deduplicationMode?: DiagramCheckDeduplicationMode;
 };
 
 export function createDiagramCheckContextFromJson(jsonData: string) {
@@ -20,7 +26,11 @@ export function createDiagramCheckContextFromJson(jsonData: string) {
   return createDiagramCheckContext(nodes, edges);
 }
 
-export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
+export function runDiagramCheck(
+  jsonData: string,
+  options: RunDiagramCheckOptions = {},
+): DiagramCheckIssue[] {
+  const deduplicationMode = options.deduplicationMode || DEFAULT_DIAGRAM_CHECK_DEDUPLICATION_MODE;
   const model = JSON.parse(jsonData) as DiagramExportModel;
   const nodes = model.nodes || [];
 
@@ -47,5 +57,16 @@ export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
 
   const context = createDiagramCheckContextFromJson(jsonData);
   const rawIssues = diagramCheckRules.flatMap((rule) => rule.check(context));
-  return normalizeDiagramCheckIssues(rawIssues);
+
+  if (deduplicationMode === 'diagnostic') {
+    return rawIssues;
+  }
+
+  const issuesForMode = deduplicationMode === 'user-friendly'
+    ? rawIssues.filter((issue) => !issue.diagnosticOnly)
+    : rawIssues;
+
+  return normalizeDiagramCheckIssues(issuesForMode, {
+    includeSuppressed: deduplicationMode === 'diagnostic-with-suppression-markers',
+  });
 }

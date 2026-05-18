@@ -447,13 +447,14 @@ Targets sind aktuell `node` oder `edge`. Ein Handle wird indirekt ueber seine No
 Aktueller Implementierungsstand:
 
 - `DiagramCheckIssue` ist in `src/check/diagramCheckTypes.ts` um `specificity`, `fingerprint`, `suppresses` und `suppressedBy` erweitert.
-- `runDiagramCheck()` sammelt alle Issues und ruft danach zentral `normalizeDiagramCheckIssues()` aus `src/check/normalizeDiagramCheckIssues.ts` auf.
+- `DiagramCheckIssue` enthaelt ausserdem `suppressed` und `suppressedByIssueIds`, damit Diagnosemodi unterdrueckte Raw-Issues markieren koennen.
+- `runDiagramCheck()` sammelt alle Issues und ruft im Standardmodus danach zentral `normalizeDiagramCheckIssues()` aus `src/check/normalizeDiagramCheckIssues.ts` auf.
 - Alle aktuell registrierten Netzwerk-, Komponenten- und komponentenspezifischen Regeln erzeugen Fingerprint-/Prioritaetsmetadaten gemaess der Tabelle "Priorisierung der bestehenden Regeln".
 - Einige schwere Netzfehler setzen innerhalb von `runNetworkRules` weiterhin zusaetzlich `priorityBlockedNetIds`. Das ist noch als fruehe Optimierung vorhanden und verhindert bekannte Folgechecks schon vor der Normalisierung. Die zentrale Normalisierung ist aber die langfristige, regeluebergreifende Ausgabeinstanz.
 
 ## Konzept fuer eindeutige Fehlermeldungen
 
-Status: Die langfristige Fingerprint-Normalisierung ist fuer die aktuell bestehenden Regeln implementiert. Der Diagnosemodus fuer ungefilterte Raw-Issues ist noch nicht implementiert.
+Status: Die langfristige Fingerprint-Normalisierung ist fuer die aktuell bestehenden Regeln implementiert. Der schaltbare Diagnosemodus ist mit den drei Modi `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers` implementiert.
 
 ### Problem
 
@@ -574,6 +575,7 @@ Statt Regeln direkt ungefiltert an die UI zu geben, fuehrt `runDiagramCheck()` e
 Implementierungsdetails:
 
 - Die zentrale Funktion ist `normalizeDiagramCheckIssues()` in `src/check/normalizeDiagramCheckIssues.ts`.
+- `normalizeDiagramCheckIssues()` kann mit `includeSuppressed` alle Raw-Issues zurueckgeben und unterdrueckte Issues mit `suppressed`/`suppressedByIssueIds` markieren.
 - Suppression wirkt nur innerhalb desselben `fingerprint.scope` und derselben `fingerprint.key`.
 - Gleiche vollstaendige Fingerprints (`scope:key:problem`) werden auf die beste Meldung reduziert.
 - Der Vergleich fuer Duplikate nutzt Severity, dann `specificity`, dann niedrigere `priority`, dann stabile Erzeugungsreihenfolge.
@@ -674,13 +676,15 @@ Langfristig:
 - Erledigt: `DiagramCheckIssue` ist um `fingerprint`, `specificity`, `suppresses` und `suppressedBy` erweitert.
 - Erledigt: `normalizeDiagramCheckIssues()` ist zwischen Regelausfuehrung und UI-Ausgabe eingefuehrt.
 - Weiterhin gueltig: Regelimplementierungen duerfen mehrere potenzielle Issues erzeugen; die Normalisierung entscheidet, welche Meldung fuer Nutzer am besten ist.
-- Offen: Diagnosemodus, der Raw-Issues optional sichtbar macht und unterdrueckte Issues markiert.
+- Erledigt: Diagnosemodus, der Raw-Issues optional sichtbar macht und unterdrueckte Issues markiert.
 
 Damit bleibt die Regelbasis erweiterbar, ohne dass die UI bei jedem neuen Spezialcheck mehr doppelte oder widerspruechliche Meldungen zeigt.
 
 ### Schaltbarer Diagnosemodus fuer alle Issues
 
-Zusaetzlich zum normalen Nutzer-Modus sollte es einen per Schalter aktivierbaren Diagnosemodus geben, in dem keine oder nur minimale Deduplizierung stattfindet. In diesem Modus sollen sowohl allgemeine als auch spezifischere Meldungen angezeigt werden.
+Status: Implementiert in `src/check/runDiagramCheck.ts`, `src/check/normalizeDiagramCheckIssues.ts` und `src/sidebar/DiagramCheckPage.tsx`.
+
+Zusaetzlich zum normalen Nutzer-Modus gibt es einen per Schalter aktivierbaren Diagnosemodus, in dem keine oder nur minimale Deduplizierung stattfindet. In diesem Modus koennen sowohl allgemeine als auch spezifischere Meldungen angezeigt werden.
 
 Ziel:
 
@@ -690,26 +694,13 @@ Ziel:
 - Suppression-Beziehungen testen, ohne die Rohdaten zu verlieren
 - Regelentwicklung und Regressionstests einfacher machen
 
-Moegliche Namen:
+Historisch diskutierte Namen:
 
 - `SHOW_ALL_DIAGRAM_CHECK_ISSUES`
 - `ENABLE_DIAGRAM_CHECK_DIAGNOSTICS`
 - `DIAGRAM_CHECK_DEDUPLICATION_MODE`
 
-Empfohlen waere kein reiner Boolean, sondern ein Modus:
-
-```ts
-type DiagramCheckDeduplicationMode =
-  | 'user-friendly'
-  | 'diagnostic';
-```
-
-Verhalten:
-
-- `user-friendly`: Standardmodus. Issues werden normalisiert, generische Doppelmeldungen werden unterdrueckt.
-- `diagnostic`: Alle erzeugten Issues bleiben sichtbar. Optional kann die UI anzeigen, welche Issues im Standardmodus unterdrueckt wuerden.
-
-Noch hilfreicher waere ein dritter Modus:
+Implementiert ist kein reiner Boolean, sondern ein Modus:
 
 ```ts
 type DiagramCheckDeduplicationMode =
@@ -718,27 +709,33 @@ type DiagramCheckDeduplicationMode =
   | 'diagnostic-with-suppression-markers';
 ```
 
-In `diagnostic-with-suppression-markers` wuerden alle Issues angezeigt, aber unterdrueckte Issues werden markiert, z.B. mit einem Tag "wuerde im Nutzer-Modus unterdrueckt". Dadurch kann man pruefen, ob die Deduplizierung korrekt arbeitet, ohne die Rohmeldungen zu verstecken.
+Verhalten:
+
+- `user-friendly`: Standardmodus. Issues werden normalisiert, generische Doppelmeldungen werden unterdrueckt.
+- `diagnostic`: Alle erzeugten Raw-Issues bleiben sichtbar.
+- `diagnostic-with-suppression-markers`: Alle erzeugten Raw-Issues bleiben sichtbar, aber im Standardmodus unterdrueckte Issues werden mit `suppressed` und `suppressedByIssueIds` markiert. Die Sidebar zeigt dafuer einen Tag und die unterdrueckenden Issue-IDs.
 
 Moegliche Implementierung:
 
 ```ts
-const DIAGRAM_CHECK_DEDUPLICATION_MODE: DiagramCheckDeduplicationMode = 'user-friendly';
-
-export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
+export function runDiagramCheck(
+  jsonData: string,
+  options: RunDiagramCheckOptions = {},
+): DiagramCheckIssue[] {
+  const deduplicationMode = options.deduplicationMode || DEFAULT_DIAGRAM_CHECK_DEDUPLICATION_MODE;
   const rawIssues = runAllDiagramCheckRules(jsonData);
 
-  if (DIAGRAM_CHECK_DEDUPLICATION_MODE === 'diagnostic') {
+  if (deduplicationMode === 'diagnostic') {
     return rawIssues;
   }
 
   return normalizeDiagramCheckIssues(rawIssues, {
-    includeSuppressed: DIAGRAM_CHECK_DEDUPLICATION_MODE === 'diagnostic-with-suppression-markers',
+    includeSuppressed: deduplicationMode === 'diagnostic-with-suppression-markers',
   });
 }
 ```
 
-Dafuer muesste `normalizeDiagramCheckIssues()` optional nicht nur die sichtbaren Issues zurueckgeben, sondern auch Metadaten:
+Dafuer gibt `normalizeDiagramCheckIssues()` optional nicht nur die sichtbaren Issues zurueck, sondern auch Metadaten:
 
 ```ts
 type NormalizedDiagramCheckIssue = DiagramCheckIssue & {
@@ -747,13 +744,13 @@ type NormalizedDiagramCheckIssue = DiagramCheckIssue & {
 };
 ```
 
-Die UI koennte dann im Diagnosemodus zusaetzlich anzeigen:
+Die UI zeigt im Diagnosemodus zusaetzlich:
 
-- ob ein Issue im normalen Modus sichtbar waere
+- ob ein Issue im normalen Modus sichtbar waere bzw. unterdrueckt wuerde
 - durch welches spezifischere Issue es unterdrueckt wuerde
 - welchen `fingerprint` und welche `specificity` es hat
 
-Der Schalter sollte nicht prominent fuer normale Nutzer sichtbar sein. Geeignete Orte:
+Der Schalter ist aktuell in der Check-Sidebar direkt unter dem Pruefbutton sichtbar. Falls er spaeter zu technisch fuer normale Nutzer wirkt, kann er in einen Debug-/Regelbereich verschoben werden. Geeignete Alternativen:
 
 - Entwickler-Konstante neben `SHOW_NET_DEBUG`
 - Feature-Flag-Datei fuer Diagramm-Checks
@@ -765,12 +762,14 @@ Die Sidebar `DiagramCheckPage` bietet aktuell:
 
 - Beta-Hinweis
 - Button zum manuellen Starten
+- Schalter fuer die drei Deduplizierungs-/Diagnosemodi `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers`
 - Regeluebersicht im Modal
 - leeren Zustand vor dem ersten Check
 - Erfolgsmeldung, wenn keine Issues gefunden wurden
 - Collapse-Liste der Issues mit Severity-Tag
 - Anzeige von Beschreibung, Empfehlung und betroffenen Elementen
 - Highlighting der betroffenen Nodes und Edges beim Aufklappen eines Issues
+- Diagnoseanzeige fuer Fingerprint, Specificity und Suppression-Quelle, wenn ein Diagnosemodus aktiv ist
 
 Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er lokal auf `true` gesetzt wird, zeigt die Sidebar alle Elementary, Fused und Component-Linked Nets inklusive Klassifikationen, Pins, Wires und Highlight-Button.
 
@@ -786,7 +785,14 @@ Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er loka
 
 ## Vorschlaege fuer weitere Regeln
 
-Die folgenden Regeln sind noch nicht implementiert. Sie sind als fachliche und technische Kandidaten fuer naechste Ausbaustufen gedacht.
+Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste Ausbaustufen gedacht.
+
+Aktueller Stand:
+
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
+- Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
+- Einige Regeln sind konservativ umgesetzt, um False Positives zu reduzieren: passive Verbinder wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` werden z.B. bei `mainsWireConnectedToLowVoltageComponent` nicht als ungeeignete Endkomponente bewertet.
 
 ### Netz- und Signalregeln
 
@@ -857,7 +863,7 @@ Moegliche Logik:
 - Netze mit nur `dig_in`-Handles und ohne erreichbare Quelle als Eingang-ohne-Quelle melden.
 - Fuer LED-Komponenten die physischen Namen `DI`, `DO`, `BI`, `BO`, `CI`, `CO` in der Meldung hervorheben.
 
-#### `mixedDigitalSignalTypes`
+#### `mixedDigitalSignalTypes` NICHT IMPLEMENTIEREN
 
 Fehler oder Warnung, wenn Main-Data, Backup-Data und Clock unplausibel miteinander vermischt werden.
 
@@ -963,12 +969,12 @@ Fehler, wenn ein gepolter Kondensator mit Plus an GND oder Minus an Supply anges
 
 Moegliche Logik:
 
-- Elektrolytkondensatoren ueber technische ID oder Metadaten erkennen.
+- Elektrolytkondensatoren ueber technische ID erkennen.
 - Plus-Handle darf nicht in `gnd_net_type` liegen.
 - Minus-Handle sollte in `gnd_net_type` liegen oder zumindest nicht in einem Supply-Netz mit positiver Quelle.
 - Fuer Keramikkondensatoren nicht anwenden.
 
-#### `levelShifterSupplyMismatch`
+#### `levelShifterSupplyMismatch` NICHT IMPLEMENTIEREN
 
 Fehler oder Warnung, wenn ein Level-Shifter mit unpassender Versorgung fuer seine Signalpegel verwendet wird.
 
@@ -1032,9 +1038,9 @@ Moegliche Logik:
 
 - Wires in Netzen mit `suppl_net_type` oder `gnd_net_type` betrachten.
 - Edge-Daten auf physikalische Laenge und Querschnitt pruefen.
-- Severity `info` fuer kleine Projekte, `warning` wenn Simulation aktiviert wird.
+- Severity `warning`
 
-#### `powerWireCrossSectionTooSmall`
+#### `powerWireCrossSectionTooSmall` NICHT IMPLEMENTIEREN (später nahc simulation)
 
 Warnung, wenn ein Power-Wire anhand bekannter Lastdaten wahrscheinlich zu duenn ist.
 
@@ -1046,9 +1052,9 @@ Moegliche Logik:
 - Drahtquerschnitt gegen geschaetzte Maximalstroeme pruefen.
 - Als konservative Warnung formulieren, solange keine echte Simulation laeuft.
 
-#### `duplicateParallelWire`
+#### `duplicateParallelWire` 
 
-Info oder Warnung, wenn zwei identische Handles durch mehrere Wires parallel verbunden sind.
+Warnung, wenn zwei identische Handles durch mehrere Wires parallel verbunden sind.
 
 Das kann absichtlich sein, ist in einem Diagramm aber oft ein versehentlich doppelt gezogener Draht.
 
@@ -1056,7 +1062,7 @@ Moegliche Logik:
 
 - Edges nach normalisiertem Paar `(source, sourceHandle, target, targetHandle)` gruppieren.
 - Gegenrichtung als gleiches Paar behandeln.
-- Wenn mehr als eine Wire in derselben Gruppe liegt, Info oder Warnung erzeugen.
+- Wenn mehr als eine Wire in derselben Gruppe liegt, Warnung erzeugen.
 
 #### `wireConnectedToHiddenOrMissingHandle`
 
@@ -1150,15 +1156,15 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 
 ## Empfohlene Umsetzungsreihenfolge
 
-Als praktische Roadmap:
+Als praktische Roadmap ist diese Liste historisch zu lesen: Alle nicht mit `NICHT IMPLEMENTIEREN` markierten Regeln aus dieser Tabelle sind inzwischen umgesetzt. Die drei bewusst ausgelassenen Regeln bleiben als spaetere bzw. explizit ausgeschlossene Kandidaten stehen.
 
 1. `wireConnectedToHiddenOrMissingHandle`: schafft Vertrauen in den Netzaufbau und verhindert stille Fehler.
 2. `mainsWireConnectedToLowVoltageComponent`: schliesst eine wichtige Sicherheitsluecke, weil L/N/PE auf reine Kleinspannungs-Eingaenge nicht immer ueber Netzklassifikation auffaellt.
 3. `groundAndSupplyPolaritySwapped`: kritischer, haeufiger Spezialfall mit klarerer Meldung als `mixedClassifications`.
-4. `mixedDigitalSignalTypes`: wichtig fuer LED-Projekte mit Data, Clock und Backup.
+4. `mixedDigitalSignalTypes`: NICHT IMPLEMENTIEREN.
 5. `componentHasOnlyOneTerminalConnected`: schnell implementierbar und erkennt viele unvollstaendige Bauteile.
 6. `supplyVoltageUnknown`: erklaert, warum Spannungschecks nicht greifen.
 7. `fuseBypassed`: wichtig fuer Schutzfunktionen, sobald Fuse-Boards genutzt werden.
 8. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
 
-Weitere Mains-Regeln wie `mainsConnectorIncomplete` und `protectiveEarthMissingForMetalOrMainsDevice` haben fachlich ebenfalls hohe Anzeigeprioritaet, sind aber teilweise schon durch `mainsInputMissing` abgedeckt und koennen deshalb nach der direkten Low-Voltage-Fehlanschlussregel folgen.
+Weitere Mains-Regeln wie `mainsConnectorIncomplete` und `protectiveEarthMissingForMetalOrMainsDevice` sind umgesetzt. `levelShifterSupplyMismatch` und `powerWireCrossSectionTooSmall` bleiben wegen der `NICHT IMPLEMENTIEREN`-Markierung bewusst offen.

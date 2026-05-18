@@ -111,6 +111,17 @@
                                   "issueCount":  "{{count}} Ergebnis(se) gefunden",
                                   "recommendation":  "Empfehlung",
                                   "affectedElements":  "Betroffene Elemente",
+                                  "diagnostics":  {
+                                                      "modeLabel":  "Diagnosemodus",
+                                                      "suppressedTag":  "unterdrueckt",
+                                                      "specificity":  "Spezifitaet {{value}}",
+                                                      "suppressedBy":  "Unterdrueckt durch: {{ids}}",
+                                                      "mode":  {
+                                                                   "user-friendly":  "Normal",
+                                                                   "diagnostic":  "Alle Issues",
+                                                                   "diagnostic-with-suppression-markers":  "Alle + Marker"
+                                                               }
+                                                  },
                                   "severity":  {
                                                    "error":  "Fehler",
                                                    "warning":  "Warnung",
@@ -147,6 +158,11 @@
                                                            "signal":  "Signal",
                                                            "mainsInput":  "Netzspannungs"
                                                        },
+                                  "invalidWireReasons":  {
+                                                             "missing-node":  "Komponente fehlt",
+                                                             "missing-handle":  "Pin fehlt",
+                                                             "hidden-handle":  "Pin ist ausgeblendet"
+                                                         },
                                   "issues":  {
                                                  "diagramEmpty":  {
                                                                       "title":  "Diagramm ist leer",
@@ -237,6 +253,84 @@
                                                                                                                    "shortDescription":  "Die Spannung der Quelle passt nicht zu allen Supply-Eingaengen im Netz.",
                                                                                                                    "description":  "Die Quelle liefert {{voltage}} V, aber mindestens ein Supply-Eingang erlaubt diesen Bereich nicht: {{inputs}}.",
                                                                                                                    "recommendation":  "Passe die Versorgungsspannung an oder trenne Komponenten mit unterschiedlichen Spannungsbereichen."
+                                                                                                               },
+                                                                                     "wireConnectedToHiddenOrMissingHandle":  {
+                                                                                                                                "title":  "Wire zeigt auf fehlenden Pin",
+                                                                                                                                "shortDescription":  "Eine Verbindung endet an einem fehlenden oder ausgeblendeten Pin.",
+                                                                                                                                "description":  "Wire {{wire}} hat auf der Seite {{side}} den Pin {{handle}} nicht elektrisch erreicht: {{reason}}.",
+                                                                                                                                "recommendation":  "Verbinde das Wire neu mit einem sichtbaren, vorhandenen Pin."
+                                                                                                                            },
+                                                                                     "mainsWireConnectedToLowVoltageComponent":  {
+                                                                                                                                     "title":  "Netzspannung an ungeeigneter Komponente",
+                                                                                                                                     "shortDescription":  "Ein L/N/PE-Netz ist mit einem Nicht-Netzspannungsanschluss verbunden.",
+                                                                                                                                     "description":  "{{handle}} an {{component}} liegt in einem Netzspannungsnetz, ist aber kein L/N/PE-Anschluss.",
+                                                                                                                                     "recommendation":  "Trenne diese Verbindung und nutze nur dafuer vorgesehene Netzspannungsanschluesse."
+                                                                                                                                 },
+                                                                                     "groundAndSupplyPolaritySwapped":  {
+                                                                                                                             "title":  "Plus und GND verbunden",
+                                                                                                                             "shortDescription":  "Ein Netz enthaelt gleichzeitig Ground und DC-Versorgung.",
+                                                                                                                             "description":  "In diesem Netz sind GND- und Supply-Anschluesse verbunden. Das ist wahrscheinlich eine vertauschte Polaritaet oder ein Kurzschluss.",
+                                                                                                                             "recommendation":  "Trenne Plus- und GND-Verbindungen und pruefe die Polung."
+                                                                                                                         },
+                                                                                     "supplyVoltageUnknown":  {
+                                                                                                                  "title":  "Supply-Spannung unbekannt",
+                                                                                                                  "shortDescription":  "Ein Supply-Netz hat eine Quelle, deren Spannung nicht bestimmt werden kann.",
+                                                                                                                  "description":  "Die Versorgung aus {{source}} versorgt Eingange, aber der Spannungswert ist nicht aufloesbar.",
+                                                                                                                  "recommendation":  "Setze den Spannungswert der Quelle oder das abhaengige Feld."
+                                                                                                              },
+                                                                                     "signalOutputWithoutConsumer":  {
+                                                                                                                          "title":  "{{signal}}-Ausgang ohne Verbraucher",
+                                                                                                                          "shortDescription":  "Ein Signalausgang ist verdrahtet, erreicht aber keinen passenden Eingang.",
+                                                                                                                          "description":  "{{source}} ist angeschlossen, aber es wurde kein passender {{signal}}-Eingang gefunden.",
+                                                                                                                          "recommendation":  "Fuehre das Signal zu einem passenden Eingang oder entferne die ungenutzte Verbindung."
+                                                                                                                      },
+                                                                                     "dataDirectionWrong":  {
+                                                                                                                "title":  "Data-Richtung unplausibel",
+                                                                                                                "shortDescription":  "Ein LED-Datennetz verbindet nur Ausgaenge oder nur Eingaenge.",
+                                                                                                                "description":  "Diese Data-Anschluesse bilden keine plausible Quelle-Senke-Verbindung: {{handles}}.",
+                                                                                                                "recommendation":  "Verbinde DATA_out mit DATA_in in der korrekten Richtung."
+                                                                                                            },
+                                                                                     "clockedLedClockMissing":  {
+                                                                                                                     "title":  "Clock-Leitung fehlt oder passt nicht",
+                                                                                                                     "shortDescription":  "Ein Clock-LED-Streifen hat Data, aber keine passende Clock-Verbindung.",
+                                                                                                                     "description":  "{{component}} benoetigt zu DATA eine passende Clock-Leitung. Bei LED-zu-LED muss Clock vom selben vorgelagerten Segment kommen.",
+                                                                                                                     "recommendation":  "Verbinde Clock_in mit dem passenden Clock-Ausgang."
+                                                                                                                 },
+                                                                                     "digitalBackupPairMismatch":  {
+                                                                                                                        "title":  "Backup-Datenleitung passt nicht",
+                                                                                                                        "shortDescription":  "Backup_in kommt nicht vom passenden Backup_out des vorgelagerten LED-Streifens.",
+                                                                                                                        "description":  "{{component}} wird ueber Data von {{source}} gespeist, aber Backup kommt nicht vom selben Streifen.",
+                                                                                                                        "recommendation":  "Verbinde Backup_in mit Backup_out desselben vorgelagerten Streifens."
+                                                                                                                    },
+                                                                                     "digitalBackupInputTiedToData":  {
+                                                                                                                          "title":  "Backup_in an Data angeschlossen",
+                                                                                                                          "shortDescription":  "Backup_in ist toleriert am Data-Netz, empfohlen ist aber GND.",
+                                                                                                                          "description":  "{{component}} ist kein nachfolgender Streifen. Backup_in liegt am Data-Netz statt an GND.",
+                                                                                                                          "recommendation":  "Verbinde Backup_in besser mit GND."
+                                                                                                                      },
+                                                                                     "digitalBackupInputNotGrounded":  {
+                                                                                                                           "title":  "Backup_in nicht auf GND",
+                                                                                                                           "shortDescription":  "Backup_in eines ersten LED-Streifens liegt nicht auf GND.",
+                                                                                                                           "description":  "{{component}} wird nicht von einem vorherigen LED-Streifen gespeist. Backup_in muss auf GND liegen.",
+                                                                                                                           "recommendation":  "Verbinde Backup_in mit GND."
+                                                                                                                       },
+                                                                                     "fuseBypassed":  {
+                                                                                                          "title":  "Sicherung ueberbrueckt",
+                                                                                                          "shortDescription":  "Ein Fuse-Eingang und -Ausgang sind extern direkt verbunden.",
+                                                                                                          "description":  "Bei {{component}} sind beide Seiten der Sicherung extern im selben Netz. Die Schutzfunktion ist damit aufgehoben.",
+                                                                                                          "recommendation":  "Entferne die externe Bruecke ueber die Sicherung."
+                                                                                                      },
+                                                                                     "wireWithoutPhysicalParameters":  {
+                                                                                                                             "title":  "Power-Wire ohne physikalische Daten",
+                                                                                                                             "shortDescription":  "Eine Power/GND-Leitung hat keine Laenge oder keinen Querschnitt.",
+                                                                                                                             "description":  "Diese Leitung liegt in einem Versorgungs- oder GND-Netz, aber Laenge oder Querschnitt fehlen.",
+                                                                                                                             "recommendation":  "Setze Laenge und Querschnitt fuer diese Leitung."
+                                                                                                                         },
+                                                                                     "duplicateParallelWire":  {
+                                                                                                                     "title":  "Doppelte parallele Verbindung",
+                                                                                                                     "shortDescription":  "Mehrere Wires verbinden dieselben zwei Pins.",
+                                                                                                                     "description":  "{{count}} Wires verbinden dasselbe Pin-Paar.",
+                                                                                                                     "recommendation":  "Entferne versehentlich doppelt gezogene Wires."
                                                                                                                }
                                                                                  }
                                                                   },
@@ -268,6 +362,66 @@
                                                                                                                  "description":  "{{component}} besitzt {{label}}-Eingaenge, aber mindestens einer davon ist nicht mit einem passenden {{label}}-Netz verbunden.",
                                                                                                                  "recommendation":  "Verbinde jeden {{label}}-Eingang dieser Komponente mit dem passenden {{label}}-Netz."
                                                                                                              },
+                                                                                       "unusedRequiredFunctionalGroup":  {
+                                                                                                                              "title":  "Genutzte Funktionsgruppe unvollstaendig",
+                                                                                                                              "shortDescription":  "Eine LED-Eingangsgruppe ist teilweise angeschlossen.",
+                                                                                                                              "description":  "{{component}} hat einen genutzten Data-Eingang, aber Versorgung oder GND der Gruppe fehlen.",
+                                                                                                                              "recommendation":  "Verbinde Data, Versorgung und GND der LED-Eingangsgruppe vollstaendig."
+                                                                                                                          },
+                                                                                       "componentHasOnlyOneTerminalConnected":  {
+                                                                                                                                     "title":  "Nur ein Anschluss verbunden",
+                                                                                                                                     "shortDescription":  "Eine Zweipol-Komponente hat nur einen angeschlossenen Pin.",
+                                                                                                                                     "description":  "{{component}} ist nur an {{handle}} verbunden.",
+                                                                                                                                     "recommendation":  "Verbinde beide Anschluesse oder entferne die ungenutzte Komponente."
+                                                                                                                                 },
+                                                                                       "capacitorPolarityMismatch":  {
+                                                                                                                           "title":  "Kondensator-Polung falsch",
+                                                                                                                           "shortDescription":  "Ein gepolter Kondensator ist wahrscheinlich verpolt.",
+                                                                                                                           "description":  "{{component}} hat Plus an GND oder Minus an Supply.",
+                                                                                                                           "recommendation":  "Verbinde Plus mit der positiven Versorgung und Minus mit GND."
+                                                                                                                       },
+                                                                                       "mainsConnectorIncomplete":  {
+                                                                                                                         "title":  "Netzanschluss unvollstaendig",
+                                                                                                                         "shortDescription":  "Eine Netzspannungs-Komponente hat nur L oder nur N angeschlossen.",
+                                                                                                                         "description":  "{{component}} hat einen unvollstaendigen L/N-Anschluss.",
+                                                                                                                         "recommendation":  "Verbinde L und N korrekt oder trenne den Netzanschluss komplett."
+                                                                                                                     },
+                                                                                       "protectiveEarthMissingForMetalOrMainsDevice":  {
+                                                                                                                                           "title":  "Schutzleiter fehlt",
+                                                                                                                                           "shortDescription":  "Eine Netzspannungs-Komponente mit PE-Anschluss ist ohne Schutzleiter.",
+                                                                                                                                           "description":  "{{component}} nutzt Netzspannung, aber PE ist nicht korrekt verbunden.",
+                                                                                                                                           "recommendation":  "Verbinde PE mit dem Schutzleiter-Netz."
+                                                                                                                                       },
+                                                                                       "supplyInputOnlyInternallyPowered":  {
+                                                                                                                                "title":  "Supply nur intern weitergereicht",
+                                                                                                                                "shortDescription":  "Eine Komponente scheint nur ueber interne Supply-Pins verbunden zu sein.",
+                                                                                                                                "description":  "{{component}} hat Supply-Eingaenge, aber keine externe Spannungsquelle ist erreichbar.",
+                                                                                                                                "recommendation":  "Verbinde die Versorgung mit einer externen Quelle."
+                                                                                                                            },
+                                                                                       "fuseCurrentMissingOrUnderspecified":  {
+                                                                                                                                  "title":  "Sicherungswert fehlt",
+                                                                                                                                  "shortDescription":  "Eine Sicherung hat keinen erkennbaren Nennstrom.",
+                                                                                                                                  "description":  "{{component}} enthaelt eine Sicherung ohne auswertbaren Nennstrom.",
+                                                                                                                                  "recommendation":  "Setze oder pruefe den Sicherungswert."
+                                                                                                                              },
+                                                                                       "isolatedComponent":  {
+                                                                                                               "title":  "Komponente isoliert",
+                                                                                                               "shortDescription":  "Eine technische Komponente hat keine angeschlossenen Wires.",
+                                                                                                               "description":  "{{component}} ist im Diagramm nicht verdrahtet.",
+                                                                                                               "recommendation":  "Verdrahte die Komponente oder entferne sie, falls sie nicht benoetigt wird."
+                                                                                                           },
+                                                                                       "componentDefinitionIncompleteForChecks":  {
+                                                                                                                                    "title":  "Komponentendefinition unvollstaendig",
+                                                                                                                                    "shortDescription":  "Ein Pin hat fuer Checks unvollstaendige Metadaten.",
+                                                                                                                                    "description":  "{{handle}} an {{component}} hat fehlende oder unvollstaendige Check-Metadaten.",
+                                                                                                                                    "recommendation":  "Ergaenze functions, Spannungsgrenzen oder Ausgangsspannungen in der Komponentendefinition."
+                                                                                                                                },
+                                                                                       "ambiguousMultiFunctionHandle":  {
+                                                                                                                             "title":  "Mehrdeutige Pin-Funktionen",
+                                                                                                                             "shortDescription":  "Ein Pin hat mehrere checkrelevante Funktionen.",
+                                                                                                                             "description":  "{{handle}} hat diese Funktionen: {{functions}}.",
+                                                                                                                             "recommendation":  "Pruefe, ob diese Funktionskombination bewusst und fuer Checks eindeutig ist."
+                                                                                                                         },
                                                                                        "sn74Ahct125nUsedChannelInputMissing":  {
                                                                                                                  "title":  "SN74AHCT125N-Kanal-Eingang wird nicht angesteuert",
                                                                                                                  "shortDescription":  "Ein verwendeter Buffer-Ausgang hat einen Eingang ohne digitale Ausgangsquelle oder einen /OE-Pin, der weder digital angesteuert noch auf GND gezogen ist.",

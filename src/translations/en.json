@@ -111,6 +111,17 @@
                                   "issueCount":  "{{count}} result(s) found",
                                   "recommendation":  "Recommendation",
                                   "affectedElements":  "Affected elements",
+                                  "diagnostics":  {
+                                                      "modeLabel":  "Diagnostics mode",
+                                                      "suppressedTag":  "suppressed",
+                                                      "specificity":  "Specificity {{value}}",
+                                                      "suppressedBy":  "Suppressed by: {{ids}}",
+                                                      "mode":  {
+                                                                   "user-friendly":  "Normal",
+                                                                   "diagnostic":  "All issues",
+                                                                   "diagnostic-with-suppression-markers":  "All + markers"
+                                                               }
+                                                  },
                                   "severity":  {
                                                    "error":  "Error",
                                                    "warning":  "Warning",
@@ -147,6 +158,11 @@
                                                            "signal":  "signal",
                                                            "mainsInput":  "mains"
                                                        },
+                                  "invalidWireReasons":  {
+                                                             "missing-node":  "component is missing",
+                                                             "missing-handle":  "pin is missing",
+                                                             "hidden-handle":  "pin is hidden"
+                                                         },
                                   "issues":  {
                                                  "diagramEmpty":  {
                                                                       "title":  "Diagram is empty",
@@ -237,6 +253,84 @@
                                                                                                                    "shortDescription":  "The source voltage does not match all supply inputs in the net.",
                                                                                                                    "description":  "The source provides {{voltage}} V, but at least one supply input does not allow this range: {{inputs}}.",
                                                                                                                    "recommendation":  "Adjust the supply voltage or separate components with different voltage ranges."
+                                                                                                               },
+                                                                                     "wireConnectedToHiddenOrMissingHandle":  {
+                                                                                                                                "title":  "Wire points to a missing pin",
+                                                                                                                                "shortDescription":  "A wire ends at a missing or hidden pin.",
+                                                                                                                                "description":  "Wire {{wire}} cannot electrically reach pin {{handle}} on the {{side}} side: {{reason}}.",
+                                                                                                                                "recommendation":  "Reconnect the wire to a visible, existing pin."
+                                                                                                                            },
+                                                                                     "mainsWireConnectedToLowVoltageComponent":  {
+                                                                                                                                     "title":  "Mains connected to unsuitable component",
+                                                                                                                                     "shortDescription":  "An L/N/PE net is connected to a non-mains terminal.",
+                                                                                                                                     "description":  "{{handle}} on {{component}} is in a mains net, but is not an L/N/PE terminal.",
+                                                                                                                                     "recommendation":  "Remove this connection and use only terminals intended for mains voltage."
+                                                                                                                                 },
+                                                                                     "groundAndSupplyPolaritySwapped":  {
+                                                                                                                             "title":  "Positive supply and GND are connected",
+                                                                                                                             "shortDescription":  "A net contains both ground and DC supply.",
+                                                                                                                             "description":  "GND and supply terminals are connected in this net. This is likely reversed polarity or a short circuit.",
+                                                                                                                             "recommendation":  "Separate positive supply and GND connections and check polarity."
+                                                                                                                         },
+                                                                                     "supplyVoltageUnknown":  {
+                                                                                                                  "title":  "Supply voltage is unknown",
+                                                                                                                  "shortDescription":  "A supply net has a source whose voltage cannot be resolved.",
+                                                                                                                  "description":  "The supply from {{source}} feeds inputs, but the voltage value cannot be resolved.",
+                                                                                                                  "recommendation":  "Set the voltage value on the source or dependent field."
+                                                                                                              },
+                                                                                     "signalOutputWithoutConsumer":  {
+                                                                                                                          "title":  "{{signal}} output without consumer",
+                                                                                                                          "shortDescription":  "A signal output is wired but reaches no matching input.",
+                                                                                                                          "description":  "{{source}} is connected, but no matching {{signal}} input was found.",
+                                                                                                                          "recommendation":  "Route the signal to a matching input or remove the unused connection."
+                                                                                                                      },
+                                                                                     "dataDirectionWrong":  {
+                                                                                                                "title":  "Data direction is implausible",
+                                                                                                                "shortDescription":  "An LED data net connects only outputs or only inputs.",
+                                                                                                                "description":  "These data terminals do not form a plausible source-to-sink connection: {{handles}}.",
+                                                                                                                "recommendation":  "Connect DATA_out to DATA_in in the correct direction."
+                                                                                                            },
+                                                                                     "clockedLedClockMissing":  {
+                                                                                                                     "title":  "Clock line is missing or mismatched",
+                                                                                                                     "shortDescription":  "A clocked LED strip has data but no matching clock connection.",
+                                                                                                                     "description":  "{{component}} needs a matching clock line for DATA. In LED-to-LED chaining, clock must come from the same upstream segment.",
+                                                                                                                     "recommendation":  "Connect Clock_in to the matching clock output."
+                                                                                                                 },
+                                                                                     "digitalBackupPairMismatch":  {
+                                                                                                                        "title":  "Backup data line does not match",
+                                                                                                                        "shortDescription":  "Backup_in does not come from the matching Backup_out of the upstream LED strip.",
+                                                                                                                        "description":  "{{component}} is fed by data from {{source}}, but backup does not come from the same strip.",
+                                                                                                                        "recommendation":  "Connect Backup_in to Backup_out of the same upstream strip."
+                                                                                                                    },
+                                                                                     "digitalBackupInputTiedToData":  {
+                                                                                                                          "title":  "Backup_in is tied to data",
+                                                                                                                          "shortDescription":  "Backup_in is tolerated on the data net, but GND is recommended.",
+                                                                                                                          "description":  "{{component}} is not a downstream strip. Backup_in is on the data net instead of GND.",
+                                                                                                                          "recommendation":  "Prefer connecting Backup_in to GND."
+                                                                                                                      },
+                                                                                     "digitalBackupInputNotGrounded":  {
+                                                                                                                           "title":  "Backup_in is not tied to GND",
+                                                                                                                           "shortDescription":  "Backup_in of a first LED strip is not connected to GND.",
+                                                                                                                           "description":  "{{component}} is not fed by a previous LED strip. Backup_in must be tied to GND.",
+                                                                                                                           "recommendation":  "Connect Backup_in to GND."
+                                                                                                                       },
+                                                                                     "fuseBypassed":  {
+                                                                                                          "title":  "Fuse is bypassed",
+                                                                                                          "shortDescription":  "A fuse input and output are directly connected externally.",
+                                                                                                          "description":  "Both sides of the fuse in {{component}} are externally in the same net. The protection function is bypassed.",
+                                                                                                          "recommendation":  "Remove the external bridge across the fuse."
+                                                                                                      },
+                                                                                     "wireWithoutPhysicalParameters":  {
+                                                                                                                             "title":  "Power wire has no physical data",
+                                                                                                                             "shortDescription":  "A power/GND wire has no length or cross section.",
+                                                                                                                             "description":  "This wire is in a supply or GND net, but length or cross section is missing.",
+                                                                                                                             "recommendation":  "Set length and cross section for this wire."
+                                                                                                                         },
+                                                                                     "duplicateParallelWire":  {
+                                                                                                                     "title":  "Duplicate parallel connection",
+                                                                                                                     "shortDescription":  "Multiple wires connect the same two pins.",
+                                                                                                                     "description":  "{{count}} wires connect the same pin pair.",
+                                                                                                                     "recommendation":  "Remove accidentally duplicated wires."
                                                                                                                }
                                                                                  }
                                                                   },
@@ -268,6 +362,66 @@
                                                                                                                  "description":  "{{component}} has {{label}} inputs, but at least one of them is not connected to a matching {{label}} net.",
                                                                                                                  "recommendation":  "Connect every {{label}} input of this component to the matching {{label}} net."
                                                                                                              },
+                                                                                       "unusedRequiredFunctionalGroup":  {
+                                                                                                                              "title":  "Used functional group is incomplete",
+                                                                                                                              "shortDescription":  "An LED input group is only partially connected.",
+                                                                                                                              "description":  "{{component}} has a used data input, but supply or GND for that group is missing.",
+                                                                                                                              "recommendation":  "Connect data, supply, and GND for the LED input group."
+                                                                                                                          },
+                                                                                       "componentHasOnlyOneTerminalConnected":  {
+                                                                                                                                     "title":  "Only one terminal is connected",
+                                                                                                                                     "shortDescription":  "A two-terminal component has only one connected pin.",
+                                                                                                                                     "description":  "{{component}} is connected only at {{handle}}.",
+                                                                                                                                     "recommendation":  "Connect both terminals or remove the unused component."
+                                                                                                                                 },
+                                                                                       "capacitorPolarityMismatch":  {
+                                                                                                                           "title":  "Capacitor polarity is wrong",
+                                                                                                                           "shortDescription":  "A polarized capacitor is likely reversed.",
+                                                                                                                           "description":  "{{component}} has plus on GND or minus on supply.",
+                                                                                                                           "recommendation":  "Connect plus to positive supply and minus to GND."
+                                                                                                                       },
+                                                                                       "mainsConnectorIncomplete":  {
+                                                                                                                         "title":  "Mains connection is incomplete",
+                                                                                                                         "shortDescription":  "A mains component has only L or only N connected.",
+                                                                                                                         "description":  "{{component}} has an incomplete L/N connection.",
+                                                                                                                         "recommendation":  "Connect L and N correctly or disconnect mains completely."
+                                                                                                                     },
+                                                                                       "protectiveEarthMissingForMetalOrMainsDevice":  {
+                                                                                                                                           "title":  "Protective earth is missing",
+                                                                                                                                           "shortDescription":  "A mains component with PE is missing protective earth.",
+                                                                                                                                           "description":  "{{component}} uses mains voltage, but PE is not connected correctly.",
+                                                                                                                                           "recommendation":  "Connect PE to the protective earth net."
+                                                                                                                                       },
+                                                                                       "supplyInputOnlyInternallyPowered":  {
+                                                                                                                                "title":  "Supply is only internally forwarded",
+                                                                                                                                "shortDescription":  "A component appears connected only through internal supply pins.",
+                                                                                                                                "description":  "{{component}} has supply inputs, but no external voltage source is reachable.",
+                                                                                                                                "recommendation":  "Connect the supply to an external source."
+                                                                                                                            },
+                                                                                       "fuseCurrentMissingOrUnderspecified":  {
+                                                                                                                                  "title":  "Fuse rating is missing",
+                                                                                                                                  "shortDescription":  "A fuse has no recognizable nominal current.",
+                                                                                                                                  "description":  "{{component}} contains a fuse without an evaluable nominal current.",
+                                                                                                                                  "recommendation":  "Set or check the fuse rating."
+                                                                                                                              },
+                                                                                       "isolatedComponent":  {
+                                                                                                               "title":  "Component is isolated",
+                                                                                                               "shortDescription":  "A technical component has no connected wires.",
+                                                                                                               "description":  "{{component}} is not wired in the diagram.",
+                                                                                                               "recommendation":  "Wire the component or remove it if it is not needed."
+                                                                                                           },
+                                                                                       "componentDefinitionIncompleteForChecks":  {
+                                                                                                                                    "title":  "Component definition is incomplete",
+                                                                                                                                    "shortDescription":  "A pin has incomplete metadata for checks.",
+                                                                                                                                    "description":  "{{handle}} on {{component}} has missing or incomplete check metadata.",
+                                                                                                                                    "recommendation":  "Add functions, voltage limits, or output voltage data in the component definition."
+                                                                                                                                },
+                                                                                       "ambiguousMultiFunctionHandle":  {
+                                                                                                                             "title":  "Ambiguous pin functions",
+                                                                                                                             "shortDescription":  "A pin has multiple check-relevant functions.",
+                                                                                                                             "description":  "{{handle}} has these functions: {{functions}}.",
+                                                                                                                             "recommendation":  "Check whether this function combination is intentional and unambiguous for checks."
+                                                                                                                         },
                                                                                        "sn74Ahct125nUsedChannelInputMissing":  {
                                                                                                                  "title":  "SN74AHCT125N channel input is not driven",
                                                                                                                  "shortDescription":  "A used buffer output has an input without a digital output source or an /OE pin that is neither digitally driven nor tied to GND.",

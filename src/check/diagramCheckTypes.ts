@@ -13,6 +13,11 @@ export type DiagramCheckIssueFingerprint = {
   problem: string;
 };
 
+export type DiagramCheckDeduplicationMode =
+  | 'user-friendly'
+  | 'diagnostic'
+  | 'diagnostic-with-suppression-markers';
+
 export type DiagramCheckIssue = {
   id: string;
   severity: DiagramCheckSeverity;
@@ -21,6 +26,9 @@ export type DiagramCheckIssue = {
   suppresses?: string[];
   suppressedBy?: string[];
   fingerprint?: DiagramCheckIssueFingerprint;
+  suppressed?: boolean;
+  suppressedByIssueIds?: string[];
+  diagnosticOnly?: boolean;
   title: string;
   shortDescription: string;
   description: string;

@@ -2,7 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 
 import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
-import type { CheckHandle, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
+import type { CheckHandle, CheckInvalidWire, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
 import { runComponentSpecificRules } from './componentSpecificRules';
 import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarget } from './diagramCheckTypes';
@@ -33,6 +33,7 @@ type IssueOptions = {
   fingerprint?: DiagramCheckIssueFingerprint;
   suppresses?: string[];
   suppressedBy?: string[];
+  diagnosticOnly?: boolean;
 };
 
 const checkText = (key: string, values?: TranslationValues) => (
@@ -128,6 +129,7 @@ const issue = (
   fingerprint: options?.fingerprint,
   suppresses: options?.suppresses,
   suppressedBy: options?.suppressedBy,
+  diagnosticOnly: options?.diagnosticOnly,
   title,
   shortDescription,
   description,
@@ -159,11 +161,19 @@ const hasFunction = (handle: CheckHandle, fn: string) => (
   handle.functions.includes(fn as never)
 );
 
+const isTechnicalComponent = (node: Node<ComponentDataType>) => (
+  !['InfoNode', 'LineBoxNode', 'WireInfoNode'].includes(node.data.technicalID)
+);
+
+const isPassiveConnectorComponent = (node: Node<ComponentDataType>) => (
+  ['SolderJoint', 'WAGO_2X', 'WAGO_3X'].includes(node.data.technicalID)
+);
+
 const diagramIssueOptions = (
   problem: string,
   specificity: number,
   priority: number,
-  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy' | 'diagnosticOnly'>,
 ): IssueOptions => ({
   priority,
   specificity,
@@ -180,7 +190,7 @@ const netIssueOptions = (
   problem: string,
   specificity: number,
   priority: number,
-  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy' | 'diagnosticOnly'>,
 ): IssueOptions => ({
   priority,
   specificity,
@@ -197,7 +207,7 @@ const componentIssueOptions = (
   problem: string,
   specificity: number,
   priority: number,
-  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy' | 'diagnosticOnly'>,
 ): IssueOptions => ({
   priority,
   specificity,
@@ -214,13 +224,30 @@ const handleIssueOptions = (
   problem: string,
   specificity: number,
   priority: number,
-  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy' | 'diagnosticOnly'>,
 ): IssueOptions => ({
   priority,
   specificity,
   fingerprint: {
     scope: 'handle',
     key: handle.key,
+    problem,
+  },
+  ...extra,
+});
+
+const edgeIssueOptions = (
+  edge: Edge<EdgeDataType>,
+  problem: string,
+  specificity: number,
+  priority: number,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy' | 'diagnosticOnly'>,
+): IssueOptions => ({
+  priority,
+  specificity,
+  fingerprint: {
+    scope: 'edge',
+    key: edge.id,
     problem,
   },
   ...extra,
@@ -518,8 +545,694 @@ const shouldCheckDigitalSignalVoltage = (
   (net.classifications.length === 0 && digitalSources.length > 0)
 );
 
-const runNetworkRules = (context: DiagramCheckContext) => {
+const mainsFunctions = ['line_in', 'line_out', 'neutral_in', 'neutral_out', 'pe_in', 'pe_out'];
+
+const hasMainsFunction = (handle: CheckHandle) => (
+  mainsFunctions.some((fn) => hasFunction(handle, fn))
+);
+
+const hasAnyConnectedEdge = (handles: CheckHandle[]) => (
+  handles.some((handle) => handle.connectedEdges.length > 0)
+);
+
+const issueTargetsForInvalidWire = (invalidWire: CheckInvalidWire) => (
+  [
+    edgeTarget(invalidWire.edge),
+    ...(invalidWire.node ? [nodeTarget(invalidWire.node)] : []),
+  ]
+);
+
+const checkWireConnectedToHiddenOrMissingHandle = (context: DiagramCheckContext) => (
+  context.invalidWires.map((invalidWire) => translatedIssue(
+    'network-rules',
+    'wireConnectedToHiddenOrMissingHandle',
+    `wire-connected-to-hidden-or-missing-handle-${invalidWire.edge.id}-${invalidWire.side}`,
+    'error',
+    {
+      wire: invalidWire.edge.id,
+      side: invalidWire.side,
+      handle: invalidWire.handleId || 'unknown',
+      reason: checkText(`invalidWireReasons.${invalidWire.reason}`),
+    },
+    issueTargetsForInvalidWire(invalidWire),
+    edgeIssueOptions(invalidWire.edge, 'wire-connected-to-hidden-or-missing-handle', 90, 10),
+  ))
+);
+
+const checkDuplicateParallelWires = (context: DiagramCheckContext) => {
+  const groups = new Map<string, Edge<EdgeDataType>[]>();
+
+  context.edges.forEach((edge) => {
+    const a = `${edge.source}:${edge.sourceHandle || ''}`;
+    const b = `${edge.target}:${edge.targetHandle || ''}`;
+    const key = [a, b].sort().join('<->');
+    groups.set(key, [...(groups.get(key) || []), edge]);
+  });
+
+  return Array.from(groups.values())
+    .filter((edges) => edges.length > 1)
+    .map((edges) => translatedIssue(
+      'network-rules',
+      'duplicateParallelWire',
+      `duplicate-parallel-wire-${edges.map((edge) => edge.id).sort().join('-')}`,
+      'info',
+      { count: edges.length },
+      edges.map(edgeTarget),
+      edgeIssueOptions(edges[0], 'duplicate-parallel-wire', 35, 170),
+    ));
+};
+
+const checkWireWithoutPhysicalParameters = (context: DiagramCheckContext) => (
+  context.componentLinkedNets
+    .filter((net) => netHasAnyClassification(net, ['suppl_net_type', 'gnd_net_type']))
+    .flatMap((net) => net.edges.map((edge) => ({ net, edge })))
+    .filter(({ edge }) => (
+      edge.data?.physType === 'single' &&
+      (typeof edge.data?.physLength !== 'number' || edge.data.physLength <= 0 ||
+        typeof edge.data?.physCrosssection !== 'number' || edge.data.physCrosssection <= 0)
+    ))
+    .map(({ edge }) => translatedIssue(
+      'network-rules',
+      'wireWithoutPhysicalParameters',
+      `wire-without-physical-parameters-${edge.id}`,
+      'warning',
+      undefined,
+      [edgeTarget(edge)],
+      edgeIssueOptions(edge, 'wire-without-physical-parameters', 40, 150, {
+        suppressedBy: ['wire-connected-to-hidden-or-missing-handle'],
+      }),
+    ))
+);
+
+const checkMainsWireConnectedToLowVoltageComponent = (context: DiagramCheckContext) => (
+  context.componentLinkedNets
+    .filter((net) => netHasAnyClassification(net, ['L_net_type', 'N_net_type', 'PE_net_type']))
+    .flatMap((net) => net.handles
+      .filter((handle) => !hasMainsFunction(handle))
+      .filter((handle) => isTechnicalComponent(handle.node))
+      .filter((handle) => !isPassiveConnectorComponent(handle.node))
+      .map((handle) => ({ net, handle })))
+    .map(({ net, handle }) => translatedIssue(
+      'network-rules',
+      'mainsWireConnectedToLowVoltageComponent',
+      `mains-wire-connected-to-low-voltage-component-${handle.key}`,
+      'error',
+      { component: handle.node.data.technicalID || handle.node.id, handle: describeHandle(handle) },
+      [
+        ...handleTargets(handle),
+        ...netTargets(net),
+      ],
+      handleIssueOptions(handle, 'mains-wire-connected-to-low-voltage-component', 95, 4, {
+        suppresses: ['mixed-classification'],
+      }),
+    ))
+);
+
+const checkGroundAndSupplyPolaritySwapped = (net: CheckNet) => (
+  translatedIssue(
+    'network-rules',
+    'groundAndSupplyPolaritySwapped',
+    `network-ground-and-supply-polarity-swapped-${net.id}`,
+    'error',
+    undefined,
+    netTargets(net),
+    netIssueOptions(net, 'polarity-ground-supply', 95, 8, {
+      suppresses: ['mixed-classification', 'supply-input-without-source', 'supply-source-without-consumer'],
+    }),
+  )
+);
+
+const checkSupplyVoltageUnknown = (context: DiagramCheckContext, net: CheckNet) => {
+  const sources = independentSupplySources(context, net);
+  if (sources.length !== 1) return undefined;
+  if (context.resolveVoltageOut(sources[0].handles[0]) !== undefined) return undefined;
+
+  const supplyInputs = handlesWithAnyFunction(net.handles, ['suppl_in'])
+    .filter((handle) => !isUsbFull(handle));
+  if (supplyInputs.length === 0) return undefined;
+
+  return translatedIssue(
+    'network-rules',
+    'supplyVoltageUnknown',
+    `network-supply-voltage-unknown-${net.id}`,
+    'warning',
+    { source: sources[0].handles.map(describeHandle).join(', ') },
+    [
+      ...netTargets(net),
+      ...supplyInputs.flatMap(handleTargets),
+      ...sources[0].handles.flatMap(handleTargets),
+    ],
+    netIssueOptions(net, 'supply-voltage-unknown', 55, 95, {
+      suppressedBy: ['supply-voltage-mismatch', 'multiple-supply-sources'],
+    }),
+  );
+};
+
+const checkFuseBypassed = (context: DiagramCheckContext) => (
+  context.nodes.flatMap((node) => (
+    (node.data.internalConnections || [])
+      .filter((connection) => connection.kind === 'fuse')
+      .flatMap((connection) => {
+        const fromHandle = context.getHandle(node.id, connection.fromHandle);
+        const toHandle = context.getHandle(node.id, connection.toHandle);
+        if (!fromHandle || !toHandle) return [];
+        const fromElementaryNet = context.getElementaryNetByHandle(fromHandle);
+        const toElementaryNet = context.getElementaryNetByHandle(toHandle);
+        if (!fromElementaryNet || !toElementaryNet || fromElementaryNet.id !== toElementaryNet.id) return [];
+
+        return [translatedIssue(
+          'network-rules',
+          'fuseBypassed',
+          `fuse-bypassed-${node.id}-${connection.fromHandle}-${connection.toHandle}`,
+          'error',
+          { component: node.data.technicalID || node.id },
+          [
+            nodeTarget(node),
+            ...netTargets(fromElementaryNet),
+          ],
+          netIssueOptions(fromElementaryNet, 'fuse-bypassed', 90, 18, {
+            suppresses: ['duplicate-parallel-wire'],
+          }),
+        )];
+      })
+  ))
+);
+
+const digitalDataIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_in'));
+const digitalBackupIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_backup_in'));
+const digitalClockIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_clock_in'));
+
+const ledUpstreamDataSource = (context: DiagramCheckContext, dataIn: CheckHandle) => {
+  const sources = digitalSignalSourcesForInput(context, dataIn)
+    .filter((source) => source.node.id !== dataIn.node.id)
+    .filter((source) => source.node.data.group === 'led')
+    .filter((source) => hasFunction(source, 'dig_out'));
+
+  return sources.length === 1 ? sources[0] : undefined;
+};
+
+const checkDigitalBackupPairMismatch = (context: DiagramCheckContext) => {
   const issues: DiagramCheckIssue[] = [];
+
+  handlesByNode(context).forEach((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || node.data.group !== 'led') return;
+
+    const dataIn = digitalDataIn(nodeHandles);
+    const backupIn = digitalBackupIn(nodeHandles);
+    if (!dataIn || !backupIn) return;
+
+    const backupNet = context.getNetByHandle(backupIn);
+    const upstreamData = ledUpstreamDataSource(context, dataIn);
+    if (upstreamData) {
+      const upstreamBackupOut = context.handles.find((handle) => (
+        handle.node.id === upstreamData.node.id && hasFunction(handle, 'dig_backup_out')
+      ));
+      const hasMatchingBackup = Boolean(upstreamBackupOut && backupNet?.handles.some((handle) => handle.key === upstreamBackupOut.key));
+      if (hasMatchingBackup) return;
+
+      issues.push(translatedIssue(
+        'network-rules',
+        'digitalBackupPairMismatch',
+        `digital-backup-pair-mismatch-${backupIn.key}`,
+        'error',
+        {
+          component: node.data.technicalID || node.id,
+          source: upstreamData.node.data.technicalID || upstreamData.node.id,
+        },
+        [
+          ...handleTargets(dataIn),
+          ...handleTargets(backupIn),
+          ...handleTargets(upstreamData),
+          ...(upstreamBackupOut ? handleTargets(upstreamBackupOut) : []),
+        ],
+        handleIssueOptions(backupIn, 'digital-backup-pair-mismatch', 75, 70, {
+          suppresses: ['digital-sink-without-source'],
+        }),
+      ));
+      return;
+    }
+
+    if (backupNet?.classifications.includes('gnd_net_type')) return;
+    const dataNet = context.getNetByHandle(dataIn);
+    const backupInDataNet = Boolean(dataNet && backupNet && dataNet.id === backupNet.id);
+
+    issues.push(translatedIssue(
+      'network-rules',
+      backupInDataNet ? 'digitalBackupInputTiedToData' : 'digitalBackupInputNotGrounded',
+      backupInDataNet
+        ? `digital-backup-input-tied-to-data-${backupIn.key}`
+        : `digital-backup-input-not-grounded-${backupIn.key}`,
+      backupInDataNet ? 'warning' : 'error',
+      { component: node.data.technicalID || node.id },
+      [
+        ...handleTargets(dataIn),
+        ...handleTargets(backupIn),
+      ],
+      handleIssueOptions(
+        backupIn,
+        backupInDataNet ? 'digital-backup-input-tied-to-data' : 'digital-backup-input-not-grounded',
+        75,
+        70,
+      ),
+    ));
+  });
+
+  return issues;
+};
+
+const checkClockedLedClockMissing = (context: DiagramCheckContext) => {
+  const issues: DiagramCheckIssue[] = [];
+
+  handlesByNode(context).forEach((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || node.data.group !== 'led') return;
+
+    const dataIn = digitalDataIn(nodeHandles);
+    const clockIn = digitalClockIn(nodeHandles);
+    if (!dataIn || !clockIn || dataIn.connectedEdges.length === 0) return;
+
+    const upstreamData = ledUpstreamDataSource(context, dataIn);
+    if (upstreamData) {
+      const upstreamClockOut = context.handles.find((handle) => (
+        handle.node.id === upstreamData.node.id && hasFunction(handle, 'dig_clock_out')
+      ));
+      const clockNet = context.getNetByHandle(clockIn);
+      const hasMatchingClock = Boolean(upstreamClockOut && clockNet?.handles.some((handle) => handle.key === upstreamClockOut.key));
+      if (hasMatchingClock) return;
+
+      issues.push(translatedIssue(
+        'network-rules',
+        'clockedLedClockMissing',
+        `clocked-led-clock-missing-${clockIn.key}`,
+        'error',
+        { component: node.data.technicalID || node.id },
+        [
+          ...handleTargets(dataIn),
+          ...handleTargets(clockIn),
+          ...handleTargets(upstreamData),
+          ...(upstreamClockOut ? handleTargets(upstreamClockOut) : []),
+        ],
+        handleIssueOptions(clockIn, 'clocked-led-clock-missing', 85, 46, {
+          suppresses: ['digital-sink-without-source'],
+        }),
+      ));
+      return;
+    }
+
+    if (hasResolvedDigitalSink(context, clockIn)) return;
+    issues.push(translatedIssue(
+      'network-rules',
+      'clockedLedClockMissing',
+      `clocked-led-clock-missing-${clockIn.key}`,
+      'error',
+      { component: node.data.technicalID || node.id },
+      [
+        ...handleTargets(dataIn),
+        ...handleTargets(clockIn),
+      ],
+      handleIssueOptions(clockIn, 'clocked-led-clock-missing', 85, 46, {
+        suppresses: ['digital-sink-without-source'],
+      }),
+    ));
+  });
+
+  return issues;
+};
+
+const checkSignalOutputWithoutConsumer = (context: DiagramCheckContext) => (
+  context.componentLinkedNets.flatMap((net) => (
+    signalRuleDefinitions.flatMap((definition) => {
+      if (!net.classifications.includes(definition.classification)) return [];
+      const sources = handlesWithAnyFunction(net.sourceHandles, definition.sourceFunctions);
+      return sources
+        .filter((source) => source.connectedEdges.length > 0)
+        .filter((source) => (
+          !context.signalReachableHandles(source).some((candidate) => (
+            candidate.key !== source.key &&
+            definition.sinkFunctions.some((fn) => hasFunction(candidate, fn))
+          ))
+        ))
+        .map((source) => translatedIssue(
+          'network-rules',
+          'signalOutputWithoutConsumer',
+          `signal-output-without-consumer-${source.key}`,
+          'warning',
+          { signal: signalLabel(definition.id), source: describeHandle(source) },
+          [
+            ...handleTargets(source),
+            ...netTargets(net),
+          ],
+          handleIssueOptions(source, `${definition.id}-output-without-consumer`, 50, 125, {
+            suppressedBy: ['data-direction-wrong', 'mixed-digital-signal-types'],
+          }),
+        ));
+    })
+  ))
+);
+
+const checkDataDirectionWrong = (context: DiagramCheckContext) => (
+  context.componentLinkedNets
+    .filter((net) => net.classifications.includes('digital_net_type'))
+    .flatMap((net) => {
+      const dataSources = handlesWithAnyFunction(net.handles, ['dig_out']);
+      const dataSinks = handlesWithAnyFunction(net.handles, ['dig_in']);
+      if (dataSources.length > 1 && dataSinks.length === 0) {
+        return [translatedIssue(
+          'network-rules',
+          'dataDirectionWrong',
+          `data-direction-wrong-output-only-${net.id}`,
+          'error',
+          { handles: dataSources.map(describeHandle).join(', ') },
+          [
+            ...netTargets(net),
+            ...dataSources.flatMap(handleTargets),
+          ],
+          netIssueOptions(net, 'data-direction-wrong', 80, 48, {
+            suppresses: ['multiple-digital-sources', 'digital-output-without-consumer'],
+          }),
+        )];
+      }
+      if (dataSources.length === 0 && dataSinks.length > 1) {
+        return [translatedIssue(
+          'network-rules',
+          'dataDirectionWrong',
+          `data-direction-wrong-input-only-${net.id}`,
+          'error',
+          { handles: dataSinks.map(describeHandle).join(', ') },
+          [
+            ...netTargets(net),
+            ...dataSinks.flatMap(handleTargets),
+          ],
+          netIssueOptions(net, 'data-direction-wrong', 80, 48, {
+            suppresses: ['digital-sink-without-source'],
+          }),
+        )];
+      }
+      return [];
+    })
+);
+
+const checkSupplyInputOnlyInternallyPowered = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || !isTechnicalComponent(node)) return [];
+
+    const supplyInputs = handlesWithAnyFunction(nodeHandles, ['suppl_in'])
+      .filter((handle) => !hasFunction(handle, 'usb_full'));
+    const connectedSupplyInputs = supplyInputs.filter((handle) => handle.connectedEdges.length > 0);
+    if (connectedSupplyInputs.length === 0) return [];
+
+    const hasExternalSource = connectedSupplyInputs.some((handle) => supplyInputHasExternalSource(context, handle));
+    const hasInternalSupplyOnly = connectedSupplyInputs.some((handle) => (
+      context.powerReachableHandles(handle).some((candidate) => (
+        candidate.node.id === node.id && candidate.key !== handle.key && hasFunction(candidate, 'suppl_in')
+      ))
+    ));
+    if (hasExternalSource || !hasInternalSupplyOnly) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'supplyInputOnlyInternallyPowered',
+      `supply-input-only-internally-powered-${node.id}`,
+      'warning',
+      { component: node.data.technicalID || node.id },
+      [
+        nodeTarget(node),
+        ...connectedSupplyInputs.flatMap(handleTargets),
+      ],
+      componentIssueOptions(node, 'supply-input-only-internally-powered', 60, 90, {
+        suppressedBy: ['supply-input-without-source'],
+      }),
+    )];
+  })
+);
+
+const fuseNominalValueIsMissing = (node: Node<ComponentDataType>, fieldId?: string) => {
+  if (!fieldId) return true;
+
+  const inputValue = node.data.inputFields?.find((field) => field.technicalID === fieldId)?.value;
+  if (typeof inputValue === 'number' && inputValue > 0) return false;
+
+  const selectValue = node.data.selectFields?.find((field) => field.technicalID === fieldId)?.selectedValue;
+  return !(typeof selectValue === 'number' && selectValue > 0);
+};
+
+const checkFuseCurrentMissingOrUnderspecified = (context: DiagramCheckContext) => (
+  context.nodes.flatMap((node) => {
+    const fuseConnections = (node.data.internalConnections || []).filter((connection) => connection.kind === 'fuse');
+    if (fuseConnections.length === 0) return [];
+
+    const missingConnections = fuseConnections.filter((connection) => (
+      typeof connection.nominalCurrent !== 'number' &&
+      fuseNominalValueIsMissing(node, connection.nominalCurrentField || connection.fuseId)
+    ));
+    if (missingConnections.length === 0) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'fuseCurrentMissingOrUnderspecified',
+      `fuse-current-missing-or-underspecified-${node.id}`,
+      'info',
+      { component: node.data.technicalID || node.id },
+      [nodeTarget(node)],
+      componentIssueOptions(node, 'fuse-current-missing-or-underspecified', 45, 160),
+    )];
+  })
+);
+
+const checkComponentHasOnlyOneTerminalConnected = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || !isTechnicalComponent(node) || isPassiveConnectorComponent(node)) return [];
+    if (!['Resistor', 'Kerko', 'Elko', 'miniOTOFuse'].includes(node.data.technicalID)) return [];
+    if (nodeHandles.length !== 2) return [];
+
+    const connectedHandles = nodeHandles.filter((handle) => handle.connectedEdges.length > 0);
+    if (connectedHandles.length !== 1) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'componentHasOnlyOneTerminalConnected',
+      `component-has-only-one-terminal-connected-${node.id}`,
+      'warning',
+      { component: node.data.technicalID || node.id, handle: describeHandle(connectedHandles[0]) },
+      [
+        nodeTarget(node),
+        ...nodeHandles.flatMap(handleTargets),
+      ],
+      componentIssueOptions(node, 'component-has-only-one-terminal-connected', 65, 110),
+    )];
+  })
+);
+
+const checkCapacitorPolarityMismatch = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || node.data.technicalID !== 'Elko') return [];
+
+    const plus = nodeHandles.find((handle) => handle.handle.hid.toLowerCase().includes('plus'));
+    const minus = nodeHandles.find((handle) => handle.handle.hid.toLowerCase().includes('minus'));
+    if (!plus || !minus) return [];
+
+    const plusNet = context.getNetByHandle(plus);
+    const minusNet = context.getNetByHandle(minus);
+    const plusWrong = plusNet?.classifications.includes('gnd_net_type') || false;
+    const minusWrong = minusNet?.classifications.includes('suppl_net_type') || false;
+    if (!plusWrong && !minusWrong) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'capacitorPolarityMismatch',
+      `capacitor-polarity-mismatch-${node.id}`,
+      'error',
+      { component: node.data.technicalID || node.id },
+      [
+        nodeTarget(node),
+        ...handleTargets(plus),
+        ...handleTargets(minus),
+      ],
+      componentIssueOptions(node, 'capacitor-polarity-mismatch', 90, 34, {
+        suppresses: ['mixed-classification'],
+      }),
+    )];
+  })
+);
+
+const checkMainsConnectorIncomplete = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node) return [];
+    const lineHandles = handlesWithAnyFunction(nodeHandles, ['line_in']);
+    const neutralHandles = handlesWithAnyFunction(nodeHandles, ['neutral_in']);
+    if (lineHandles.length === 0 || neutralHandles.length === 0) return [];
+
+    const lineOk = lineHandles.some((handle) => handleNetHasClassification(context, handle, 'L_net_type'));
+    const neutralOk = neutralHandles.some((handle) => handleNetHasClassification(context, handle, 'N_net_type'));
+    if (lineOk === neutralOk) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'mainsConnectorIncomplete',
+      `mains-connector-incomplete-${node.id}`,
+      'error',
+      { component: node.data.technicalID || node.id },
+      [
+        nodeTarget(node),
+        ...lineHandles.flatMap(handleTargets),
+        ...neutralHandles.flatMap(handleTargets),
+      ],
+      componentIssueOptions(node, 'mains-connector-incomplete', 75, 14, {
+        suppresses: ['mains-input-missing'],
+      }),
+    )];
+  })
+);
+
+const checkProtectiveEarthMissingForMetalOrMainsDevice = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node) return [];
+
+    const peHandles = handlesWithAnyFunction(nodeHandles, ['pe_in']);
+    if (peHandles.length === 0) return [];
+
+    const mainsUsed = handlesWithAnyFunction(nodeHandles, ['line_in', 'neutral_in'])
+      .some((handle) => handle.connectedEdges.length > 0 || handleNetHasClassification(context, handle, 'L_net_type') || handleNetHasClassification(context, handle, 'N_net_type'));
+    if (!mainsUsed) return [];
+
+    const peOk = peHandles.some((handle) => handleNetHasClassification(context, handle, 'PE_net_type'));
+    if (peOk) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'protectiveEarthMissingForMetalOrMainsDevice',
+      `protective-earth-missing-${node.id}`,
+      'error',
+      { component: node.data.technicalID || node.id },
+      [
+        nodeTarget(node),
+        ...peHandles.flatMap(handleTargets),
+      ],
+      componentIssueOptions(node, 'protective-earth-missing', 80, 16, {
+        suppresses: ['mains-input-missing'],
+      }),
+    )];
+  })
+);
+
+const checkIsolatedComponent = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || !isTechnicalComponent(node)) return [];
+    if (hasAnyConnectedEdge(nodeHandles)) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'isolatedComponent',
+      `isolated-component-${node.id}`,
+      'info',
+      { component: node.data.technicalID || node.id },
+      [nodeTarget(node)],
+      componentIssueOptions(node, 'isolated-component', 30, 180),
+    )];
+  })
+);
+
+const hasCheckRelevantFunction = (handle: CheckHandle) => (
+  handle.functions.some((fn) => fn !== 'unknown' && fn !== 'not_connected')
+);
+
+const checkComponentDefinitionIncompleteForChecks = (context: DiagramCheckContext) => (
+  context.handles
+    .filter((handle) => (
+      handle.rawFunctions.length === 0 ||
+      (hasFunction(handle, 'suppl_in') && (handle.voltageMin === undefined || handle.voltageMax === undefined)) ||
+      ((hasFunction(handle, 'suppl_out') || hasFunction(handle, 'dig_out') || hasFunction(handle, 'dig_clock_out') || hasFunction(handle, 'dig_backup_out')) &&
+        context.resolveVoltageOut(handle) === undefined)
+    ))
+    .map((handle) => translatedIssue(
+      'component-rules',
+      'componentDefinitionIncompleteForChecks',
+      `component-definition-incomplete-for-checks-${handle.key}`,
+      'info',
+      { component: handle.node.data.technicalID || handle.node.id, handle: describeHandle(handle) },
+      handleTargets(handle),
+      handleIssueOptions(handle, 'component-definition-incomplete-for-checks', 60, 900, {
+        diagnosticOnly: true,
+      }),
+    ))
+);
+
+const allowedMultiFunctionSets = new Set([
+  ['dig_in', 'dig_out'].sort().join('|'),
+  ['dig_in', 'an_in'].sort().join('|'),
+]);
+
+const checkAmbiguousMultiFunctionHandle = (context: DiagramCheckContext) => (
+  context.handles
+    .filter((handle) => handle.functions.filter((fn) => fn !== 'unknown').length > 1)
+    .filter(hasCheckRelevantFunction)
+    .filter((handle) => !allowedMultiFunctionSets.has(handle.functions.slice().sort().join('|')))
+    .map((handle) => translatedIssue(
+      'component-rules',
+      'ambiguousMultiFunctionHandle',
+      `ambiguous-multi-function-handle-${handle.key}`,
+      'info',
+      {
+        handle: describeHandle(handle),
+        functions: handle.functions.join(', '),
+      },
+      handleTargets(handle),
+      handleIssueOptions(handle, 'ambiguous-multi-function-handle', 60, 910, {
+        diagnosticOnly: true,
+      }),
+    ))
+);
+
+const checkUnusedRequiredFunctionalGroup = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || node.data.group !== 'led') return [];
+
+    const dataIn = digitalDataIn(nodeHandles);
+    const hasLedInputUse = Boolean(dataIn && dataIn.connectedEdges.length > 0);
+    if (!hasLedInputUse) return [];
+
+    const supplyInputs = handlesWithAnyFunction(nodeHandles, ['suppl_in']);
+    const gndInputs = handlesWithAnyFunction(nodeHandles, ['gnd']);
+    const missingRequired = [
+      ...(!supplyInputs.some((handle) => handle.connectedEdges.length > 0 || handleNetHasClassification(context, handle, 'suppl_net_type')) ? supplyInputs : []),
+      ...(!gndInputs.some((handle) => handle.connectedEdges.length > 0 || handleNetHasClassification(context, handle, 'gnd_net_type')) ? gndInputs : []),
+    ];
+    if (missingRequired.length === 0) return [];
+
+    return [translatedIssue(
+      'component-rules',
+      'unusedRequiredFunctionalGroup',
+      `unused-required-functional-group-${node.id}`,
+      'warning',
+      { component: node.data.technicalID || node.id },
+      [
+        nodeTarget(node),
+        ...(dataIn ? handleTargets(dataIn) : []),
+        ...missingRequired.flatMap(handleTargets),
+      ],
+      componentIssueOptions(node, 'unused-required-functional-group', 80, 75, {
+        suppresses: ['power-missing', 'ground-missing'],
+      }),
+    )];
+  })
+);
+
+const runNetworkRules = (context: DiagramCheckContext) => {
+  const issues: DiagramCheckIssue[] = [
+    ...checkWireConnectedToHiddenOrMissingHandle(context),
+    ...checkDuplicateParallelWires(context),
+    ...checkWireWithoutPhysicalParameters(context),
+    ...checkMainsWireConnectedToLowVoltageComponent(context),
+    ...checkFuseBypassed(context),
+  ];
   const priorityBlockedNetIds = new Set<string>();
   const componentLinkedNets = context.componentLinkedNets;
   const gndHandles = context.handles.filter((handle) => hasFunction(handle, 'gnd'));
@@ -549,6 +1262,16 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       diagramIssueOptions('ground-multiple', 70, 20),
     ));
   }
+
+  componentLinkedNets
+    .filter((net) => (
+      net.classifications.includes('gnd_net_type') &&
+      net.classifications.includes('suppl_net_type')
+    ))
+    .forEach((net) => {
+      priorityBlockedNetIds.add(net.id);
+      issues.push(checkGroundAndSupplyPolaritySwapped(net));
+    });
 
   componentLinkedNets
     .filter((net) => (
@@ -848,6 +1571,21 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       ));
     });
 
+  componentLinkedNets
+    .filter((net) => net.classifications.includes('suppl_net_type'))
+    .filter((net) => !priorityBlockedNetIds.has(net.id))
+    .forEach((net) => {
+      const issueForNet = checkSupplyVoltageUnknown(context, net);
+      if (issueForNet) issues.push(issueForNet);
+    });
+
+  issues.push(
+    ...checkClockedLedClockMissing(context),
+    ...checkDigitalBackupPairMismatch(context),
+    ...checkDataDirectionWrong(context),
+    ...checkSignalOutputWithoutConsumer(context),
+  );
+
   return issues;
 };
 
@@ -990,6 +1728,16 @@ const runComponentRules = (context: DiagramCheckContext) => {
 
   return [
     ...issues,
+    ...checkUnusedRequiredFunctionalGroup(context),
+    ...checkComponentHasOnlyOneTerminalConnected(context),
+    ...checkCapacitorPolarityMismatch(context),
+    ...checkMainsConnectorIncomplete(context),
+    ...checkProtectiveEarthMissingForMetalOrMainsDevice(context),
+    ...checkSupplyInputOnlyInternallyPowered(context),
+    ...checkFuseCurrentMissingOrUnderspecified(context),
+    ...checkIsolatedComponent(context),
+    ...checkComponentDefinitionIncompleteForChecks(context),
+    ...checkAmbiguousMultiFunctionHandle(context),
     ...runComponentSpecificRules(context),
   ];
 };
@@ -1002,17 +1750,30 @@ export const diagramCheckRules: DiagramCheckRule[] = [
     issueKeys: [
       'groundMissing',
       'groundMultiple',
+      'wireConnectedToHiddenOrMissingHandle',
+      'mainsWireConnectedToLowVoltageComponent',
       'mainsLowVoltageMixed',
       'peActiveMixed',
       'rs485Mixed',
+      'groundAndSupplyPolaritySwapped',
       'mixedClassifications',
       'multipleSupplySources',
+      'supplyVoltageUnknown',
       'signalSinkWithoutSource',
       'digitalSignalVoltageMismatch',
       'multipleSignalSources',
+      'signalOutputWithoutConsumer',
+      'dataDirectionWrong',
+      'clockedLedClockMissing',
+      'digitalBackupPairMismatch',
+      'digitalBackupInputTiedToData',
+      'digitalBackupInputNotGrounded',
       'supplyInputWithoutSource',
       'supplySourceWithoutConsumer',
       'supplyVoltageMismatch',
+      'fuseBypassed',
+      'wireWithoutPhysicalParameters',
+      'duplicateParallelWire',
     ],
     check: runNetworkRules,
   },
@@ -1025,6 +1786,16 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'groundMissing',
       'powerMissing',
       'mainsInputMissing',
+      'unusedRequiredFunctionalGroup',
+      'componentHasOnlyOneTerminalConnected',
+      'capacitorPolarityMismatch',
+      'mainsConnectorIncomplete',
+      'protectiveEarthMissingForMetalOrMainsDevice',
+      'supplyInputOnlyInternallyPowered',
+      'fuseCurrentMissingOrUnderspecified',
+      'isolatedComponent',
+      'componentDefinitionIncompleteForChecks',
+      'ambiguousMultiFunctionHandle',
       'sn74Ahct125nUsedChannelInputMissing',
     ],
     check: runComponentRules,

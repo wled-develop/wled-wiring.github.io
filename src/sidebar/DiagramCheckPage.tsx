@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useReactFlow } from '@xyflow/react';
-import { Alert, Button, Collapse, Empty, Flex, List, Modal, Space, Tag, Typography, theme, type CollapseProps } from 'antd';
+import { Alert, Button, Collapse, Empty, Flex, List, Modal, Segmented, Space, Tag, Typography, theme, type CollapseProps } from 'antd';
 import { SafetyCertificateOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import type { CheckNet } from '../check/checkContext';
 import { createDiagramCheckContextFromJson, runDiagramCheck } from '../check/runDiagramCheck';
-import type { DiagramCheckIssue, DiagramCheckSeverity, DiagramCheckTarget } from '../check/diagramCheckTypes';
+import type { DiagramCheckDeduplicationMode, DiagramCheckIssue, DiagramCheckSeverity, DiagramCheckTarget } from '../check/diagramCheckTypes';
 import { createDiagramExportJson } from '../utils/exportModel';
 import { getDiagramCheckRuleInfos } from '../check/rules';
 
@@ -62,6 +62,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   const [netDebugNets, setNetDebugNets] = useState<CheckNet[] | null>(null);
   const [activeIssueKeys, setActiveIssueKeys] = useState<string[]>([]);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
+  const [deduplicationMode, setDeduplicationMode] = useState<DiagramCheckDeduplicationMode>('user-friendly');
   const previousLanguageRef = useRef(i18n.resolvedLanguage);
 
   const clearHighlights = useCallback(() => {
@@ -105,9 +106,12 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     })));
   }, [reactFlow]);
 
-  const updateIssues = useCallback((keepActiveIssue = false) => {
+  const updateIssues = useCallback((
+    keepActiveIssue = false,
+    nextDeduplicationMode = deduplicationMode,
+  ) => {
     const jsonData = createDiagramExportJson(reactFlow);
-    const nextIssues = runDiagramCheck(jsonData);
+    const nextIssues = runDiagramCheck(jsonData, { deduplicationMode: nextDeduplicationMode });
     const debugContext = SHOW_NET_DEBUG ? createDiagramCheckContextFromJson(jsonData) : undefined;
     const activeIssueId = activeIssueKeys[activeIssueKeys.length - 1];
     const activeIssue = keepActiveIssue
@@ -129,10 +133,17 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     } else {
       clearHighlights();
     }
-  }, [activeIssueKeys, clearHighlights, highlightTargets, reactFlow]);
+  }, [activeIssueKeys, clearHighlights, deduplicationMode, highlightTargets, reactFlow]);
 
   const runCheck = () => {
     updateIssues(false);
+  };
+
+  const updateDeduplicationMode = (nextDeduplicationMode: DiagramCheckDeduplicationMode) => {
+    setDeduplicationMode(nextDeduplicationMode);
+    if (issues !== null) {
+      updateIssues(true, nextDeduplicationMode);
+    }
   };
 
   useEffect(() => {
@@ -160,10 +171,33 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
             {t(`sidebar.check.severity.${issue.severity}`)}
           </Tag>
           <span>{issue.title}</span>
+          {issue.suppressed &&
+            <Tag color="default" style={{ marginInlineEnd: 0 }}>
+              {t('sidebar.check.diagnostics.suppressedTag')}
+            </Tag>
+          }
         </Space>
       ),
       children: (
         <Flex gap="small" vertical>
+          {deduplicationMode !== 'user-friendly' &&
+            <Flex gap={4} wrap="wrap">
+              <Tag>{t(`sidebar.check.diagnostics.mode.${deduplicationMode}`)}</Tag>
+              {issue.fingerprint &&
+                <Tag>{`${issue.fingerprint.scope}:${issue.fingerprint.problem}`}</Tag>
+              }
+              {typeof issue.specificity === 'number' &&
+                <Tag>{t('sidebar.check.diagnostics.specificity', { value: issue.specificity })}</Tag>
+              }
+              {issue.suppressedByIssueIds && issue.suppressedByIssueIds.length > 0 &&
+                <Tag color="default">
+                  {t('sidebar.check.diagnostics.suppressedBy', {
+                    ids: issue.suppressedByIssueIds.join(', '),
+                  })}
+                </Tag>
+              }
+            </Flex>
+          }
           <Typography.Text>{issue.description}</Typography.Text>
           {issue.recommendation &&
             <Alert
@@ -195,7 +229,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
         marginBottom: 6,
       },
     }))
-  ), [issues, t, token.colorBorder]);
+  ), [deduplicationMode, issues, t, token.colorBorder]);
 
   const ruleInfos = getDiagramCheckRuleInfos();
   const ruleInfoItems: CollapseProps['items'] = ruleInfos.map((rule) => ({
@@ -324,6 +358,32 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
       >
         {t('sidebar.check.buttonRun')}
       </Button>
+
+      <Flex gap={4} vertical>
+        <Typography.Text type="secondary">
+          {t('sidebar.check.diagnostics.modeLabel')}
+        </Typography.Text>
+        <Segmented<DiagramCheckDeduplicationMode>
+          size="small"
+          value={deduplicationMode}
+          options={[
+            {
+              label: t('sidebar.check.diagnostics.mode.user-friendly'),
+              value: 'user-friendly',
+            },
+            {
+              label: t('sidebar.check.diagnostics.mode.diagnostic'),
+              value: 'diagnostic',
+            },
+            {
+              label: t('sidebar.check.diagnostics.mode.diagnostic-with-suppression-markers'),
+              value: 'diagnostic-with-suppression-markers',
+            },
+          ]}
+          onChange={updateDeduplicationMode}
+          block
+        />
+      </Flex>
 
       {issues === null &&
         <Empty
