@@ -750,9 +750,10 @@ Die UI zeigt im Diagnosemodus zusaetzlich:
 - durch welches spezifischere Issue es unterdrueckt wuerde
 - welchen `fingerprint` und welche `specificity` es hat
 
-Der Schalter ist aktuell in der Check-Sidebar direkt unter dem Pruefbutton sichtbar. Falls er spaeter zu technisch fuer normale Nutzer wirkt, kann er in einen Debug-/Regelbereich verschoben werden. Geeignete Alternativen:
+Der Schalter ist in der Check-Sidebar direkt unter dem Pruefbutton implementiert, wird fuer normale Nutzer aber per Debug-Konstante ausgeblendet. In `src/sidebar/DiagramCheckPage.tsx` steuert `SHOW_DIAGRAM_CHECK_DIAGNOSTICS`, ob die Auswahlflaeche fuer `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers` sichtbar ist. Standard ist `false`; damit ist nur der normale `user-friendly`-Modus verfuegbar und `runDiagramCheck()` wird auch intern mit diesem Modus aufgerufen.
 
-- Entwickler-Konstante neben `SHOW_NET_DEBUG`
+Falls der Schalter spaeter anders platziert werden soll, sind geeignete Alternativen:
+
 - Feature-Flag-Datei fuer Diagramm-Checks
 - spaeter optional ein Debug-Bereich in der Regeluebersicht
 
@@ -762,7 +763,7 @@ Die Sidebar `DiagramCheckPage` bietet aktuell:
 
 - Beta-Hinweis
 - Button zum manuellen Starten
-- Schalter fuer die drei Deduplizierungs-/Diagnosemodi `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers`
+- normalen Nutzer-Modus `user-friendly`; die Auswahl fuer die drei Deduplizierungs-/Diagnosemodi `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers` ist nur sichtbar, wenn `SHOW_DIAGRAM_CHECK_DIAGNOSTICS` auf `true` gesetzt wird
 - Regeluebersicht im Modal
 - leeren Zustand vor dem ersten Check
 - Erfolgsmeldung, wenn keine Issues gefunden wurden

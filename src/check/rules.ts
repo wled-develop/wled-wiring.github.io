@@ -299,12 +299,12 @@ const supplySourceKey = (
   context: DiagramCheckContext,
   handle: CheckHandle,
 ) => {
-  if (typeof handle.handle.Vout === 'number' && handle.handle.Vout > 0) {
-    return `${handle.node.id}:fixed:${handle.handle.Vout}`;
-  }
-
   if (hasInputField(handle, handle.handle.VoutDependency)) {
     return `${handle.node.id}:input-field:${handle.handle.VoutDependency}`;
+  }
+
+  if (typeof handle.handle.Vout === 'number' && handle.handle.Vout > 0) {
+    return `${handle.node.id}:fixed:${handle.handle.Vout}`;
   }
 
   const resolvedVoltage = context.resolveVoltageOut(handle);

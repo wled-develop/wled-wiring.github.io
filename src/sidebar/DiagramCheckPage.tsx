@@ -21,6 +21,7 @@ const targetTypeLabel = (target: DiagramCheckTarget) => (
   target.type === 'node' ? 'Component' : 'Wire'
 );
 
+const SHOW_DIAGRAM_CHECK_DIAGNOSTICS = false;
 const SHOW_NET_DEBUG = false;
 
 const netDebugTargets = (net: CheckNet): DiagramCheckTarget[] => {
@@ -108,7 +109,9 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
 
   const updateIssues = useCallback((
     keepActiveIssue = false,
-    nextDeduplicationMode = deduplicationMode,
+    nextDeduplicationMode: DiagramCheckDeduplicationMode = SHOW_DIAGRAM_CHECK_DIAGNOSTICS
+      ? deduplicationMode
+      : 'user-friendly',
   ) => {
     const jsonData = createDiagramExportJson(reactFlow);
     const nextIssues = runDiagramCheck(jsonData, { deduplicationMode: nextDeduplicationMode });
@@ -359,31 +362,33 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
         {t('sidebar.check.buttonRun')}
       </Button>
 
-      <Flex gap={4} vertical>
-        <Typography.Text type="secondary">
-          {t('sidebar.check.diagnostics.modeLabel')}
-        </Typography.Text>
-        <Segmented<DiagramCheckDeduplicationMode>
-          size="small"
-          value={deduplicationMode}
-          options={[
-            {
-              label: t('sidebar.check.diagnostics.mode.user-friendly'),
-              value: 'user-friendly',
-            },
-            {
-              label: t('sidebar.check.diagnostics.mode.diagnostic'),
-              value: 'diagnostic',
-            },
-            {
-              label: t('sidebar.check.diagnostics.mode.diagnostic-with-suppression-markers'),
-              value: 'diagnostic-with-suppression-markers',
-            },
-          ]}
-          onChange={updateDeduplicationMode}
-          block
-        />
-      </Flex>
+      {SHOW_DIAGRAM_CHECK_DIAGNOSTICS &&
+        <Flex gap={4} vertical>
+          <Typography.Text type="secondary">
+            {t('sidebar.check.diagnostics.modeLabel')}
+          </Typography.Text>
+          <Segmented<DiagramCheckDeduplicationMode>
+            size="small"
+            value={deduplicationMode}
+            options={[
+              {
+                label: t('sidebar.check.diagnostics.mode.user-friendly'),
+                value: 'user-friendly',
+              },
+              {
+                label: t('sidebar.check.diagnostics.mode.diagnostic'),
+                value: 'diagnostic',
+              },
+              {
+                label: t('sidebar.check.diagnostics.mode.diagnostic-with-suppression-markers'),
+                value: 'diagnostic-with-suppression-markers',
+              },
+            ]}
+            onChange={updateDeduplicationMode}
+            block
+          />
+        </Flex>
+      }
 
       {issues === null &&
         <Empty

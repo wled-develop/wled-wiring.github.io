@@ -167,14 +167,14 @@ const inferVoltageOut = (node: Node<ComponentDataType>, handle: HandleDataType, 
   if (!hasVoltageOutputFunction(functions)) {
     return undefined;
   }
-  if (typeof handle.Vout === 'number' && handle.Vout > 0) {
-    return handle.Vout;
-  }
   if (handle.VoutDependency) {
     const inputFieldValue = getInputFieldValue(node, handle.VoutDependency);
     if (typeof inputFieldValue === 'number') {
       return inputFieldValue;
     }
+  }
+  if (typeof handle.Vout === 'number' && handle.Vout > 0) {
+    return handle.Vout;
   }
   const sourceVoltage = getInputFieldValue(node, 'source_voltage');
   if (functions.includes('suppl_out') && typeof sourceVoltage === 'number') {
@@ -666,10 +666,6 @@ export function createDiagramCheckContext(
       return undefined;
     }
 
-    if (typeof handle.handle.Vout === 'number' && handle.handle.Vout > 0) {
-      return handle.handle.Vout;
-    }
-
     const dependency = handle.handle.VoutDependency;
     if (dependency) {
       const inputFieldValue = getInputFieldValue(handle.node, dependency);
@@ -693,6 +689,10 @@ export function createDiagramCheckContext(
           }
         }
       }
+    }
+
+    if (typeof handle.handle.Vout === 'number' && handle.handle.Vout > 0) {
+      return handle.handle.Vout;
     }
 
     return handle.voltageOut;
