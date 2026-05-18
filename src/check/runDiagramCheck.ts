@@ -4,6 +4,7 @@ import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
 import { createDiagramCheckContext } from './checkContext';
 import type { DiagramCheckIssue } from './diagramCheckTypes';
+import { normalizeDiagramCheckIssues } from './normalizeDiagramCheckIssues';
 import { diagramCheckRules } from './rules';
 
 type DiagramExportModel = {
@@ -29,6 +30,13 @@ export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
     return [{
       id: 'diagram-empty',
       severity: 'info',
+      priority: 100,
+      specificity: 80,
+      fingerprint: {
+        scope: 'diagram',
+        key: 'diagram',
+        problem: 'diagram-empty',
+      },
       title: t('title'),
       shortDescription: t('shortDescription'),
       description: t('description'),
@@ -38,5 +46,6 @@ export function runDiagramCheck(jsonData: string): DiagramCheckIssue[] {
   }
 
   const context = createDiagramCheckContextFromJson(jsonData);
-  return diagramCheckRules.flatMap((rule) => rule.check(context));
+  const rawIssues = diagramCheckRules.flatMap((rule) => rule.check(context));
+  return normalizeDiagramCheckIssues(rawIssues);
 }

@@ -4,9 +4,16 @@ import i18next from '../i18n';
 import type { ComponentDataType } from '../types';
 import type { CheckHandle, CheckNet, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
-import type { DiagramCheckIssue, DiagramCheckTarget } from './diagramCheckTypes';
+import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarget } from './diagramCheckTypes';
 
 type TranslationValues = Record<string, number | string | undefined>;
+type IssueOptions = {
+  priority?: number;
+  specificity?: number;
+  fingerprint?: DiagramCheckIssueFingerprint;
+  suppresses?: string[];
+  suppressedBy?: string[];
+};
 
 export type ComponentSpecificRule = {
   id: string;
@@ -65,12 +72,16 @@ const translatedIssue = (
   severity: DiagramCheckIssue['severity'],
   values?: TranslationValues,
   targets?: DiagramCheckTarget[],
-  priority?: number,
+  options?: IssueOptions,
 ): DiagramCheckIssue => ({
   id,
   ruleId: COMPONENT_RULE_ID,
   severity,
-  priority,
+  priority: options?.priority,
+  specificity: options?.specificity,
+  fingerprint: options?.fingerprint,
+  suppresses: options?.suppresses,
+  suppressedBy: options?.suppressedBy,
   title: issueText(issueKey, 'title', values),
   shortDescription: issueText(issueKey, 'shortDescription', values),
   description: issueText(issueKey, 'description', values),
@@ -175,7 +186,20 @@ const checkSN74AHCT125NUsedChannelInputs: ComponentSpecificRule = {
             ...(outputNet ? netTargets(outputNet) : []),
             ...missingNetTargets,
           ],
-          3,
+          {
+            priority: 38,
+            specificity: 100,
+            fingerprint: {
+              scope: 'component',
+              key: `${node.id}:${group.channel}`,
+              problem: 'sn74ahct125n-used-channel-input-missing',
+            },
+            suppresses: [
+              'digital-sink-without-source',
+              'multiple-digital-sources',
+              'digital-signal-voltage-mismatch',
+            ],
+          },
         ));
       });
     });

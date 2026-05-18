@@ -5,7 +5,7 @@ import type { ComponentDataType, EdgeDataType } from '../types';
 import type { CheckHandle, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
 import { runComponentSpecificRules } from './componentSpecificRules';
-import type { DiagramCheckIssue, DiagramCheckTarget } from './diagramCheckTypes';
+import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarget } from './diagramCheckTypes';
 
 export type DiagramCheckRule = {
   id: string;
@@ -27,6 +27,13 @@ export type DiagramCheckRuleInfo = {
 };
 
 type TranslationValues = Record<string, number | string | undefined>;
+type IssueOptions = {
+  priority?: number;
+  specificity?: number;
+  fingerprint?: DiagramCheckIssueFingerprint;
+  suppresses?: string[];
+  suppressedBy?: string[];
+};
 
 const checkText = (key: string, values?: TranslationValues) => (
   String(i18next.t(`sidebar.check.${key}`, { ns: 'main', ...values }))
@@ -111,12 +118,16 @@ const issue = (
   recommendation?: string,
   targets?: DiagramCheckTarget[],
   ruleId = 'network-rules',
-  priority?: number,
+  options?: IssueOptions,
 ): DiagramCheckIssue => ({
   id,
   ruleId,
   severity,
-  priority,
+  priority: options?.priority,
+  specificity: options?.specificity,
+  fingerprint: options?.fingerprint,
+  suppresses: options?.suppresses,
+  suppressedBy: options?.suppressedBy,
   title,
   shortDescription,
   description,
@@ -131,7 +142,7 @@ const translatedIssue = (
   severity: DiagramCheckIssue['severity'],
   values?: TranslationValues,
   targets?: DiagramCheckTarget[],
-  priority?: number,
+  options?: IssueOptions,
 ) => issue(
   id,
   severity,
@@ -141,12 +152,79 @@ const translatedIssue = (
   issueText(ruleId, issueKey, 'recommendation', values),
   targets,
   ruleId,
-  priority,
+  options,
 );
 
 const hasFunction = (handle: CheckHandle, fn: string) => (
   handle.functions.includes(fn as never)
 );
+
+const diagramIssueOptions = (
+  problem: string,
+  specificity: number,
+  priority: number,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+): IssueOptions => ({
+  priority,
+  specificity,
+  fingerprint: {
+    scope: 'diagram',
+    key: 'diagram',
+    problem,
+  },
+  ...extra,
+});
+
+const netIssueOptions = (
+  net: CheckNet,
+  problem: string,
+  specificity: number,
+  priority: number,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+): IssueOptions => ({
+  priority,
+  specificity,
+  fingerprint: {
+    scope: 'net',
+    key: net.id,
+    problem,
+  },
+  ...extra,
+});
+
+const componentIssueOptions = (
+  node: Node<ComponentDataType>,
+  problem: string,
+  specificity: number,
+  priority: number,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+): IssueOptions => ({
+  priority,
+  specificity,
+  fingerprint: {
+    scope: 'component',
+    key: node.id,
+    problem,
+  },
+  ...extra,
+});
+
+const handleIssueOptions = (
+  handle: CheckHandle,
+  problem: string,
+  specificity: number,
+  priority: number,
+  extra?: Pick<IssueOptions, 'suppresses' | 'suppressedBy'>,
+): IssueOptions => ({
+  priority,
+  specificity,
+  fingerprint: {
+    scope: 'handle',
+    key: handle.key,
+    problem,
+  },
+  ...extra,
+});
 
 const hasInputField = (handle: CheckHandle, technicalId?: string) => (
   Boolean(technicalId && handle.node.data.inputFields?.some((field) => field.technicalID === technicalId))
@@ -455,6 +533,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       'error',
       undefined,
       gndHandles.flatMap(handleTargets),
+      diagramIssueOptions('ground-missing', 50, 30),
     ));
   }
 
@@ -467,6 +546,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       'error',
       { count: gndNets.length },
       gndNets.flatMap(netTargets),
+      diagramIssueOptions('ground-multiple', 70, 20),
     ));
   }
 
@@ -484,6 +564,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
         'error',
         { classifications: net.classifications.map(classificationLabel).join(', ') },
         netTargets(net),
+        netIssueOptions(net, 'mains-low-voltage-mixed', 90, 5, {
+          suppresses: ['mixed-classification'],
+        }),
       ));
     });
 
@@ -501,6 +584,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
         'error',
         { classifications: net.classifications.map(classificationLabel).join(', ') },
         netTargets(net),
+        netIssueOptions(net, 'pe-active-mixed', 90, 6, {
+          suppresses: ['mixed-classification'],
+        }),
       ));
     });
 
@@ -518,6 +604,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
         'error',
         undefined,
         netTargets(net),
+        netIssueOptions(net, 'rs485-mixed', 80, 25, {
+          suppresses: ['mixed-classification'],
+        }),
       ));
     });
 
@@ -533,6 +622,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
         'error',
         { classifications: net.classifications.map(classificationLabel).join(', ') },
         netTargets(net),
+        netIssueOptions(net, 'mixed-classification', 20, 80, {
+          suppressedBy: ['mains-low-voltage-mixed', 'pe-active-mixed', 'rs485-mixed'],
+        }),
       ));
     });
 
@@ -556,6 +648,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
           ...netTargets(net),
           ...sources.flatMap((source) => source.handles.flatMap(handleTargets)),
         ],
+        netIssueOptions(net, 'multiple-supply-sources', 70, 35, {
+          suppresses: ['supply-voltage-mismatch', 'supply-source-without-consumer'],
+        }),
       ));
     });
 
@@ -583,6 +678,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
             ...netTargets(net),
             ...unresolvedSinks.flatMap(handleTargets),
           ],
+          netIssueOptions(net, `${definition.id}-sink-without-source`, 60, 50, {
+            suppressedBy: ['mixed-digital-signal-types', 'data-direction-wrong'],
+          }),
         ));
       });
     });
@@ -632,6 +730,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
             ...handleTargets(input),
             ...mismatches.flatMap((mismatch) => handleTargets(mismatch.source)),
           ],
+          handleIssueOptions(input, 'digital-signal-voltage-mismatch', 75, 45),
         ));
       });
     });
@@ -658,6 +757,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
             ...netTargets(net),
             ...sources.flatMap(handleTargets),
           ],
+          netIssueOptions(net, `multiple-${definition.id}-sources`, 65, 55, {
+            suppressedBy: ['mixed-digital-signal-types', 'data-direction-wrong'],
+          }),
         ));
       });
     });
@@ -682,6 +784,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
             ...netTargets(net),
             ...supplyInputs.flatMap(handleTargets),
           ],
+          netIssueOptions(net, 'supply-input-without-source', 60, 40),
         ));
       }
 
@@ -697,6 +800,15 @@ const runNetworkRules = (context: DiagramCheckContext) => {
           'warning',
           undefined,
           netTargets(net),
+          netIssueOptions(net, 'supply-source-without-consumer', 45, 120, {
+            suppressedBy: [
+              'mixed-classification',
+              'mains-low-voltage-mixed',
+              'pe-active-mixed',
+              'multiple-supply-sources',
+              'supply-voltage-mismatch',
+            ],
+          }),
         ));
       }
     });
@@ -730,6 +842,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
           ...sources[0].handles.flatMap(handleTargets),
           ...mismatchedInputs.flatMap(handleTargets),
         ],
+        netIssueOptions(net, 'supply-voltage-mismatch', 75, 42, {
+          suppressedBy: ['multiple-supply-sources'],
+        }),
       ));
     });
 
@@ -787,7 +902,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
           nodeTarget(node),
           ...requiredDisconnectedHandles.flatMap(handleTargets),
         ],
-        4,
+        componentIssueOptions(node, 'required-pin-unconnected', 70, 32),
       ));
     }
 
@@ -807,6 +922,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
           nodeTarget(node),
           ...gndHandles.flatMap(handleTargets),
         ],
+        componentIssueOptions(node, 'ground-missing', 55, 60),
       ));
     }
 
@@ -834,6 +950,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
           ...supplyInputHandles.flatMap(handleTargets),
           ...usbFullHandles.flatMap(handleTargets),
         ],
+        componentIssueOptions(node, 'power-missing', 55, 58),
       ));
     }
 
@@ -858,6 +975,15 @@ const runComponentRules = (context: DiagramCheckContext) => {
           nodeTarget(node),
           ...missingHandles.flatMap(handleTargets),
         ],
+        {
+          priority: 12,
+          specificity: 70,
+          fingerprint: {
+            scope: 'component',
+            key: `${node.id}:${requirement.id}`,
+            problem: 'mains-input-missing',
+          },
+        },
       ));
     });
   });

@@ -436,14 +436,24 @@ Issues enthalten:
 - `ruleId`
 - `severity`: `error`, `warning` oder `info`
 - `priority` optional
+- `specificity` optional
+- `fingerprint` optional mit `scope`, `key` und `problem`
+- `suppresses` und `suppressedBy` optional fuer explizite Suppression
 - Titel, Kurzbeschreibung, Beschreibung, Empfehlung
 - `targets`
 
 Targets sind aktuell `node` oder `edge`. Ein Handle wird indirekt ueber seine Node und die angeschlossenen Edges abgebildet. Doppelte Targets werden ueber `type`, `id` und optional `handleId` dedupliziert.
 
-Einige schwere Netzfehler setzen `priorityBlockedNetIds`. Dadurch werden nachgelagerte generische Checks fuer dasselbe Netz unterdrueckt. Ziel ist, dass der Nutzer zuerst die urspruenglichere Ursache sieht, z.B. "Netzspannung und Kleinspannung verbunden" statt zusaetzlich "unterschiedliche Ausgangstypen verbunden".
+Aktueller Implementierungsstand:
+
+- `DiagramCheckIssue` ist in `src/check/diagramCheckTypes.ts` um `specificity`, `fingerprint`, `suppresses` und `suppressedBy` erweitert.
+- `runDiagramCheck()` sammelt alle Issues und ruft danach zentral `normalizeDiagramCheckIssues()` aus `src/check/normalizeDiagramCheckIssues.ts` auf.
+- Alle aktuell registrierten Netzwerk-, Komponenten- und komponentenspezifischen Regeln erzeugen Fingerprint-/Prioritaetsmetadaten gemaess der Tabelle "Priorisierung der bestehenden Regeln".
+- Einige schwere Netzfehler setzen innerhalb von `runNetworkRules` weiterhin zusaetzlich `priorityBlockedNetIds`. Das ist noch als fruehe Optimierung vorhanden und verhindert bekannte Folgechecks schon vor der Normalisierung. Die zentrale Normalisierung ist aber die langfristige, regeluebergreifende Ausgabeinstanz.
 
 ## Konzept fuer eindeutige Fehlermeldungen
+
+Status: Die langfristige Fingerprint-Normalisierung ist fuer die aktuell bestehenden Regeln implementiert. Der Diagnosemodus fuer ungefilterte Raw-Issues ist noch nicht implementiert.
 
 ### Problem
 
@@ -456,11 +466,11 @@ Beispiel:
 
 Fuer Nutzer ist die zweite Meldung in diesem Fall nicht hilfreich. Pro eigentlichem Fehler sollte nur die beste, konkreteste Meldung sichtbar sein.
 
-Aktuell gibt es bereits einen einfachen Ansatz: `priorityBlockedNetIds`. Einige schwere Netzwerkregeln markieren ein Netz als blockiert, damit spaetere generische Netzwerkregeln fuer dieses Netz nicht mehr laufen. Das funktioniert fuer einfache Faelle innerhalb von `runNetworkRules`, ist aber noch kein allgemeines Konzept fuer alle Regeln und alle Target-Arten.
+Historisch gab es nur den einfachen Ansatz `priorityBlockedNetIds`: Einige schwere Netzwerkregeln markieren ein Netz als blockiert, damit spaetere generische Netzwerkregeln fuer dieses Netz nicht mehr laufen. Dieser Mechanismus existiert weiterhin innerhalb von `runNetworkRules`, wird aber durch die zentrale Fingerprint-Normalisierung ergaenzt.
 
 ### Zielbild
 
-Die Check-Engine sollte Issues nicht nur sammeln, sondern vor der Ausgabe normalisieren:
+Die Check-Engine sammelt Issues nicht nur, sondern normalisiert sie vor der Ausgabe:
 
 1. Spezifische Regeln duerfen allgemeine Regeln fuer denselben Fehlerbereich verdraengen.
 2. Die UI bekommt moeglichst nur eine Meldung pro Ursache.
@@ -469,9 +479,9 @@ Die Check-Engine sollte Issues nicht nur sammeln, sondern vor der Ausgabe normal
 
 ### Konzept: Issue-Fingerprint und Suppression
 
-Jedes Issue sollte zusaetzlich zu `id`, `ruleId`, `severity` und `targets` eine maschinenlesbare Deduplizierungsinformation bekommen.
+Jedes Issue kann zusaetzlich zu `id`, `ruleId`, `severity` und `targets` eine maschinenlesbare Deduplizierungsinformation bekommen.
 
-Vorschlag fuer neue optionale Felder:
+Implementierte optionale Felder:
 
 ```ts
 type DiagramCheckIssue = {
@@ -546,10 +556,10 @@ Wenn beide Issues fuer dasselbe Netz entstehen, bleibt nur `polarity-ground-supp
 
 ### Deduplizierungs-Pipeline
 
-Statt Regeln direkt ungefiltert an die UI zu geben, sollte `runDiagramCheck()` eine Nachverarbeitung ausfuehren:
+Statt Regeln direkt ungefiltert an die UI zu geben, fuehrt `runDiagramCheck()` eine Nachverarbeitung aus:
 
 1. Alle Regeln erzeugen zunaechst ihre Issues.
-2. Issues ohne `fingerprint` bleiben sichtbar, ausser sie werden explizit ueber Targets dedupliziert.
+2. Issues ohne `fingerprint` bleiben sichtbar, koennen aber ueber einen Fallback-Schluessel aus `ruleId`, Titel und Targets dedupliziert werden.
 3. Issues werden nach Scope und Key gruppiert.
 4. Innerhalb einer Gruppe werden Suppression-Regeln angewendet:
    - Wenn Issue A in `suppresses` den `problem` von Issue B nennt, wird B entfernt.
@@ -560,6 +570,14 @@ Statt Regeln direkt ungefiltert an die UI zu geben, sollte `runDiagramCheck()` e
    - danach hoehere `priority`,
    - danach stabil die zuerst erzeugte Meldung.
 6. Die gefilterte Liste wird nach Severity, Priority und Erzeugungsreihenfolge sortiert.
+
+Implementierungsdetails:
+
+- Die zentrale Funktion ist `normalizeDiagramCheckIssues()` in `src/check/normalizeDiagramCheckIssues.ts`.
+- Suppression wirkt nur innerhalb desselben `fingerprint.scope` und derselben `fingerprint.key`.
+- Gleiche vollstaendige Fingerprints (`scope:key:problem`) werden auf die beste Meldung reduziert.
+- Der Vergleich fuer Duplikate nutzt Severity, dann `specificity`, dann niedrigere `priority`, dann stabile Erzeugungsreihenfolge.
+- Die finale Sortierung nutzt Severity, dann niedrigere `priority`, dann stabile Erzeugungsreihenfolge.
 
 Pseudo-Code:
 
@@ -647,15 +665,16 @@ Diese Variante ist leichter in die bestehende Struktur einzubauen, bleibt aber s
 
 Kurzfristig:
 
-- `priorityBlockedNetIds` zu einer allgemeinen Blockstruktur erweitern.
-- Neue Spezialregeln sollen beim Melden explizit generische Problemtypen fuer denselben Scope blockieren.
-- Besonders `mixedClassifications` sollte nur noch als Fallback laufen, wenn kein spezifischer Mischfehler fuer dieses Netz erzeugt wurde.
+- Erledigt fuer die aktuell bestehenden Regeln: Neue und bestehende Rules koennen ueber `fingerprint`, `specificity`, `suppresses` und `suppressedBy` normalisiert werden.
+- `priorityBlockedNetIds` bleibt als lokale Vorfilterung in `runNetworkRules` bestehen. Eine allgemeine Blockstruktur ist dadurch nicht mehr zwingend noetig, solange neue Regeln Fingerprints setzen.
+- Besonders `mixedClassifications` ist weiterhin als Fallback modelliert: spezifische Mischfehler wie `mainsLowVoltageMixed`, `peActiveMixed` und `rs485Mixed` unterdruecken es fuer dasselbe Netz.
 
 Langfristig:
 
-- `DiagramCheckIssue` um `fingerprint`, `specificity`, `suppresses` und `suppressedBy` erweitern.
-- Eine zentrale Funktion `normalizeDiagramCheckIssues()` zwischen Regelausfuehrung und UI einfuehren.
-- Regelimplementierungen duerfen dann ruhig mehrere potenzielle Issues erzeugen; die Normalisierung entscheidet, welche Meldung fuer Nutzer am besten ist.
+- Erledigt: `DiagramCheckIssue` ist um `fingerprint`, `specificity`, `suppresses` und `suppressedBy` erweitert.
+- Erledigt: `normalizeDiagramCheckIssues()` ist zwischen Regelausfuehrung und UI-Ausgabe eingefuehrt.
+- Weiterhin gueltig: Regelimplementierungen duerfen mehrere potenzielle Issues erzeugen; die Normalisierung entscheidet, welche Meldung fuer Nutzer am besten ist.
+- Offen: Diagnosemodus, der Raw-Issues optional sichtbar macht und unterdrueckte Issues markiert.
 
 Damit bleibt die Regelbasis erweiterbar, ohne dass die UI bei jedem neuen Spezialcheck mehr doppelte oder widerspruechliche Meldungen zeigt.
 
