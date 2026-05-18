@@ -777,12 +777,25 @@ Warnung oder Fehler, wenn LED-Streifen mit Backup-Datenleitung nur teilweise ver
 
 Beispiel: Ein Streifen hat `dig_in` und `dig_backup_in`, aber nur einer der beiden Eingaenge ist angeschlossen. Bei WS2813/WS2815/WS2818/WS2805-artigen Komponenten ist das oft beabsichtigt pruefenswert, weil Backup-Line und Main-Data-Line in vielen Setups gemeinsam geplant werden muessen.
 
+Fachliche Zielregel fuer WLED-LED-Streifen mit Backup-Datenleitung:
+
+- Wenn der `dig_in`/`DATA_start` eines LED-Streifens nicht von einem `dig_out`/`DATA_end` eines anderen LED-Streifens gespeist wird, muss der zugehoerige `dig_backup_in`/`BACKUP_start` auf GND liegen.
+- Wenn `dig_backup_in` in diesem Fall stattdessen im selben Netz wie `dig_in` liegt, ist das toleriert, aber als Warnung zu melden: empfohlen ist der Anschluss von `backup_in` an GND.
+- Wenn `dig_backup_in` weder auf GND noch toleriert im selben Netz wie `dig_in` liegt, ist das ein Fehler.
+- Wenn der `dig_in`/`DATA_start` eines LED-Streifens von `dig_out`/`DATA_end` eines anderen LED-Streifens gespeist wird, muss `dig_backup_in` vom `dig_backup_out`/`BACKUP_end` desselben vorgelagerten LED-Streifens gespeist werden.
+- Ein `dig_backup_out` eines anderen Streifens oder ein beliebiges Backup-Netz reicht dabei nicht; die Quelle muss zur konkreten Data-Quelle passen.
+
 Moegliche Logik:
 
 - Komponenten mit `dig_backup_in` oder `dig_backup_out` identifizieren.
 - Wenn `dig_backup_in.mustBeConnected === true`, ist der Fall bereits teilweise durch `requiredPinUnconnected` abgedeckt.
-- Ergaenzend pruefen, ob Main- und Backup-Datenpfade konsistent von einer Quelle bzw. vom vorherigen LED-Segment kommen.
-- Severity eher `warning`, wenn Backup optional ist; `error`, wenn die Komponentendefinition den Pin als Pflicht markiert.
+- Pro Ziel-LED-Streifen den `dig_in`-Handle und den korrespondierenden `dig_backup_in`-Handle bestimmen. Bei den aktuellen Streifen sind das z.B. `DATA_start` und `BACKUP_start`; bei wiederholten/mittleren Handles muss die Regel auf die funktionalen Start-/End-Paare normalisiert werden.
+- Aus dem Netz von `dig_in` die treibenden `dig_out`-Quellen ermitteln. Falls genau eine Quelle ein anderer LED-Streifen mit `dig_backup_out` ist, gilt dieser Streifen als vorgelagertes LED-Segment.
+- Fuer diesen Fall pruefen, ob das Netz von `dig_backup_in` den `dig_backup_out` desselben vorgelagerten LED-Segments enthaelt. Wenn nicht: `error`.
+- Falls keine vorgelagerte LED-Quelle fuer `dig_in` gefunden wird, pruefen, ob das Netz von `dig_backup_in` eine GND-Klassifikation enthaelt. Wenn ja: kein Issue.
+- Falls `dig_backup_in` im selben Netz wie `dig_in` liegt, aber nicht auf GND: `warning`, weil es toleriert ist, GND aber empfohlen wird.
+- Falls `dig_backup_in` in einem anderen Nicht-GND-Netz liegt oder unverbunden ist: `error`; bei unverbundenen Pflichtpins kann `requiredPinUnconnected` die konkretere Meldung bleiben oder diese Regel als zusammenfassende LED-Meldung dienen.
+- Severity: `error` fuer fehlenden/falschen Backup-Pfad, `warning` fuer tolerierten Anschluss an das Data-Netz.
 
 #### `clockedLedClockMissing`
 
@@ -797,6 +810,9 @@ Moegliche Logik:
 - Pro Komponente pruefen, ob `dig_clock_in` vorhanden ist.
 - Wenn ein `dig_in` oder `dig_out` des Bauteils verdrahtet ist, muss der korrespondierende Clock-Pin ebenfalls in einem passenden digitalen Clock-Netz liegen.
 - Optional auch `dig_clock_out` fuer weitergereichte Segmente pruefen.
+- Fuer hintereinandergeschaltete Clock-LED-Streifen zusaetzlich die Quelle paarweise pruefen: Wenn `dig_in`/`DATA_start` eines LED-Streifens von `dig_out`/`DATA_end` eines anderen LED-Streifens gespeist wird, muss `dig_clock_in`/`Clock_start` vom `dig_clock_out`/`Clock_end` desselben vorgelagerten LED-Streifens gespeist werden.
+- Ein Clock-Signal eines anderen Streifens oder ein beliebiges Clock-Netz reicht dabei nicht; Data und Clock muessen vom selben vorgelagerten Segment kommen.
+- Wenn `dig_in` nicht von einem anderen LED-Streifen kommt, bleibt die bestehende generische Clock-Regel massgeblich: ein genutzter Clock-LED-Streifen braucht ein passendes Clock-Signal, typischerweise vom Controller.
 
 #### `signalOutputWithoutConsumer`
 
@@ -1096,9 +1112,9 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `supplyVoltageUnknown` | 6 | `warning` | 55 | 95 | `net` | Sollte angezeigt werden, wenn Spannungschecks nicht aussagekraeftig sind. Wird von konkretem `supplyVoltageMismatch` unterdrueckt, sobald die Spannung bekannt ist. |
 | `fuseBypassed` | 7 | `error` | 90 | 18 | `net`/`component` | Sicherheits-/Schutzfunktionsfehler. Sollte allgemeine Fuse- oder Mixed-Netz-Hinweise fuer dieselben Fuse-Paare unterdruecken. |
 | `wireWithoutPhysicalParameters` | 8 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
-| `clockedLedClockMissing` | 9 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken. |
+| `clockedLedClockMissing` | 9 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
 | `dataDirectionWrong` | 10 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
-| `digitalBackupPairMismatch` | 11 | `warning` oder `error` | 75 | 70 | `component`/`handle` | Prioritaet abhaengig davon, ob Backup-Pin als Pflicht markiert ist. Sollte bei Pflichtpins hinter `requiredPinUnconnected` stehen, sonst als spezifische LED-Warnung. |
+| `digitalBackupPairMismatch` | 11 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |
 | `signalOutputWithoutConsumer` | 12 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
 | `levelShifterSupplyMismatch` | 13 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
 | `capacitorPolarityMismatch` | 14 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
