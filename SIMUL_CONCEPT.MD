@@ -160,7 +160,7 @@ type SimulationParameterRef =
   | {select: string; default?: number | string | boolean}
   | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
-  | {ledLookup: string; colorMode: 'settings.ledColorMode'};
+  | {ledCurve: string; colorMode: 'settings.ledColorMode'};
 ```
 
 Dabei gilt:
@@ -169,7 +169,7 @@ Dabei gilt:
 - `{select: "Fuse"}` verweist auf die `technicalID`/HID eines Auswahlfelds der Komponente.
 - `{lookup: "miniOtoResistanceByCurrent", by: {select: "Fuse"}}` verweist auf eine in `simdata` definierte Lookup-Tabelle.
 - `{table: {"5": 0.01, "10": 0.006}, by: {select: "Fuse"}, default: 0.01}` erlaubt kleine lokale Tabellen direkt im Element.
-- `{ledLookup: "WS2814_24V", colorMode: "settings.ledColorMode"}` verweist auf eine LED-Stromtabelle in `src/simulation/ledCurrentLookups.ts`. Der LED-Typ wird separat ueber den Parameter `ledType` des `digitalLed`-Elements angegeben und wird nicht im `currentLookup` gedoppelt.
+- `{ledCurve: "WS2814_24V", colorMode: "settings.ledColorMode"}` verweist auf eine LED-Stromkennlinie in `src/simulation/ledCurrentLookups.ts`. Der LED-Typ wird separat ueber den Parameter `ledType` des `digitalLed`-Elements angegeben und wird nicht im `currentCurve` gedoppelt.
 - `default` wird verwendet, wenn ein Feld fehlt oder eine Lookup-Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
 
 Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID` darf zur Auswahl eines Modelladapters oder fuer Defaults dienen, aber die explizite `simdata`-Struktur ist die Freigabe, dass eine Komponente simuliert wird.
@@ -341,18 +341,24 @@ Parameter:
 - `ledType`
 - `ledsPerMeter`
 - `physLedsPerLogicLed`
-- Lookup-Tabelle fuer Strom bei Farbe `R` in Abhaengigkeit der lokalen LED-Spannung
-- Lookup-Tabelle fuer Strom bei Farbe `G` in Abhaengigkeit der lokalen LED-Spannung
-- Lookup-Tabelle fuer Strom bei Farbe `B` in Abhaengigkeit der lokalen LED-Spannung
-- Lookup-Tabelle fuer Strom bei Farbe `RGB-White` in Abhaengigkeit der lokalen LED-Spannung
-- Lookup-Tabelle fuer Strom bei Farbe `Separate-White` in Abhaengigkeit der lokalen LED-Spannung
-- Lookup-Tabelle fuer Strom bei Kombination `Separate-White + RGB-White` in Abhaengigkeit der lokalen LED-Spannung
+- Stromkennlinienparameter fuer Farbe `R`: `I0`, `Ilim`, `k`, `V0`
+- Stromkennlinienparameter fuer Farbe `G`: `I0`, `Ilim`, `k`, `V0`
+- Stromkennlinienparameter fuer Farbe `B`: `I0`, `Ilim`, `k`, `V0`
+- Stromkennlinienparameter fuer Farbe `RGB-White`: `I0`, `Ilim`, `k`, `V0`
+- Stromkennlinienparameter fuer Farbe `Separate-White`: `I0`, `Ilim`, `k`, `V0`
+- Stromkennlinienparameter fuer Kombination `Separate-White + RGB-White`: `I0`, `Ilim`, `k`, `V0`
 
-`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. Die Werte in `simdata` bleiben pro physikalischer LED angegeben: `supplyResistanceOhm`, `gndResistanceOhm` und der Strom aus der Lookup-Tabelle werden fuer das digitale LED-Netzelement mit `physLedsPerLogicLed` multipliziert. Der Stromwert der LED-Stromsenke wird also aus der passenden Lookup-Tabelle bestimmt, mit der Helligkeit skaliert und danach fuer die logische LED entsprechend der Gruppierung hochskaliert.
+`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. Die Werte in `simdata` bleiben pro physikalischer LED angegeben: `supplyResistanceOhm`, `gndResistanceOhm` und der Strom aus der Kennlinie werden fuer das digitale LED-Netzelement mit `physLedsPerLogicLed` multipliziert. Der Stromwert der LED-Stromsenke wird also aus der passenden Kennlinie bestimmt, mit der Helligkeit skaliert und danach fuer die logische LED entsprechend der Gruppierung hochskaliert.
 
 `RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
 
-Lookup-Tabellen fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus liefern sie den Strom in Abhaengigkeit von der lokalen LED-Spannung. Die Auswertung interpoliert linear zwischen Tabellenpunkten und skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
+Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus werden die Parameter `I0`, `Ilim`, `k` und `V0` gesetzt. Die lokale LED-Spannung ist `V = V(supplyOut) - V(gndOut)`, und der Strom pro physikalischer LED wird berechnet als:
+
+```text
+I = I0 + Ilim / (1 + exp(-k * (V - V0)))
+```
+
+Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
 
 Beispiel fuer `digitalLed`-Parameter:
 
@@ -363,8 +369,8 @@ parameters: {
   ledType: "WS2814_24V",
   ledsPerMeter: 60,
   physLedsPerLogicLed: 6,
-  currentLookup: {
-    ledLookup: "WS2814_24V",
+  currentCurve: {
+    ledCurve: "WS2814_24V",
     colorMode: "settings.ledColorMode",
   },
 }
@@ -1078,7 +1084,7 @@ Optional:
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
-12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als erste lineare DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Nichtlineare Iterationen fuer PSU-/DCDC-Degradation und spannungsabhaengige LED-Stroeme bleiben Folgearbeit.
+12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert; Nichtlinear-Iterationen fuer PSU-/DCDC-Degradation bleiben Folgearbeit.
 13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits und Sicherungs-Nennstroeme.
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
@@ -1090,7 +1096,7 @@ Optional:
 3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
 4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
 5. Sicherungs-Lookups zuerst direkt in `simdata`.
-6. LED-Lookups pro LED-Typ in `src/simulation/ledCurrentLookups.ts`.
+6. LED-Stromkennlinien pro LED-Typ in `src/simulation/ledCurrentLookups.ts`.
 7. `physLengths[i].length` ist Meter.
 8. `_middle_N` entspricht `repeatIndex === N`; `physLengths.startIndex === N` markiert eine Abschnittsgrenze.
 9. `_middle_N`-Spannung nur anzeigen, wenn `physLengths.startIndex === N` existiert.
@@ -1121,8 +1127,8 @@ Optional:
 34. Die Anzahl logischer LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
 35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische LEDs pro Meter.
 36. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`.
-37. Serienwiderstaende digitaler LED-Streifen und LED-Lookup-Stroeme werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
-38. LED-Lookup-Tabellen liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentLookup` enthaelt nur Lookup-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
+37. Serienwiderstaende digitaler LED-Streifen und LED-Kennlinien-Stroeme werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
+38. LED-Stromkennlinien liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentCurve` enthaelt nur Kennlinien-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
 39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
 41. Pins, die durch Komponentenoptionen aktuell unsichtbar sind, werden ignoriert; elementare `simdata`-Elemente mit mindestens einem unsichtbaren Terminal werden fuer diese Konfiguration uebersprungen.

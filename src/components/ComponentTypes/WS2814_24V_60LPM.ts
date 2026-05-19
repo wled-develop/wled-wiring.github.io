@@ -40,8 +40,8 @@ export const WS2814_24V_60LPM: Node = {
                         ledType: "WS2814_24V",
                         ledsPerMeter: 60,
                         physLedsPerLogicLed: 6,
-                        currentLookup: {
-                            ledLookup: "WS2814_24V",
+                        currentCurve: {
+                            ledCurve: "WS2814_24V",
                             colorMode: "settings.ledColorMode",
                         },
                     },

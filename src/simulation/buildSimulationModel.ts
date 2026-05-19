@@ -235,10 +235,14 @@ const resolveParameter = (
     return {ok: false, message: `Lookup references are not implemented yet: ${ref.lookup}.`};
   }
 
-  return {
-    ok: true,
-    value: ref.ledLookup,
-  };
+  if("ledCurve" in ref) {
+    return {
+      ok: true,
+      value: ref.ledCurve,
+    };
+  }
+
+  return {ok: false, message: "Unsupported simulation parameter reference."};
 };
 
 const resolveParameters = (

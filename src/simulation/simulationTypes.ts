@@ -33,7 +33,7 @@ export type SimulationParameterRef =
   | {select: string; default?: SimulationParameterPrimitive}
   | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
-  | {ledLookup: string; colorMode: "settings.ledColorMode"};
+  | {ledCurve: string; colorMode: "settings.ledColorMode"};
 
 export type ComponentSimulationElementType =
   | "resistor"
@@ -110,7 +110,7 @@ export type DigitalLedSimulationElementUse = ComponentSimulationElementBase<
     ledType: SimulationParameterRef;
     ledsPerMeter: SimulationParameterRef;
     physLedsPerLogicLed: SimulationParameterRef;
-    currentLookup: SimulationParameterRef;
+    currentCurve: SimulationParameterRef;
   }
 >;
 

@@ -1,107 +1,83 @@
 import type { LedSimulationColorMode } from "./simulationTypes";
 
-export type LedCurrentPoint = {
-  voltageV: number;
-  currentA: number;
+export type LedCurrentCurveParameters = {
+  i0A: number;
+  iLimitA: number;
+  k: number;
+  v0: number;
 };
 
-export type LedCurrentLookup = Record<LedSimulationColorMode, readonly LedCurrentPoint[]>;
+export type LedCurrentCurve = Record<LedSimulationColorMode, LedCurrentCurveParameters>;
 
-export const LED_CURRENT_LOOKUPS: Record<string, LedCurrentLookup> = {
+export const LED_CURRENT_CURVES: Record<string, LedCurrentCurve> = {
   WS2814_24V: {
-    R: [
-      {voltageV: 18, currentA: 0.020},
-      {voltageV: 20, currentA: 0.025},
-      {voltageV: 24, currentA: 0.030},
-    ],
-    G: [
-      {voltageV: 18, currentA: 0.020},
-      {voltageV: 20, currentA: 0.025},
-      {voltageV: 24, currentA: 0.030},
-    ],
-    B: [
-      {voltageV: 18, currentA: 0.020},
-      {voltageV: 20, currentA: 0.025},
-      {voltageV: 24, currentA: 0.030},
-    ],
-    RGB_WHITE: [
-      {voltageV: 18, currentA: 0.030},
-      {voltageV: 20, currentA: 0.035},
-      {voltageV: 24, currentA: 0.040},
-    ],
-    SEPARATE_WHITE: [
-      {voltageV: 18, currentA: 30},
-      {voltageV: 20, currentA: 35},
-      {voltageV: 24, currentA: 40},
-    ],
-    SEPARATE_AND_RGB_WHITE: [
-      {voltageV: 18, currentA: 0.050},
-      {voltageV: 20, currentA: 0.060},
-      {voltageV: 24, currentA: 0.070},
-    ],
+    R: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
+    G: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
+    B: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
+    RGB_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
+    SEPARATE_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
+    SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.070, k: 1.2, v0: 20.5},
   },
 };
 
-export type LedCurrentLookupId = keyof typeof LED_CURRENT_LOOKUPS;
+export type LedCurrentCurveId = keyof typeof LED_CURRENT_CURVES;
 
-export type LedCurrentLookupResult =
+export type LedCurrentCurveResult =
   | {ok: true; currentA: number}
-  | {ok: false; reason: "missing_lookup" | "missing_color_mode" | "empty_points"; message: string};
+  | {ok: false; reason: "missing_curve" | "missing_color_mode" | "invalid_parameters"; message: string};
 
-export const isLedCurrentLookupId = (value: string): value is LedCurrentLookupId =>
-  Object.prototype.hasOwnProperty.call(LED_CURRENT_LOOKUPS, value);
+export const isLedCurrentCurveId = (value: string): value is LedCurrentCurveId =>
+  Object.prototype.hasOwnProperty.call(LED_CURRENT_CURVES, value);
 
-const interpolateLedCurrent = (points: readonly LedCurrentPoint[], voltageV: number): number => {
-  const sortedPoints = [...points].sort((a, b) => a.voltageV - b.voltageV);
-
-  if(sortedPoints.length===0) return 0;
-  if(voltageV<=sortedPoints[0].voltageV) return sortedPoints[0].currentA;
-
-  const lastPoint = sortedPoints[sortedPoints.length-1];
-  if(voltageV>=lastPoint.voltageV) return lastPoint.currentA;
-
-  for(let index=0; index<sortedPoints.length-1; index++) {
-    const lower = sortedPoints[index];
-    const upper = sortedPoints[index+1];
-
-    if(voltageV>=lower.voltageV && voltageV<=upper.voltageV) {
-      const ratio = (voltageV - lower.voltageV) / (upper.voltageV - lower.voltageV);
-      return lower.currentA + (upper.currentA - lower.currentA) * ratio;
-    }
+const sigmoid = (value: number) => {
+  if(value >= 0) {
+    const expNegative = Math.exp(-value);
+    return 1 / (1 + expNegative);
   }
 
-  return lastPoint.currentA;
+  const expPositive = Math.exp(value);
+  return expPositive / (1 + expPositive);
 };
 
+export const calculateLedCurrentA = (
+  parameters: LedCurrentCurveParameters,
+  voltageV: number,
+) => parameters.i0A + parameters.iLimitA * sigmoid(parameters.k * (voltageV - parameters.v0));
+
 export const getLedCurrentA = (
-  lookupId: string,
+  curveId: string,
   colorMode: LedSimulationColorMode,
   voltageV: number,
   brightness: number,
-): LedCurrentLookupResult => {
-  if(!isLedCurrentLookupId(lookupId)) {
+): LedCurrentCurveResult => {
+  if(!isLedCurrentCurveId(curveId)) {
     return {
       ok: false,
-      reason: "missing_lookup",
-      message: `Missing LED current lookup: ${lookupId}.`,
+      reason: "missing_curve",
+      message: `Missing LED current curve: ${curveId}.`,
     };
   }
 
-  const points = LED_CURRENT_LOOKUPS[lookupId][colorMode];
+  const parameters = LED_CURRENT_CURVES[curveId][colorMode];
 
-  if(points == undefined) {
+  if(parameters == undefined) {
     return {
       ok: false,
       reason: "missing_color_mode",
-      message: `Missing LED current lookup color mode: ${lookupId}/${colorMode}.`,
+      message: `Missing LED current curve color mode: ${curveId}/${colorMode}.`,
     };
   }
 
-  if(points.length===0) {
+  if(
+    !Number.isFinite(parameters.i0A) ||
+    !Number.isFinite(parameters.iLimitA) ||
+    !Number.isFinite(parameters.k) ||
+    !Number.isFinite(parameters.v0)
+  ) {
     return {
       ok: false,
-      reason: "empty_points",
-      message: `LED current lookup has no points: ${lookupId}/${colorMode}.`,
+      reason: "invalid_parameters",
+      message: `LED current curve has invalid parameters: ${curveId}/${colorMode}.`,
     };
   }
 
@@ -109,6 +85,6 @@ export const getLedCurrentA = (
 
   return {
     ok: true,
-    currentA: interpolateLedCurrent(points, voltageV) * clampedBrightness,
+    currentA: calculateLedCurrentA(parameters, voltageV) * clampedBrightness,
   };
 };

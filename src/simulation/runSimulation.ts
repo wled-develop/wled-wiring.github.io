@@ -28,6 +28,8 @@ export type RunSimulationResult =
     };
 
 const MIN_RESISTANCE_OHM = 1e-9;
+const MAX_LED_CURRENT_ITERATIONS = 50;
+const LED_CURRENT_CONVERGENCE_A = 0.0005;
 
 type VoltageSourceStamp = {
   elementId: string;
@@ -42,6 +44,8 @@ type LinearDcModel = {
   circuitNodeIndexById: Map<string, number>;
   voltageSources: VoltageSourceStamp[];
 };
+
+type LedCurrentByElementId = Map<string, number>;
 
 const numberParameter = (
   parameters: Record<string, string | number | boolean> | undefined,
@@ -156,19 +160,76 @@ const createCircuitNodeIndexById = (model: SimulationModel) => {
 const getLedCurrentForElement = (
   element: SimulationElement,
   settings: SimulationSettings,
+  voltageV: number,
 ) => {
-  const lookupId = stringParameter(element.parameters, "currentLookup");
+  const curveId = stringParameter(element.parameters, "currentCurve");
   const currentScaleFactor = numberParameter(element.parameters, "currentScaleFactor") ?? 1;
-  if(!lookupId) return undefined;
+  if(!curveId) return undefined;
 
-  const nominalVoltage = stringParameter(element.parameters, "ledType")?.includes("24V") ? 24 : 5;
   const result = getLedCurrentA(
-    lookupId,
+    curveId,
     settings.ledColorMode,
-    nominalVoltage,
+    voltageV,
     settings.brightnessPercent / 100,
   );
   return result.ok ? result.currentA * currentScaleFactor : undefined;
+};
+
+const nominalLedVoltage = (element: SimulationElement) => (
+  stringParameter(element.parameters, "ledType")?.includes("24V") ? 24 : 5
+);
+
+const createInitialLedCurrents = (model: SimulationModel): LedCurrentByElementId => {
+  const currents = new Map<string, number>();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "digitalLed") return;
+
+    const currentA = getLedCurrentForElement(element, model.settings, nominalLedVoltage(element));
+    if(currentA !== undefined) {
+      currents.set(element.id, currentA);
+    }
+  });
+
+  return currents;
+};
+
+const createLedCurrentsFromVoltages = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+): LedCurrentByElementId => {
+  const currents = new Map<string, number>();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "digitalLed") return;
+
+    const supplyVoltage = circuitVoltages.get(element.terminals.supplyOut);
+    const gndVoltage = circuitVoltages.get(element.terminals.gndOut);
+    const voltageV = supplyVoltage !== undefined && gndVoltage !== undefined
+      ? supplyVoltage - gndVoltage
+      : nominalLedVoltage(element);
+    const currentA = getLedCurrentForElement(element, model.settings, voltageV);
+
+    if(currentA !== undefined) {
+      currents.set(element.id, currentA);
+    }
+  });
+
+  return currents;
+};
+
+const maxLedCurrentDeltaA = (
+  current: LedCurrentByElementId,
+  next: LedCurrentByElementId,
+) => {
+  const elementIds = new Set([...current.keys(), ...next.keys()]);
+  let maxDeltaA = 0;
+
+  elementIds.forEach((elementId) => {
+    maxDeltaA = Math.max(maxDeltaA, Math.abs((current.get(elementId) ?? 0) - (next.get(elementId) ?? 0)));
+  });
+
+  return maxDeltaA;
 };
 
 const voltageSourcesFromElements = (
@@ -248,7 +309,10 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
   return activeCircuitNodeIds;
 };
 
-const buildLinearDcModel = (model: SimulationModel): LinearDcModel => {
+const buildLinearDcModel = (
+  model: SimulationModel,
+  ledCurrentByElementId: LedCurrentByElementId = new Map(),
+): LinearDcModel => {
   const activeCircuitNodeIds = collectActiveCircuitNodeIds(model);
   const circuitNodeIndexById = createCircuitNodeIndexById({
     ...model,
@@ -334,7 +398,8 @@ const buildLinearDcModel = (model: SimulationModel): LinearDcModel => {
         circuitNodeIndexById,
         element.terminals.supplyOut,
         element.terminals.gndOut,
-        getLedCurrentForElement(element, model.settings),
+        ledCurrentByElementId.get(element.id)
+          ?? getLedCurrentForElement(element, model.settings, nominalLedVoltage(element)),
       );
     }
   });
@@ -587,19 +652,50 @@ export const runSimulation = (
     };
   }
 
-  const linearModel = buildLinearDcModel(modelResult.model);
-  const solverResult = denseLinearSystemSolver.solve(linearModel.system);
+  let ledCurrentByElementId = createInitialLedCurrents(modelResult.model);
+  let linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId);
+  let solverResult = denseLinearSystemSolver.solve(linearModel.system);
+  let converged = false;
 
-  if(solverResult.status !== "ok" || !solverResult.values) {
+  for(let iteration = 0; iteration < MAX_LED_CURRENT_ITERATIONS; iteration += 1) {
+    if(solverResult.status !== "ok" || !solverResult.values) {
+      return {
+        ok: false,
+        diagramFingerprint,
+        issues: [
+          ...modelResult.issues,
+          issue(
+            "simulation-solver:failed",
+            "Simulation solver failed",
+            solverResult.message ?? `Solver returned status ${solverResult.status}.`,
+          ),
+        ],
+      };
+    }
+
+    const circuitVoltages = createCircuitVoltages(modelResult.model, linearModel, solverResult.values);
+    const nextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
+
+    if(maxLedCurrentDeltaA(ledCurrentByElementId, nextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A) {
+      converged = true;
+      break;
+    }
+
+    ledCurrentByElementId = nextLedCurrentByElementId;
+    linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId);
+    solverResult = denseLinearSystemSolver.solve(linearModel.system);
+  }
+
+  if(!converged) {
     return {
       ok: false,
       diagramFingerprint,
       issues: [
         ...modelResult.issues,
         issue(
-          "simulation-solver:failed",
-          "Simulation solver failed",
-          solverResult.message ?? `Solver returned status ${solverResult.status}.`,
+          "simulation-solver:led-current-not-converged",
+          "Simulation solver did not converge",
+          "Voltage-dependent LED currents did not converge within the iteration limit.",
         ),
       ],
     };
@@ -610,7 +706,7 @@ export const runSimulation = (
     diagramFingerprint,
     modelResult.issues,
     linearModel,
-    solverResult.values,
+    solverResult.values ?? [],
   );
 
   return {

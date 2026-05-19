@@ -53,7 +53,7 @@ export const ELEMENTARY_ELEMENT_METADATA = {
       "ledType",
       "ledsPerMeter",
       "physLedsPerLogicLed",
-      "currentLookup",
+      "currentCurve",
     ],
     optionalParameters: [],
   },

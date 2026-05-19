@@ -21,7 +21,7 @@ Spezialelemente werden iterativ aktualisiert:
 
 - PSU mit Stromlimit und aus `voltageDropPctAt150Current` abgeleiteter Spannungsdegradation
 - DCDC-Wandler mit dynamischem Ausgangsstromlimit
-- digitale LED-Stromsenken, optional spannungsabhaengig
+- digitale LED-Stromsenken, spannungsabhaengig
 - PWM-DC-Lasten
 
 ## Knotenmodell
@@ -119,15 +119,15 @@ Eine logische digitale LED besteht aus:
 - GND-Serienwiderstand
 - Stromsenke zwischen lokalem Supply- und lokalem GND-Knoten
 
-Der Zielstrom kommt aus LED-Typ, Farbmodus und Helligkeit. Lookup-Strom, Supply-Serienwiderstand und GND-Serienwiderstand sind in `simdata` pro physikalischer LED angegeben und werden fuer die logische LED mit `physLedsPerLogicLed` multipliziert. Die Anzahl der Solver-Elemente pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `ledsPerMeter` meint physikalische LEDs pro Meter.
+Der Zielstrom kommt aus LED-Typ, Farbmodus, lokaler LED-Spannung und Helligkeit. Kennlinien-Strom, Supply-Serienwiderstand und GND-Serienwiderstand sind in `simdata` pro physikalischer LED angegeben und werden fuer die logische LED mit `physLedsPerLogicLed` multipliziert. Die Anzahl der Solver-Elemente pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `ledsPerMeter` meint physikalische LEDs pro Meter.
 
-Fuer die erste Version darf die Stromsenke als konstante DC-Stromsenke modelliert werden, solange `Vled` oberhalb einer Mindestspannung liegt. Optional wird bei niedriger Spannung der Strom reduziert, z.B. linear:
+Die Stromsenke wird iterativ als DC-Stromquelle gestempelt. Nach jeder linearen Loesung wird die lokale Spannung `V = V(supplyOut) - V(gndOut)` des jeweiligen LED-Netzelements ausgewertet. Der naechste LED-Strom pro physikalischer LED kommt aus der Kennlinie:
 
 ```text
-I = Itarget * clamp((Vled - Vmin) / (Vnominal - Vmin), 0, 1)
+I = I0 + Ilim / (1 + exp(-k * (V - V0)))
 ```
 
-Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
+`I0`, `Ilim`, `k` und `V0` sind pro LED-Typ und Farbmodus einstellbar. Der berechnete Strom wird mit der Helligkeit `0..1` skaliert und anschliessend mit `physLedsPerLogicLed` auf die logische LED hochskaliert. Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
 
 ## Iterationsablauf
 
@@ -136,7 +136,7 @@ Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
 3. Startwerte setzen:
    - PSU: `U_nominal`
    - DCDC: `outputVoltageV`
-   - LED: Zielstrom aus Lookup und Helligkeit
+   - LED: Zielstrom aus Kennlinie bei Nominalspannung und Helligkeit
 4. Sparse Matrix und RHS aus aktuellen Elementzustaenden stempeln.
 5. Lineares Gleichungssystem loesen.
 6. Elementstroeme und Knotenspannungen berechnen.
@@ -212,11 +212,11 @@ Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
 - Referenzknoten wird aus der Spannungsquelle mit dem hoechsten Stromlimit gewaehlt; bei Gleichstand deterministisch.
 - Digitale LED-Streifen werden anhand von `physLengths`, `ledsPerMeter` und `physLedsPerLogicLed` in interne LED-Elemente expandiert.
 - Start-/End-/Middle-Grenzen der LED-Streifen werden als `SimulationVirtualPin` ausgegeben.
-- Lineares MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, ideale Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken.
+- MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, ideale Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
 - Ergebnisableitung fuer Pin-Spannungen, Wire-Stroeme, Wire-Spannungsabfaelle, LED-Netzelement-Differenzspannungen und `ΔVmin`.
 - Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit und Sicherungs-Nennstrom.
 
-Die aktuelle Implementierung ist damit ein brauchbarer linearer Zwischenschritt, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
+Die aktuelle Implementierung ist damit ein brauchbarer DC-Zwischenschritt mit iterativen digitalen LED-Stromsenken, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
 
 ## Was noch fuer einen richtigen Solver fehlt
 
@@ -260,12 +260,11 @@ Der DCDC-Wandler ist derzeit nur als ideale Ausgangsspannungsquelle modelliert. 
 
 ### Spannungsabhaengige LED-Stroeme
 
-Digitale LED-Stroeme werden aktuell aus dem Lookup bei Nominalspannung bestimmt. Fuer realistischere Ergebnisse fehlt:
+Digitale LED-Stroeme werden aktuell iterativ ueber die lokale Spannung `V(supplyOut) - V(gndOut)` und die Kennlinie `I = I0 + Ilim / (1 + exp(-k * (V - V0)))` aktualisiert. Offen bleibt:
 
-- Pro internem LED-Netzelement lokale Spannung `V(supplyOut) - V(gndOut)` verwenden.
-- Lookup pro Iteration mit dieser lokalen Spannung auswerten.
-- Strom bei Unterspannung reduzieren statt konstant zu halten.
-- `ΔVmin` und Detailwerte erst nach Konvergenz ausgeben.
+- Konvergenzverhalten mit langen und stark unterversorgten LED-Streifen per Fixture absichern.
+- Nichtkonvergenzmeldungen in der UI feiner auf einzelne LED-Streifen beziehen.
+- `ΔVmin` und Detailwerte mit automatischen Unter-/Ueberspannungs-Checks kombinieren.
 
 ### Quellen- und Stromverteilung
 
