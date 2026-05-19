@@ -44,7 +44,8 @@ export const MHC_RS485_R: Node = {
                 "xalign": "start",
                 "y": 10,
                 "yalign": "start",
-                "prefferedLineWidth": 2
+                "prefferedLineWidth": 2,
+                mustBeConnected: true,
             },
            {
                 "borderColor": "black",
@@ -94,7 +95,8 @@ export const MHC_RS485_R: Node = {
                 "xalign": "start",
                 "y": 41,
                 "yalign": "start",
-                "prefferedLineWidth": 2
+                "prefferedLineWidth": 2,
+                mustBeConnected: true,
             },
             
             {
@@ -171,6 +173,7 @@ export const MHC_RS485_R: Node = {
                 "y": 26,
                 "yalign": "start",
                 "prefferedLineWidth": 2,
+                mustBeConnected: true,
             },
         ]
     } as ComponentDataType,
