@@ -344,6 +344,8 @@ const signalLabel = (signalId: string) => checkText(`signalLabels.${signalId}`);
 
 const mainsInputLabel = (inputId: string) => checkText(`mainsInputLabels.${inputId}`);
 
+const analogLedColorLabel = (colorId: string) => checkText(`analogLedColorLabels.${colorId}`);
+
 const netHasAnyClassification = (
   net: CheckNet,
   classifications: CheckNetClassification[],
@@ -453,6 +455,13 @@ const signalRuleDefinitions: {
 
 const digitalSinkFunctions = ['dig_in', 'dig_clock_in', 'dig_backup_in'];
 const digitalSourceFunctions = ['dig_out', 'dig_clock_out', 'dig_backup_out'];
+const analogLedColorChannels = [
+  { id: 'red', fn: 'pwm_in_R' },
+  { id: 'green', fn: 'pwm_in_G' },
+  { id: 'blue', fn: 'pwm_in_B' },
+  { id: 'white', fn: 'pwm_in_W' },
+  { id: 'warmWhite', fn: 'pwm_in_WW' },
+];
 
 const isDigitalSink = (handle: CheckHandle) => (
   digitalSinkFunctions.some((fn) => hasFunction(handle, fn))
@@ -1063,6 +1072,112 @@ const checkControlledOutputWithoutControlInput = (context: DiagramCheckContext) 
           handleIssueOptions(output, 'controlled-output-without-control-input', 85, 52),
         )];
       });
+  })
+);
+
+const isAnalogLedStrip = (node: Node<ComponentDataType>) => (
+  node.data.group === 'led' && node.data.technicalID.startsWith('AN_')
+);
+
+const checkAnalogLedColorChannelUnconnected = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || !isAnalogLedStrip(node) || !hasAnyConnectedEdge(nodeHandles)) return [];
+
+    return analogLedColorChannels.flatMap((channel) => {
+      const channelHandles = handlesWithAnyFunction(nodeHandles, [channel.fn]);
+      if (channelHandles.length === 0) return [];
+      if (channelHandles.some((handle) => handle.connectedEdges.length > 0)) return [];
+
+      return [translatedIssue(
+        'component-rules',
+        'analogLedColorChannelUnconnected',
+        `analog-led-color-channel-unconnected-${node.id}-${channel.id}`,
+        'warning',
+        {
+          component: node.data.technicalID || node.data.name || node.id,
+          color: analogLedColorLabel(channel.id),
+          handles: channelHandles.map(describeHandle).join(', '),
+        },
+        [
+          nodeTarget(node),
+          ...channelHandles.flatMap(handleTargets),
+        ],
+        {
+          priority: 85,
+          specificity: 70,
+          fingerprint: {
+            scope: 'component',
+            key: `${node.id}:${channel.id}`,
+            problem: 'analog-led-color-channel-unconnected',
+          },
+        },
+      )];
+    });
+  })
+);
+
+const pwmSourceHandlesForChannelHandle = (
+  context: DiagramCheckContext,
+  handle: CheckHandle,
+) => (
+  context.getNetByHandle(handle)?.sourceHandles.filter((source) => hasFunction(source, 'pwm_out')) || []
+);
+
+const checkAnalogLedColorChannelMultiplePwmSignals = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || !isAnalogLedStrip(node)) return [];
+
+    return analogLedColorChannels.flatMap((channel) => {
+      const channelHandles = handlesWithAnyFunction(nodeHandles, [channel.fn]);
+      const connectedChannelHandles = channelHandles.filter((handle) => handle.connectedEdges.length > 0);
+      if (connectedChannelHandles.length === 0) return [];
+
+      const pwmSourcesByKey = new Map<string, CheckHandle>();
+      const affectedNetsById = new Map<string, CheckNet>();
+
+      connectedChannelHandles.forEach((handle) => {
+        const net = context.getNetByHandle(handle);
+        if (net) affectedNetsById.set(net.id, net);
+
+        pwmSourceHandlesForChannelHandle(context, handle).forEach((source) => {
+          pwmSourcesByKey.set(source.key, source);
+        });
+      });
+
+      const pwmSources = Array.from(pwmSourcesByKey.values());
+      if (pwmSources.length <= 1) return [];
+
+      return [translatedIssue(
+        'component-rules',
+        'analogLedColorChannelMultiplePwmSignals',
+        `analog-led-color-channel-multiple-pwm-signals-${node.id}-${channel.id}`,
+        'error',
+        {
+          component: node.data.technicalID || node.data.name || node.id,
+          color: analogLedColorLabel(channel.id),
+          signals: pwmSources.map(describeHandle).join(', '),
+          handles: connectedChannelHandles.map(describeHandle).join(', '),
+        },
+        [
+          nodeTarget(node),
+          ...connectedChannelHandles.flatMap(handleTargets),
+          ...pwmSources.flatMap(handleTargets),
+          ...Array.from(affectedNetsById.values()).flatMap(netTargets),
+        ],
+        {
+          priority: 44,
+          specificity: 90,
+          fingerprint: {
+            scope: 'component',
+            key: `${node.id}:${channel.id}`,
+            problem: 'analog-led-color-channel-multiple-pwm-signals',
+          },
+          suppresses: ['multiple-pwm-sources'],
+        },
+      )];
+    });
   })
 );
 
@@ -1828,6 +1943,8 @@ const runComponentRules = (context: DiagramCheckContext) => {
     ...issues,
     ...checkUnusedRequiredFunctionalGroup(context),
     ...checkControlledOutputWithoutControlInput(context),
+    ...checkAnalogLedColorChannelUnconnected(context),
+    ...checkAnalogLedColorChannelMultiplePwmSignals(context),
     ...checkComponentHasOnlyOneTerminalConnected(context),
     ...checkCapacitorPolarityMismatch(context),
     ...checkMainsConnectorIncomplete(context),
@@ -1887,6 +2004,8 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'mainsInputMissing',
       'unusedRequiredFunctionalGroup',
       'controlledOutputWithoutControlInput',
+      'analogLedColorChannelUnconnected',
+      'analogLedColorChannelMultiplePwmSignals',
       'componentHasOnlyOneTerminalConnected',
       'capacitorPolarityMismatch',
       'mainsConnectorIncomplete',

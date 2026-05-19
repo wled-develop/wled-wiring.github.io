@@ -37,7 +37,7 @@ Ein `CheckHandle` enthaelt unter anderem:
 - `voltageOut`: abgeleitete Ausgangsspannung
 - `voltageMin` / `voltageMax`: erlaubter Eingangs-Spannungsbereich
 
-Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen.
+Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten.
 
 ### Funktionen an Handles
 
@@ -813,7 +813,7 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
 - Einige Regeln sind konservativ umgesetzt, um False Positives zu reduzieren: passive Verbinder wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` werden z.B. bei `mainsWireConnectedToLowVoltageComponent` nicht als ungeeignete Endkomponente bewertet.
@@ -1010,6 +1010,78 @@ Betroffene Komponenten und Metadaten:
 - `MHC_PWMBoard` / WLED PWM Board: `PWMOUT1 -> PWMIN1`, `PWMOUT2 -> PWMIN2`, `PWMOUT3 -> PWMIN3`.
 - `MHC_Relay5V`, `MHC_Relay12V`, `MHC_Relay24V`: `VOUT1` und `VOUT2` (Power Output 1, NC/NO) zeigen auf `CTRL1`; `VOUT3` und `VOUT4` (Power Output 2, NC/NO) zeigen auf `CTRL2`.
 
+#### `analogLedColorChannelUnconnected`
+
+Warnung, wenn bei einem verwendeten analogen LED-Streifen ein kompletter Farbkanal nicht angeschlossen ist.
+
+Analoge Streifen besitzen pro Farbe mehrere physische Anschlussmoeglichkeiten, z.B. Start, Ende und wiederholte Middle-Pins. Die wiederholten Middle-Pins werden in gespeicherten Diagrammen als konkrete Handles in `data.repeatedHandleArray` abgelegt, z.B. `R_middle_4`; sie sind keine direkte Verbindung auf dem Template-Handle `R_middle`. Fuer die Nutzbarkeit einer Farbe reicht es, wenn mindestens einer dieser konkreten oder regulaeren Handles angeschlossen ist. Wenn dagegen kein Handle einer vorhandenen Farbe verbunden ist, kann diese Farbe nicht gesteuert werden und sollte als Warnung sichtbar sein.
+
+Gepruefte Farbkanal-Funktionen:
+
+- `pwm_in_R`: Rot
+- `pwm_in_G`: Gruen
+- `pwm_in_B`: Blau
+- `pwm_in_W`: Weiss
+- `pwm_in_WW`: Warmweiss
+
+Ein analoger Streifen gilt fuer diese Regel als relevant, wenn:
+
+- die Komponente ein LED-Element ist,
+- die technische ID mit `AN_` beginnt,
+- und die Komponente mindestens eine Wire besitzt. Vollstaendig unverdrahtete Streifen sollen nicht sofort mehrere Farbwarnungen erzeugen; dafuer bleibt `isolatedComponent` zustaendig.
+
+Pro vorhandener Farbe wird geprueft:
+
+- Sammle alle sichtbaren Handles derselben Farb-Funktion innerhalb der Komponente, z.B. `R_start`, `R_end` und konkrete wiederholte Handles wie `R_middle_1`, `R_middle_2`, ...
+- Falls konkrete wiederholte Handles keine eigenen `functions` enthalten, verwende die fachlichen Metadaten des zugehoerigen Template-Handles, z.B. `R_middle` fuer `R_middle_4`.
+- Wenn keiner dieser Handles eine Wire hat, erzeuge eine Warnung fuer genau diese Farbe.
+- Wenn mindestens einer dieser Handles verbunden ist, gilt die Farbe als steuerbar; es ist nicht erforderlich, Start, Mitte und Ende gleichzeitig zu verbinden. Eine Einspeisung bzw. Anbindung am Anfang, irgendwo in der Mitte oder am Ende ist fuer analoge Streifen grundsaetzlich zulaessig.
+
+Targets:
+
+- die betroffene LED-Komponente,
+- alle sichtbaren Handles des fehlenden Farbkanals.
+
+Severity: `warning`, weil der Aufbau elektrisch plausibel sein kann, aber die betroffene Farbe im Betrieb nicht steuerbar ist.
+
+#### `analogLedColorChannelMultiplePwmSignals`
+
+Fehler, wenn ein Farbkanal eines analogen LED-Streifens gleichzeitig an unterschiedliche PWM-Signale angeschlossen ist.
+
+Analoge LED-Streifen haben pro Farbe mehrere gleichwertige Anschlussmoeglichkeiten am selben durchgehenden Kupfer-/LED-Kanal. Start-, Middle- und End-Pins desselben Farbkanals duerfen deshalb nicht von verschiedenen PWM-Ausgaengen getrieben werden. Das wuerde die PWM-Ausgaenge ueber den Streifenkanal gegeneinander arbeiten lassen und kann Controller, MOSFET-/PWM-Board oder Leiterbahnen belasten.
+
+Wenn ein Anwender fuer mehr Leistung mehrere PWM-Ausgaenge verwenden moechte, muss der analoge Streifen elektrisch in separate Streifen bzw. voneinander getrennte Segmente aufgeteilt werden. Dann hat jedes Segment seinen eigenen Farbkanal und darf separat an ein PWM-Signal angeschlossen werden.
+
+Gepruefte Farbkanal-Funktionen:
+
+- `pwm_in_R`: Rot
+- `pwm_in_G`: Gruen
+- `pwm_in_B`: Blau
+- `pwm_in_W`: Weiss
+- `pwm_in_WW`: Warmweiss
+
+Ein analoger Streifen gilt fuer diese Regel als relevant, wenn:
+
+- die Komponente ein LED-Element ist,
+- die technische ID mit `AN_` beginnt,
+- und mindestens ein Handle des jeweiligen Farbkanals angeschlossen ist.
+
+Pro vorhandener Farbe wird geprueft:
+
+- Sammle alle sichtbaren Handles derselben Farb-Funktion innerhalb der Komponente, inklusive konkreter wiederholter Handles aus `data.repeatedHandleArray`.
+- Ermittle fuer jeden angeschlossenen Farb-Handle das zugehoerige Netz und darin alle `pwm_out`-Quellen.
+- Wenn mehr als eine eindeutige `pwm_out`-Quelle fuer denselben Farbkanal gefunden wird, erzeuge einen Fehler.
+- Wenn mehrere Handles desselben Farbkanals am gleichen PWM-Signal bzw. selben PWM-Netz haengen, ist das fuer diese Regel zulaessig.
+- Wenn ein einzelnes Netz bereits mehrere PWM-Quellen enthaelt, bleibt `multipleSignalSources` ebenfalls fachlich relevant; diese spezifische Komponentenregel ist fuer analoge Streifen die aussagekraeftigere Meldung.
+
+Targets:
+
+- die betroffene LED-Komponente,
+- die angeschlossenen Handles des betroffenen Farbkanals,
+- die erkannten PWM-Quellen und betroffenen Netze.
+
+Severity: `error`, weil mehrere unterschiedliche PWM-Treiber auf demselben analogen Farbkanal elektrisch gegeneinander arbeiten koennen.
+
 #### `componentHasOnlyOneTerminalConnected`
 
 Warnung fuer passive Zweipol-Komponenten, bei denen nur ein Anschluss verbunden ist.
@@ -1196,23 +1268,25 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `supplyVoltageUnknown` | 6 | `warning` | 55 | 95 | `net` | Sollte angezeigt werden, wenn Spannungschecks nicht aussagekraeftig sind. Wird von konkretem `supplyVoltageMismatch` unterdrueckt, sobald die Spannung bekannt ist. |
 | `fuseBypassed` | 7 | `error` | 90 | 18 | `net`/`component` | Sicherheits-/Schutzfunktionsfehler. Sollte allgemeine Fuse- oder Mixed-Netz-Hinweise fuer dieselben Fuse-Paare unterdruecken. |
 | `controlledOutputWithoutControlInput` | 8 | `error` | 85 | 52 | `component`/`handle` | Generische Regel fuer genutzte geschaltete Ausgaenge mit fehlendem digitalen Steuer-/Enable-Netz. Sollte allgemeinere Signal- oder Supply-Hinweise fuer denselben Ausgang nicht pauschal unterdruecken, aber als konkreter Komponentenfehler sichtbar sein. |
-| `wireWithoutPhysicalParameters` | 9 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
-| `clockedLedClockMissing` | 10 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
-| `dataDirectionWrong` | 11 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
-| `digitalBackupPairMismatch` | 12 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |
-| `signalOutputWithoutConsumer` | 13 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
-| `levelShifterSupplyMismatch` | 14 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
-| `capacitorPolarityMismatch` | 15 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
-| `mainsConnectorIncomplete` | 16 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
-| `protectiveEarthMissingForMetalOrMainsDevice` | 17 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
-| `supplyInputOnlyInternallyPowered` | 18 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
-| `fuseCurrentMissingOrUnderspecified` | 19 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
-| `unusedRequiredFunctionalGroup` | 20 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
-| `powerWireCrossSectionTooSmall` | 21 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
-| `duplicateParallelWire` | 22 | `info` oder `warning` | 35 | 170 | `edge` | Qualitaetshinweis. Sollte von echten elektrischen Fehlern unterdrueckt oder weit unten angezeigt werden. |
-| `isolatedComponent` | 23 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
-| `componentDefinitionIncompleteForChecks` | 24 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
-| `ambiguousMultiFunctionHandle` | 25 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
+| `analogLedColorChannelUnconnected` | 9 | `warning` | 70 | 85 | `component`/`handle` | Spezifischer Funktionshinweis fuer analoge LED-Streifen. Soll nicht durch generische PWM-Signalregeln ersetzt werden; vollstaendig unverdrahtete Komponenten bleiben bei `isolatedComponent`. |
+| `analogLedColorChannelMultiplePwmSignals` | 10 | `error` | 90 | 44 | `component`/`handle` | Spezifischer Schutzfehler fuer analoge LED-Streifen. Gewinnt als konkrete Komponentenmeldung gegen generische Mehrfach-PWM-Quellen auf demselben Farbkanal. |
+| `wireWithoutPhysicalParameters` | 11 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
+| `clockedLedClockMissing` | 12 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
+| `dataDirectionWrong` | 13 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
+| `digitalBackupPairMismatch` | 14 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |
+| `signalOutputWithoutConsumer` | 15 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
+| `levelShifterSupplyMismatch` | 16 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
+| `capacitorPolarityMismatch` | 17 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
+| `mainsConnectorIncomplete` | 18 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
+| `protectiveEarthMissingForMetalOrMainsDevice` | 19 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
+| `supplyInputOnlyInternallyPowered` | 20 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
+| `fuseCurrentMissingOrUnderspecified` | 21 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
+| `unusedRequiredFunctionalGroup` | 22 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
+| `powerWireCrossSectionTooSmall` | 23 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
+| `duplicateParallelWire` | 24 | `info` oder `warning` | 35 | 170 | `edge` | Qualitaetshinweis. Sollte von echten elektrischen Fehlern unterdrueckt oder weit unten angezeigt werden. |
+| `isolatedComponent` | 25 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
+| `componentDefinitionIncompleteForChecks` | 26 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
+| `ambiguousMultiFunctionHandle` | 27 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
 
 ## Empfohlene Umsetzungsreihenfolge
 
@@ -1226,6 +1300,8 @@ Als praktische Roadmap ist diese Liste historisch zu lesen: Alle nicht mit `NICH
 6. `supplyVoltageUnknown`: erklaert, warum Spannungschecks nicht greifen.
 7. `fuseBypassed`: wichtig fuer Schutzfunktionen, sobald Fuse-Boards genutzt werden.
 8. `controlledOutputWithoutControlInput`: prueft genutzte geschaltete Ausgaenge ueber das Handle-Metadatum `controllableBy`.
-9. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
+9. `analogLedColorChannelUnconnected`: macht fehlende Farbkanaele bei verwendeten analogen LED-Streifen sichtbar.
+10. `analogLedColorChannelMultiplePwmSignals`: verhindert mehrere unterschiedliche PWM-Treiber auf demselben analogen Farbkanal.
+11. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
 
 Weitere Mains-Regeln wie `mainsConnectorIncomplete` und `protectiveEarthMissingForMetalOrMainsDevice` sind umgesetzt. `levelShifterSupplyMismatch` und `powerWireCrossSectionTooSmall` bleiben wegen der `NICHT IMPLEMENTIEREN`-Markierung bewusst offen.

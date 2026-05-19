@@ -149,6 +149,13 @@
                                                        "audio":  "audio",
                                                        "usb":  "USB"
                                                    },
+                                  "analogLedColorLabels":  {
+                                                              "red":  "red",
+                                                              "green":  "green",
+                                                              "blue":  "blue",
+                                                              "white":  "white",
+                                                              "warmWhite":  "warm white"
+                                                          },
                                   "mainsInputLabels":  {
                                                            "line":  "line",
                                                            "neutral":  "neutral",
@@ -374,6 +381,18 @@
                                                                                                                                      "description":  "{{component}} uses {{output}}, but the related control input {{control}} is not connected to a digital net.",
                                                                                                                                      "recommendation":  "Connect the control input to a suitable digital output, or disconnect the switched output if it is not used."
                                                                                                                                  },
+                                                                                       "analogLedColorChannelUnconnected":  {
+                                                                                                                                   "title":  "Color channel is not connected",
+                                                                                                                                   "shortDescription":  "A color of an analog LED strip cannot be controlled.",
+                                                                                                                                   "description":  "{{component}} has no connected {{color}} channel. Affected pins: {{handles}}.",
+                                                                                                                                   "recommendation":  "Connect at least one {{color}} terminal of the strip to a suitable PWM output if this color should be controllable."
+                                                                                                                               },
+                                                                                       "analogLedColorChannelMultiplePwmSignals":  {
+                                                                                                                                          "title":  "Color channel uses multiple PWM signals",
+                                                                                                                                          "shortDescription":  "One color of an analog LED strip is connected to different PWM outputs.",
+                                                                                                                                          "description":  "{{component}} has its {{color}} channel connected to multiple PWM signals: {{signals}}. Affected pins: {{handles}}.",
+                                                                                                                                          "recommendation":  "Connect all terminals of the same color channel to the same PWM signal. For higher power, split the analog strip into separate strips or isolated segments."
+                                                                                                                                      },
                                                                                        "componentHasOnlyOneTerminalConnected":  {
                                                                                                                                      "title":  "Only one terminal is connected",
                                                                                                                                      "shortDescription":  "A two-terminal component has only one connected pin.",

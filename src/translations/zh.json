@@ -138,6 +138,13 @@
                                                        "audio":  "音频",
                                                        "usb":  "USB"
                                                    },
+                                  "analogLedColorLabels":  {
+                                                              "red":  "红色",
+                                                              "green":  "绿色",
+                                                              "blue":  "蓝色",
+                                                              "white":  "白色",
+                                                              "warmWhite":  "暖白"
+                                                          },
                                   "mainsInputLabels":  {
                                                            "line":  "火线",
                                                            "neutral":  "零线",
@@ -268,6 +275,18 @@
                                                                                                                  "description":  "{{component}} 具有 {{label}} 输入，但至少一个未连接到匹配的 {{label}} 网络。",
                                                                                                                  "recommendation":  "将该组件的每个 {{label}} 输入连接到匹配的 {{label}} 网络。"
                                                                                                              },
+                                                                                       "analogLedColorChannelUnconnected":  {
+                                                                                                                                    "title":  "颜色通道未连接",
+                                                                                                                                    "shortDescription":  "模拟 LED 灯带的一个颜色无法控制。",
+                                                                                                                                    "description":  "{{component}} 没有连接 {{color}} 通道。相关引脚：{{handles}}。",
+                                                                                                                                    "recommendation":  "如果需要控制该颜色，请将至少一个 {{color}} 端子连接到合适的 PWM 输出。"
+                                                                                                                               },
+                                                                                       "analogLedColorChannelMultiplePwmSignals":  {
+                                                                                                                                          "title":  "颜色通道连接到多个 PWM 信号",
+                                                                                                                                          "shortDescription":  "模拟 LED 灯带的一个颜色连接到了不同的 PWM 输出。",
+                                                                                                                                          "description":  "{{component}} 的 {{color}} 通道连接到了多个 PWM 信号：{{signals}}。相关引脚：{{handles}}。",
+                                                                                                                                          "recommendation":  "同一颜色通道的所有端子应连接到同一个 PWM 信号。如需更高功率，请将模拟灯带拆分为独立灯带或隔离分段。"
+                                                                                                                                      },
                                                                                        "sn74Ahct125nUsedChannelInputMissing":  {
                                                                                                                  "title":  "SN74AHCT125N 通道输入未被驱动",
                                                                                                                  "shortDescription":  "已使用的缓冲器输出存在未连接到数字输出源的输入，或 /OE 引脚既未由数字信号驱动也未接到 GND。",

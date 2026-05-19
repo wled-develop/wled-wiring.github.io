@@ -149,6 +149,13 @@
                                                        "audio":  "Audio",
                                                        "usb":  "USB"
                                                    },
+                                  "analogLedColorLabels":  {
+                                                              "red":  "Rot",
+                                                              "green":  "Gruen",
+                                                              "blue":  "Blau",
+                                                              "white":  "Weiss",
+                                                              "warmWhite":  "Warmweiss"
+                                                          },
                                   "mainsInputLabels":  {
                                                            "line":  "Line",
                                                            "neutral":  "Neutral",
@@ -374,6 +381,18 @@
                                                                                                                                      "description":  "{{component}} nutzt {{output}}, aber der zugehoerige Steuereingang {{control}} ist nicht mit einem digitalen Netz verbunden.",
                                                                                                                                      "recommendation":  "Verbinde den Steuereingang mit einem passenden digitalen Ausgang oder trenne den geschalteten Ausgang, wenn er nicht verwendet wird."
                                                                                                                                  },
+                                                                                       "analogLedColorChannelUnconnected":  {
+                                                                                                                                   "title":  "Farbkanal nicht angeschlossen",
+                                                                                                                                   "shortDescription":  "Eine Farbe eines analogen LED-Streifens ist nicht steuerbar.",
+                                                                                                                                   "description":  "{{component}} hat keinen angeschlossenen {{color}}-Kanal. Betroffene Pins: {{handles}}.",
+                                                                                                                                   "recommendation":  "Verbinde mindestens einen {{color}}-Anschluss des Streifens mit einem passenden PWM-Ausgang, wenn diese Farbe steuerbar sein soll."
+                                                                                                                               },
+                                                                                       "analogLedColorChannelMultiplePwmSignals":  {
+                                                                                                                                          "title":  "Farbkanal an mehreren PWM-Signalen",
+                                                                                                                                          "shortDescription":  "Eine Farbe eines analogen LED-Streifens ist an unterschiedliche PWM-Ausgaenge angeschlossen.",
+                                                                                                                                          "description":  "{{component}} hat den {{color}}-Kanal an mehrere PWM-Signale angeschlossen: {{signals}}. Betroffene Pins: {{handles}}.",
+                                                                                                                                          "recommendation":  "Verbinde alle Anschluesse desselben Farbkanals mit demselben PWM-Signal. Fuer mehr Leistung teile den analogen Streifen in separate Streifen bzw. getrennte Segmente auf."
+                                                                                                                                      },
                                                                                        "componentHasOnlyOneTerminalConnected":  {
                                                                                                                                      "title":  "Nur ein Anschluss verbunden",
                                                                                                                                      "shortDescription":  "Eine Zweipol-Komponente hat nur einen angeschlossenen Pin.",

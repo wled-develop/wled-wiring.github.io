@@ -130,17 +130,39 @@ const isHiddenByCondition = (node: Node<ComponentDataType>, handle: HandleDataTy
   }) || false
 );
 
+const repeatedHandleTemplateId = (handle: HandleDataType) => (
+  typeof handle.repeatIndex === 'number'
+    ? handle.hid.replace(new RegExp(`_${handle.repeatIndex}$`), '')
+    : undefined
+);
+
+const hydrateRepeatedHandle = (
+  node: Node<ComponentDataType>,
+  handle: HandleDataType,
+) => {
+  const templateId = repeatedHandleTemplateId(handle);
+  const template = templateId
+    ? node.data.handles?.find((candidate) => candidate.hid === templateId && candidate.repeated === 'yes')
+    : undefined;
+
+  return template ? { ...template, ...handle } : handle;
+};
+
+const repeatedVisibleHandles = (node: Node<ComponentDataType>) => (
+  (node.data.repeatedHandleArray || []).map((handle) => hydrateRepeatedHandle(node, handle))
+);
+
 const allVisibleHandles = (node: Node<ComponentDataType>) => (
   [
     ...(node.data.handles || []),
-    ...(node.data.repeatedHandleArray || []),
+    ...repeatedVisibleHandles(node),
   ].filter((handle) => !isHiddenByCondition(node, handle))
 );
 
 const allHandles = (node: Node<ComponentDataType>) => (
   [
     ...(node.data.handles || []),
-    ...(node.data.repeatedHandleArray || []),
+    ...repeatedVisibleHandles(node),
   ]
 );
 
