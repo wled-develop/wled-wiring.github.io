@@ -71,14 +71,21 @@ export type CompInputFieldsBoxType = {
   rotate180only?: boolean;
 } 
 
-export type ComponentInternalConnectionType = {
-  kind: "fuse";
-  fromHandle: string;
-  toHandle: string;
-  fuseId: string;
-  nominalCurrent?: number;
-  nominalCurrentField?: string;
-}
+export type ComponentInternalConnectionType = (
+  {
+    kind: "fuse";
+    fromHandle: string;
+    toHandle: string;
+    fuseId: string;
+    nominalCurrent?: number;
+    nominalCurrentField?: string;
+  } |
+  {
+    kind: "short";
+    fromHandle: string;
+    toHandle: string;
+  }
+)
 
 export type HandleDataType = {
     hid: string;

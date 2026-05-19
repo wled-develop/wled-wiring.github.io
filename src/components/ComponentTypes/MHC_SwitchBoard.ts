@@ -195,6 +195,11 @@ export const MHC_SwitchBoard: Node = {
                 fuseId: "Fuse3",
                 nominalCurrentField: "Fuse3",
             },
+            {
+                kind: "short",
+                fromHandle: "EN1",
+                toHandle: "EN2",
+            },
         ],
         handles: [
             {

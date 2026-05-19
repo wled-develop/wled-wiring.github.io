@@ -105,12 +105,15 @@ Component-Linked Nets gruppieren Fused Nets zusaetzlich ueber bestimmte interne 
 
 Interne Verknuepfung erfolgt aktuell, wenn zwei Handles derselben Node in unterschiedlichen Fused Nets liegen und eine der folgenden Bedingungen gilt:
 
+- Die Komponente definiert in `data.internalConnections` eine harte Kurzschlussverbindung mit `kind === 'short'` zwischen den beiden Handles.
 - Beide Handles haben `gnd`.
 - Ein `suppl_out` ist von einem `suppl_in` abhaengig: `suppl_out.VoutDependency === suppl_in.hid`.
 - Zwei `suppl_out`-Handles haben feste Ausgangsspannungen, die sich um weniger als 0.5 V unterscheiden.
 - Zwei `suppl_out`-Handles verwenden dieselbe `VoutDependency`, die als Input-Feld der Komponente existiert.
 - Bei LED-Komponenten (`node.data.group === 'led'`) werden mehrere `suppl_in`-Handles derselben Komponente verbunden.
 - Bei einem `Resistor` werden zwei Netze verbunden, wenn beide angrenzenden Fused Nets als digitale Netze klassifiziert sind.
+
+`kind === 'short'` ist fuer explizite, harte interne Pin-Bruecken gedacht, z.B. wenn zwei Signal- oder Enable-Pins auf der Platine direkt miteinander verbunden sind. GND-Pins sollen nicht explizit als `short` modelliert werden, weil GND-Handles derselben Komponente bereits automatisch verbunden werden.
 
 Diese Layer-Logik erlaubt z.B.:
 
@@ -159,6 +162,7 @@ Neben den Netzen gibt es Reachability-Funktionen, die fuer einige Checks genutzt
 Startet bei einem Handle und folgt:
 
 - Elementary-Net-Verbindungen
+- internen Kurzschlussverbindungen `internalConnections.kind === 'short'`
 - internen Sicherungsverbindungen
 - internen `suppl_in`-zu-`suppl_in`-Verbindungen derselben Komponente
 
@@ -171,6 +175,7 @@ Startet nur ueber externe Wires aus der Komponente heraus und bleibt danach auss
 Startet bei einem Handle und folgt:
 
 - Elementary-Net-Verbindungen
+- internen Kurzschlussverbindungen `internalConnections.kind === 'short'`
 - Serien-Signal-Pass-Through durch `Resistor`, wenn die Komponente genau zwei Handles besitzt
 
 Diese Funktion wird unter anderem genutzt, um digitale Quellen hinter Serienwiderstaenden zu erkennen.

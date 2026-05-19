@@ -502,8 +502,21 @@ const sameInputFieldDependency = (a: CheckHandle, b: CheckHandle) => (
 
 const hasFunction = (handle: CheckHandle, fn: CheckHandleFunction) => handle.functions.includes(fn);
 
+const isInternalShort = (a: CheckHandle, b: CheckHandle) => (
+  a.node.id === b.node.id &&
+  Boolean(a.node.data.internalConnections?.some((connection) => (
+    connection.kind === 'short' &&
+    (
+      (connection.fromHandle === a.handle.hid && connection.toHandle === b.handle.hid) ||
+      (connection.fromHandle === b.handle.hid && connection.toHandle === a.handle.hid)
+    )
+  )))
+);
+
 const shouldLinkThroughComponent = (a: CheckHandle, b: CheckHandle) => {
   if (a.node.id !== b.node.id || a.key === b.key) return false;
+
+  if (isInternalShort(a, b)) return true;
 
   if (hasFunction(a, 'gnd') && hasFunction(b, 'gnd')) return true;
 
@@ -727,6 +740,7 @@ export function createDiagramCheckContext(
 
   const powerReachableHandles = (handle: CheckHandle) => (
     reachableHandles(handle, (current, candidate) => (
+      isInternalShort(current, candidate) ||
       isFusePassThrough(current, candidate) ||
       isSupplyInputPassThrough(current, candidate)
     ))
@@ -761,6 +775,7 @@ export function createDiagramCheckContext(
         .filter((candidate) => (
           candidate.node.id !== handle.node.id &&
           (
+            isInternalShort(current, candidate) ||
             isFusePassThrough(current, candidate) ||
             isSupplyInputPassThrough(current, candidate)
           )
@@ -774,7 +789,10 @@ export function createDiagramCheckContext(
   };
 
   const signalReachableHandles = (handle: CheckHandle) => (
-    reachableHandles(handle, isSignalPassThrough)
+    reachableHandles(handle, (current, candidate) => (
+      isInternalShort(current, candidate) ||
+      isSignalPassThrough(current, candidate)
+    ))
   );
 
   return {
