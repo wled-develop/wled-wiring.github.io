@@ -368,6 +368,12 @@
                                                                                                                               "description":  "{{component}} hat einen genutzten Data-Eingang, aber Versorgung oder GND der Gruppe fehlen.",
                                                                                                                               "recommendation":  "Verbinde Data, Versorgung und GND der LED-Eingangsgruppe vollstaendig."
                                                                                                                           },
+                                                                                       "controlledOutputWithoutControlInput":  {
+                                                                                                                                     "title":  "Geschalteter Ausgang ohne Steuersignal",
+                                                                                                                                     "shortDescription":  "Ein genutzter steuerbarer Ausgang hat keinen digitalen Steuereingang.",
+                                                                                                                                     "description":  "{{component}} nutzt {{output}}, aber der zugehoerige Steuereingang {{control}} ist nicht mit einem digitalen Netz verbunden.",
+                                                                                                                                     "recommendation":  "Verbinde den Steuereingang mit einem passenden digitalen Ausgang oder trenne den geschalteten Ausgang, wenn er nicht verwendet wird."
+                                                                                                                                 },
                                                                                        "componentHasOnlyOneTerminalConnected":  {
                                                                                                                                      "title":  "Nur ein Anschluss verbunden",
                                                                                                                                      "shortDescription":  "Eine Zweipol-Komponente hat nur einen angeschlossenen Pin.",

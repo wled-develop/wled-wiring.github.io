@@ -368,6 +368,12 @@
                                                                                                                               "description":  "{{component}} has a used data input, but supply or GND for that group is missing.",
                                                                                                                               "recommendation":  "Connect data, supply, and GND for the LED input group."
                                                                                                                           },
+                                                                                       "controlledOutputWithoutControlInput":  {
+                                                                                                                                     "title":  "Switched output has no control signal",
+                                                                                                                                     "shortDescription":  "A used controllable output has no digital control input.",
+                                                                                                                                     "description":  "{{component}} uses {{output}}, but the related control input {{control}} is not connected to a digital net.",
+                                                                                                                                     "recommendation":  "Connect the control input to a suitable digital output, or disconnect the switched output if it is not used."
+                                                                                                                                 },
                                                                                        "componentHasOnlyOneTerminalConnected":  {
                                                                                                                                      "title":  "Only one terminal is connected",
                                                                                                                                      "shortDescription":  "A two-terminal component has only one connected pin.",

@@ -985,6 +985,87 @@ const checkSupplyInputOnlyInternallyPowered = (context: DiagramCheckContext) => 
   })
 );
 
+const shortConnectedHandles = (
+  nodeHandles: CheckHandle[],
+  startHandleId: string,
+) => {
+  const handles = new Map(nodeHandles.map((handle) => [handle.handle.hid, handle]));
+  const node = nodeHandles[0]?.node;
+  const visited = new Set<string>();
+  const queue = [startHandleId];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+
+    (node?.data.internalConnections || [])
+      .filter((connection) => connection.kind === 'short')
+      .flatMap((connection) => {
+        if (connection.fromHandle === current) return [connection.toHandle];
+        if (connection.toHandle === current) return [connection.fromHandle];
+        return [];
+      })
+      .filter((handleId) => !visited.has(handleId))
+      .forEach((handleId) => queue.push(handleId));
+  }
+
+  return Array.from(visited.values())
+    .map((handleId) => handles.get(handleId))
+    .filter((handle): handle is CheckHandle => Boolean(handle));
+};
+
+const checkControlledOutputWithoutControlInput = (context: DiagramCheckContext) => (
+  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node) return [];
+
+    return nodeHandles
+      .filter((output) => (
+        Boolean(output.handle.controllableBy) &&
+        output.connectedEdges.length > 0 &&
+        Boolean(context.getNetByHandle(output))
+      ))
+      .flatMap((output) => {
+        const controlHandleId = output.handle.controllableBy;
+        if (!controlHandleId) return [];
+
+        const controlHandles = shortConnectedHandles(nodeHandles, controlHandleId);
+        const hasDigitalControl = controlHandles.some((control) => (
+          handleNetHasClassification(context, control, 'digital_net_type')
+        ));
+        if (hasDigitalControl) return [];
+
+        const controlLabel = controlHandles.length > 0
+          ? controlHandles.map(describeHandle).join(', ')
+          : controlHandleId;
+        const controlNetTargets = controlHandles
+          .map((control) => context.getNetByHandle(control))
+          .filter((net): net is CheckNet => Boolean(net))
+          .flatMap(netTargets);
+
+        return [translatedIssue(
+          'component-rules',
+          'controlledOutputWithoutControlInput',
+          `controlled-output-without-control-input-${output.key}`,
+          'error',
+          {
+            component: node.data.technicalID || node.data.name || node.id,
+            output: describeHandle(output),
+            control: controlLabel,
+          },
+          [
+            nodeTarget(node),
+            ...handleTargets(output),
+            ...controlHandles.flatMap(handleTargets),
+            ...controlNetTargets,
+          ],
+          handleIssueOptions(output, 'controlled-output-without-control-input', 85, 52),
+        )];
+      });
+  })
+);
+
 const fuseNominalValueIsMissing = (node: Node<ComponentDataType>, fieldId?: string) => {
   if (!fieldId) return true;
 
@@ -1746,6 +1827,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
   return [
     ...issues,
     ...checkUnusedRequiredFunctionalGroup(context),
+    ...checkControlledOutputWithoutControlInput(context),
     ...checkComponentHasOnlyOneTerminalConnected(context),
     ...checkCapacitorPolarityMismatch(context),
     ...checkMainsConnectorIncomplete(context),
@@ -1804,6 +1886,7 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'powerMissing',
       'mainsInputMissing',
       'unusedRequiredFunctionalGroup',
+      'controlledOutputWithoutControlInput',
       'componentHasOnlyOneTerminalConnected',
       'capacitorPolarityMismatch',
       'mainsConnectorIncomplete',

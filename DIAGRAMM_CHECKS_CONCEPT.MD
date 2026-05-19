@@ -1,6 +1,6 @@
 # Diagramm Checks Konzept und aktueller Implementierungsstand
 
-Stand: 2026-05-17
+Stand: 2026-05-19
 
 Dieses Dokument beschreibt den aktuellen Stand der Diagramm-Checks im Projekt. Die Implementierung liegt im Wesentlichen in:
 
@@ -52,6 +52,22 @@ Die Check-Logik arbeitet stark ueber `handle.functions`. Relevante Funktionsgrup
 - Ethernet: `eth`
 - RS485: `rs485_A`, `rs485_B`
 - Netzspannung: `line_out`, `line_in`, `neutral_out`, `neutral_in`, `pe_out`, `pe_in`
+
+### Steuerbeziehungen an Handles
+
+`HandleDataType` besitzt ein optionales Attribut `controllableBy?: string`.
+
+Dieses Attribut beschreibt keine elektrische Verbindung, sondern eine funktionale Abhaengigkeit: Wenn ein Ausgangs-Handle benutzt wird, muss ein anderes Handle derselben Komponente als Steuer-/Enable-Eingang angeschlossen sein. Der Wert ist die `hid` des steuernden Handles.
+
+Beispiel:
+
+- Ein geschalteter Versorgungsausgang `VOUT1` bekommt `controllableBy: "EN1"`.
+- Ein PWM-Lastausgang `PWMOUT1` bekommt `controllableBy: "PWMIN1"`.
+- Ein Relais-Ausgang `VOUT2` bekommt `controllableBy: "CTRL1"`.
+
+Das Attribut soll bewusst generisch bleiben und nicht nur fuer Versorgung gelten. Es kann auf `suppl_out`, `pwm_out` oder spaeter andere geschaltete/steuerbare Ausgangstypen gesetzt werden. Die eigentliche Regel entscheidet dann ueber die Funktionen des referenzierten Steuer-Handles, ob es sich um ein digitales Steuernetz handelt.
+
+Wenn der referenzierte Steuer-Handle ueber `data.internalConnections` mit `kind === 'short'` mit einem anderen Handle verbunden ist, gelten beide Handles als gleichwertige Steuerpunkte. Es reicht dann, wenn einer dieser kurzgeschlossenen Steuer-Handles in einem digitalen Netz liegt. Damit koennen z.B. intern gebrueckte Enable-Pins modelliert werden, ohne fuer jeden geschalteten Ausgang mehrere Controller-Referenzen pflegen zu muessen.
 
 ### Spannungsdaten
 
@@ -797,7 +813,7 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
 - Einige Regeln sind konservativ umgesetzt, um False Positives zu reduzieren: passive Verbinder wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` werden z.B. bei `mainsWireConnectedToLowVoltageComponent` nicht als ungeeignete Endkomponente bewertet.
@@ -958,6 +974,41 @@ Moegliche Logik:
 - Komponententypen koennen optionale Gruppen definieren, z.B. LED-Eingangsgruppe: `V+`, `GND`, `DI`, optional `BI`/`CI`.
 - Wenn mindestens ein Pin der Gruppe verbunden ist, muessen definierte Mindestpins der Gruppe plausibel verbunden sein.
 - Erfordert wahrscheinlich zusaetzliche Metadaten in Komponentendefinitionen.
+
+#### `controlledOutputWithoutControlInput`
+
+Fehler, wenn ein steuerbarer Ausgang verwendet wird, aber sein steuernder digitaler Eingang nicht angeschlossen ist.
+
+Diese Regel arbeitet generisch ueber das Handle-Attribut `controllableBy`. Sie ersetzt keine komponentenspezifische Sonderregel, sondern macht die Abhaengigkeit direkt an den Ausgangs-Handles deklarierbar.
+
+Ein Ausgang gilt als verwendet, wenn:
+
+- der sichtbare Handle `controllableBy` gesetzt hat,
+- und der Handle mit mindestens einer Wire verbunden ist,
+- und der Handle dadurch in einem Netz liegt. Reine unverdrahtete Handles werden nicht gemeldet.
+
+Der referenzierte Steuer-Handle gilt als gueltig angebunden, wenn:
+
+- der referenzierte `hid` als sichtbarer Handle derselben Komponente existiert,
+- und dieser Handle in einem Netz mit `digital_net_type` liegt.
+
+Falls der referenzierte Steuer-Handle ueber `data.internalConnections` mit `kind === 'short'` mit weiteren Handles derselben Komponente verbunden ist, werden diese Handles ebenfalls als Steuer-Alternativen betrachtet. Dann reicht es, wenn einer dieser kurzgeschlossenen Handles mit einem digitalen Netz verbunden ist. Die Short-Aufloesung sollte transitiv gedacht werden, damit auch mehrere gebrueckte Enable-Pins als eine Steuergruppe funktionieren.
+
+Wenn `controllableBy` auf einen fehlenden oder aktuell unsichtbaren Handle zeigt, sollte die Regel als Definitions-/Konsistenzproblem behandelt werden. Im normalen Nutzer-Modus kann daraus dieselbe fachliche Meldung entstehen, im Diagnosemodus sollte aber erkennbar sein, dass die Komponentendefinition unvollstaendig oder inkonsistent ist.
+
+Targets:
+
+- der verwendete steuerbare Ausgang,
+- der erwartete Steuer-Handle bzw. die Steuergruppe,
+- die angeschlossenen Wires des Ausgangs.
+
+Severity: `error`, weil ein verwendeter geschalteter Ausgang ohne digitale Steuerung fachlich unvollstaendig ist.
+
+Betroffene Komponenten und Metadaten:
+
+- `MHC_SwitchBoard`: `VOUT1`, `VOUT2`, `VOUT3` sind geschaltete Versorgungsausgaenge. Sie sollen auf `EN1` zeigen. Weil `EN1` und `EN2` per `internalConnections.kind === 'short'` verbunden sind, reicht eine digitale Verbindung an `EN1` oder `EN2`.
+- `MHC_PWMBoard` / WLED PWM Board: `PWMOUT1 -> PWMIN1`, `PWMOUT2 -> PWMIN2`, `PWMOUT3 -> PWMIN3`.
+- `MHC_Relay5V`, `MHC_Relay12V`, `MHC_Relay24V`: `VOUT1` und `VOUT2` (Power Output 1, NC/NO) zeigen auf `CTRL1`; `VOUT3` und `VOUT4` (Power Output 2, NC/NO) zeigen auf `CTRL2`.
 
 #### `componentHasOnlyOneTerminalConnected`
 
@@ -1144,23 +1195,24 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `componentHasOnlyOneTerminalConnected` | 5 | `warning` | 65 | 110 | `component` | Guenstig umzusetzen und hilfreich. Sollte nicht haertere Pflichtpin-Fehler unterdruecken; eher als zusaetzlicher Hinweis oder durch `requiredPinUnconnected` unterdrueckbar. |
 | `supplyVoltageUnknown` | 6 | `warning` | 55 | 95 | `net` | Sollte angezeigt werden, wenn Spannungschecks nicht aussagekraeftig sind. Wird von konkretem `supplyVoltageMismatch` unterdrueckt, sobald die Spannung bekannt ist. |
 | `fuseBypassed` | 7 | `error` | 90 | 18 | `net`/`component` | Sicherheits-/Schutzfunktionsfehler. Sollte allgemeine Fuse- oder Mixed-Netz-Hinweise fuer dieselben Fuse-Paare unterdruecken. |
-| `wireWithoutPhysicalParameters` | 8 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
-| `clockedLedClockMissing` | 9 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
-| `dataDirectionWrong` | 10 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
-| `digitalBackupPairMismatch` | 11 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |
-| `signalOutputWithoutConsumer` | 12 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
-| `levelShifterSupplyMismatch` | 13 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
-| `capacitorPolarityMismatch` | 14 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
-| `mainsConnectorIncomplete` | 15 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
-| `protectiveEarthMissingForMetalOrMainsDevice` | 16 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
-| `supplyInputOnlyInternallyPowered` | 17 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
-| `fuseCurrentMissingOrUnderspecified` | 18 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
-| `unusedRequiredFunctionalGroup` | 19 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
-| `powerWireCrossSectionTooSmall` | 20 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
-| `duplicateParallelWire` | 21 | `info` oder `warning` | 35 | 170 | `edge` | Qualitaetshinweis. Sollte von echten elektrischen Fehlern unterdrueckt oder weit unten angezeigt werden. |
-| `isolatedComponent` | 22 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
-| `componentDefinitionIncompleteForChecks` | 23 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
-| `ambiguousMultiFunctionHandle` | 24 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
+| `controlledOutputWithoutControlInput` | 8 | `error` | 85 | 52 | `component`/`handle` | Generische Regel fuer genutzte geschaltete Ausgaenge mit fehlendem digitalen Steuer-/Enable-Netz. Sollte allgemeinere Signal- oder Supply-Hinweise fuer denselben Ausgang nicht pauschal unterdruecken, aber als konkreter Komponentenfehler sichtbar sein. |
+| `wireWithoutPhysicalParameters` | 9 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
+| `clockedLedClockMissing` | 10 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
+| `dataDirectionWrong` | 11 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
+| `digitalBackupPairMismatch` | 12 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |
+| `signalOutputWithoutConsumer` | 13 | `warning` | 50 | 125 | `net` | Gegenstueck zu `signalSinkWithoutSource`, aber weniger kritisch. Von Richtung- und Subtype-Fehlern unterdruecken lassen. |
+| `levelShifterSupplyMismatch` | 14 | `error` | 95 | 36 | `component` | Sehr spezifisch und wichtig. Sollte allgemeinere digitale Pegelfehler fuer Kanale desselben Level-Shifters teilweise erklaeren koennen, aber nicht komplett verstecken, wenn externe Eingangspegel weiterhin falsch sind. |
+| `capacitorPolarityMismatch` | 15 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
+| `mainsConnectorIncomplete` | 16 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
+| `protectiveEarthMissingForMetalOrMainsDevice` | 17 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
+| `supplyInputOnlyInternallyPowered` | 18 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
+| `fuseCurrentMissingOrUnderspecified` | 19 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
+| `unusedRequiredFunctionalGroup` | 20 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
+| `powerWireCrossSectionTooSmall` | 21 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
+| `duplicateParallelWire` | 22 | `info` oder `warning` | 35 | 170 | `edge` | Qualitaetshinweis. Sollte von echten elektrischen Fehlern unterdrueckt oder weit unten angezeigt werden. |
+| `isolatedComponent` | 23 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
+| `componentDefinitionIncompleteForChecks` | 24 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
+| `ambiguousMultiFunctionHandle` | 25 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
 
 ## Empfohlene Umsetzungsreihenfolge
 
@@ -1173,6 +1225,7 @@ Als praktische Roadmap ist diese Liste historisch zu lesen: Alle nicht mit `NICH
 5. `componentHasOnlyOneTerminalConnected`: schnell implementierbar und erkennt viele unvollstaendige Bauteile.
 6. `supplyVoltageUnknown`: erklaert, warum Spannungschecks nicht greifen.
 7. `fuseBypassed`: wichtig fuer Schutzfunktionen, sobald Fuse-Boards genutzt werden.
-8. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
+8. `controlledOutputWithoutControlInput`: prueft genutzte geschaltete Ausgaenge ueber das Handle-Metadatum `controllableBy`.
+9. `wireWithoutPhysicalParameters`: Vorbereitung fuer Simulation und Strom-/Spannungsfall-Auswertung.
 
 Weitere Mains-Regeln wie `mainsConnectorIncomplete` und `protectiveEarthMissingForMetalOrMainsDevice` sind umgesetzt. `levelShifterSupplyMismatch` und `powerWireCrossSectionTooSmall` bleiben wegen der `NICHT IMPLEMENTIEREN`-Markierung bewusst offen.
