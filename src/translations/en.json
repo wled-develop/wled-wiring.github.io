@@ -257,8 +257,8 @@
             },
             "supplyVoltageMismatch": {
               "title": "Supply voltage does not match",
-              "shortDescription": "The source voltage does not match all supply inputs in the net.",
-              "description": "The source provides {{voltage}} V, but at least one supply input does not allow this range: {{inputs}}.",
+              "shortDescription": "The source voltage does not match all pin tolerances in the supply net.",
+              "description": "The source provides {{voltage}} V, but at least one connected pin does not allow this voltage range: {{inputs}}.",
               "recommendation": "Adjust the supply voltage or separate components with different voltage ranges."
             },
             "wireConnectedToHiddenOrMissingHandle": {
@@ -452,6 +452,12 @@
               "shortDescription": "A used buffer output has an input without a digital output source or an /OE pin that is neither digitally driven nor tied to GND.",
               "description": "{{component}} channel {{channel}} drives a digital input via {{output}}, but these related pins are not connected correctly: {{handles}}. A must be on a net with dig_out; /OE may be on a net with dig_out or GND.",
               "recommendation": "Connect the related A pin to a suitable digital output and the /OE pin to a digital output or GND, or disconnect the unused Y output from the digital input."
+            },
+            "sn74Ahct125nDirectLedOutputMissingSeriesResistor": {
+              "title": "SN74AHCT125N output directly connected to LED input",
+              "shortDescription": "An SN74AHCT125N output is directly connected to an LED data or clock input.",
+              "description": "{{output}} is directly connected to {{input}} on {{led}}. This signal path should typically include a series resistor of about 68 ohms.",
+              "recommendation": "Place a resistor of about 68 ohms between the SN74AHCT125N output and the LED data/clock input."
             },
             "digitalLedSignalGroupGroundMissing": {
               "title": "Digital LED input group has no GND",

@@ -392,9 +392,13 @@ Diese Regel ist als Hinweis gedacht: Ein Versorgungsausgang ist verdrahtet, aber
 
 ### `supplyVoltageMismatch`
 
-Fehler, wenn ein Supply-Netz genau eine unabhaengige Quelle hat, deren Spannung ausserhalb der erlaubten Bereiche eines oder mehrerer `suppl_in`-Handles liegt.
+Fehler, wenn ein Component-Linked-Supply-Netz genau eine unabhaengige Quelle hat, deren Spannung ausserhalb der erlaubten Bereiche eines oder mehrerer angeschlossener Pins liegt.
 
-Quellen ohne aufloesbare Spannung werden nicht geprueft.
+Die Regel betrachtet alle Handles im Supply-Netz, die `tolVmin` und/oder `tolVmax` als numerische Toleranzgrenze definieren. Damit werden nicht nur klassische `suppl_in`-Eingaenge erkannt, sondern auch andere toleranzbehaftete Pins, z.B. digitale Eingangs-/Enable-Pins oder weitergefuehrte Board-Anschluesse, wenn sie versehentlich oder absichtlich an ein Supply-Netz angeschlossen sind.
+
+Passive Verbindungskomponenten wie WAGO- und SolderJoint-Knoten werden fuer diese Toleranzpruefung ignoriert, weil ihre Pin-Toleranzen nicht als Verbrauchergrenze gemeint sind.
+
+Quellen ohne aufloesbare Spannung werden nicht geprueft. Bei mehreren unabhaengigen Supply-Quellen gewinnt weiterhin `multipleSupplySources`, weil dann keine eindeutige angelegte Spannung fuer das Netz bestimmbar ist.
 
 ## Component Rules
 
@@ -461,6 +465,20 @@ Wenn ein verwendeter Kanal erkannt wurde, werden zwei Dinge geprueft:
 
 Fehlt eine dieser Bedingungen, wird ein Fehler erzeugt.
 
+### `sn74Ahct125nDirectLedOutputMissingSeriesResistor`
+
+Diese Regel gilt nur fuer `SN74AHCT125N`.
+
+Sie erzeugt eine Warnung, wenn ein `dig_out`-Ausgang des SN74AHCT125N direkt mit einem digitalen LED-Eingang verbunden ist:
+
+- Ziel-Handle liegt an einer LED-Komponente (`node.data.group === 'led'`).
+- Ziel-Handle hat `dig_in` oder `dig_clock_in`.
+- SN74-Ausgang und LED-Eingang liegen im selben Elementary Net.
+
+Die Elementary-Net-Bedingung ist bewusst: Wenn im Signalpfad ein `Resistor` liegt, sind SN74-Ausgang und LED-Eingang nicht mehr im selben Elementary Net, auch wenn sie ueber `signalReachableHandles()` bzw. Component-Linked Nets weiterhin als digital verbunden gelten. Dadurch wird nur die direkte Verbindung ohne Serienwiderstand gemeldet.
+
+Severity: `warning`, weil die Schaltung funktional arbeiten kann, aber fuer LED-Data-/Clock-Leitungen am SN74AHCT125N-Ausgang typischerweise ein Serienwiderstand von ca. 68 Ohm empfohlen ist.
+
 ## Priorisierung der bestehenden Regeln
 
 Die folgende Tabelle beschreibt, wie die aktuell implementierten Regeln in einem kuenftigen Deduplizierungs- und Sortierkonzept priorisiert werden sollten.
@@ -493,6 +511,7 @@ Empfohlene Bedeutung:
 | `powerMissing` | `error` | 55 | 58 | `component` | Zustaendig fuer Komponenten ohne angeschlossenen Versorgungspfad. Wenn ein angeschlossener Versorgungspfad keine Quelle hat, ist `supplyInputWithoutSource` die praezisere Meldung. |
 | `mainsInputMissing` | `error` | 70 | 12 | `component`/`handle` | Sicherheitsrelevant und konkret. Sollte vor allgemeinen Komponentenfehlern stehen. |
 | `sn74Ahct125nUsedChannelInputMissing` | `error` | 100 | 38 | `component`/`handle` | Sehr spezifisch. Sollte allgemeinere digitale Signalfehler fuer die betroffenen Pins/Kanaele unterdruecken, aber nicht Versorgung/GND-Fehler des Chips. |
+| `sn74Ahct125nDirectLedOutputMissingSeriesResistor` | `warning` | 80 | 72 | `handle` | Konkreter Aufbauhinweis fuer direkte SN74AHCT125N-zu-LED-Data-/Clock-Verbindungen. Soll nicht erscheinen, wenn ein `Resistor` im Pfad liegt. |
 
 ## Priorisierung der bestehenden Regelgruppen
 
@@ -868,7 +887,7 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
 - Deaktiviert: `supplyInputOnlyInternallyPowered`, weil die Meldung bei LED-Streifen zu oft irrefuehrend war und durch `supplyInputWithoutSource` bzw. `powerMissing` besser abgedeckt wird.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
@@ -1374,6 +1393,7 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `componentDefinitionIncompleteForChecks` | 26 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
 | `ambiguousMultiFunctionHandle` | 27 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
 | `digitalLedSignalGroupGroundMissing` | 28 | `error` | 85 | 47 | `component`/`handle` | Spezifische LED-Gruppenregel fuer Data-/Clock-Eingaenge ohne GND in derselben `_start`, `_end` oder `_middle_N`-Gruppe. Sollte allgemeine Komponenten-GND-Meldungen nicht komplett ersetzen, aber fuer den betroffenen Signalanschluss die klarere Meldung sein. |
+| `sn74Ahct125nDirectLedOutputMissingSeriesResistor` | 29 | `warning` | 80 | 72 | `handle` | Spezifischer Aufbauhinweis fuer direkte SN74AHCT125N-Ausgaenge auf LED-Data-/Clock-Eingaenge. Erscheint nur ohne Serienwiderstand im Elementary-Net-Pfad. |
 
 ## Empfohlene Umsetzungsreihenfolge
 

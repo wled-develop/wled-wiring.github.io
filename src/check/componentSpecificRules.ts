@@ -132,6 +132,11 @@ const pinGroupIsUsed = (context: DiagramCheckContext, output: CheckHandle) => (
   ))
 );
 
+const isLedDataOrClockInput = (handle: CheckHandle) => (
+  handle.node.data.group === 'led' &&
+  (hasFunction(handle, 'dig_in') || hasFunction(handle, 'dig_clock_in'))
+);
+
 const sn74Ahct125nPinGroups = [
   { channel: '1', oe: '1OE', input: '1A', output: '1Y' },
   { channel: '2', oe: '2OE', input: '2A', output: '2Y' },
@@ -208,8 +213,62 @@ const checkSN74AHCT125NUsedChannelInputs: ComponentSpecificRule = {
   },
 };
 
+const checkSN74AHCT125NDirectLedOutputMissingSeriesResistor: ComponentSpecificRule = {
+  id: 'sn74ahct125n-direct-led-output-series-resistor',
+  componentTechnicalIds: ['SN74AHCT125N'],
+  check: (context) => {
+    const issues: DiagramCheckIssue[] = [];
+
+    handlesByNode(context).forEach((nodeHandles) => {
+      const node = nodeHandles[0]?.node;
+      if (!node || node.data.technicalID !== 'SN74AHCT125N') return;
+
+      nodeHandles
+        .filter((output) => hasFunction(output, 'dig_out') && output.connectedEdges.length > 0)
+        .forEach((output) => {
+          const elementaryNet = context.getElementaryNetByHandle(output);
+          if (!elementaryNet) return;
+
+          elementaryNet.handles
+            .filter((candidate) => candidate.key !== output.key)
+            .filter(isLedDataOrClockInput)
+            .forEach((ledInput) => {
+              issues.push(translatedIssue(
+                'sn74Ahct125nDirectLedOutputMissingSeriesResistor',
+                `component-sn74ahct125n-direct-led-output-missing-series-resistor-${output.key}-${ledInput.key}`,
+                'warning',
+                {
+                  output: describeHandle(output),
+                  input: describeHandle(ledInput),
+                  led: ledInput.node.data.technicalID || ledInput.node.data.name || ledInput.node.id,
+                },
+                [
+                  nodeTarget(node),
+                  ...handleTargets(output),
+                  ...handleTargets(ledInput),
+                  ...netTargets(elementaryNet),
+                ],
+                {
+                  priority: 72,
+                  specificity: 80,
+                  fingerprint: {
+                    scope: 'handle',
+                    key: `${output.key}:${ledInput.key}`,
+                    problem: 'sn74ahct125n-direct-led-output-missing-series-resistor',
+                  },
+                },
+              ));
+            });
+        });
+    });
+
+    return issues;
+  },
+};
+
 export const componentSpecificRules: ComponentSpecificRule[] = [
   checkSN74AHCT125NUsedChannelInputs,
+  checkSN74AHCT125NDirectLedOutputMissingSeriesResistor,
 ];
 
 export const runComponentSpecificRules = (context: DiagramCheckContext) => (

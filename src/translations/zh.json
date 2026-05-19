@@ -257,8 +257,8 @@
             },
             "supplyVoltageMismatch": {
               "title": "供电电压不匹配",
-              "shortDescription": "源电压与该网络中的某些供电输入不匹配。",
-              "description": "该电源提供 {{voltage}} V，但至少一个供电输入不允许该范围：{{inputs}}。",
+              "shortDescription": "源电压与供电网络中的某些引脚容差不匹配。",
+              "description": "该电源提供 {{voltage}} V，但至少一个已连接引脚不允许该电压范围：{{inputs}}。",
               "recommendation": "调整供电电压，或将允许电压范围不同的组件分离。"
             },
             "wireConnectedToHiddenOrMissingHandle": {
@@ -452,6 +452,12 @@
               "shortDescription": "已使用的缓冲器输出存在未连接到数字输出源的输入，或 /OE 引脚既未由数字信号驱动也未接到 GND。",
               "description": "{{component}} 通道 {{channel}} 通过 {{output}} 驱动数字输入，但这些相关引脚连接不正确：{{handles}}。A 必须连接到包含 dig_out 的网络；/OE 可以连接到包含 dig_out 或 GND 的网络。",
               "recommendation": "将相关 A 引脚连接到合适的数字输出，并将 /OE 引脚连接到数字输出或 GND，或将未使用的 Y 输出与数字输入断开。"
+            },
+            "sn74Ahct125nDirectLedOutputMissingSeriesResistor": {
+              "title": "SN74AHCT125N 输出直接连接到 LED 输入",
+              "shortDescription": "SN74AHCT125N 输出直接连接到 LED 数据或时钟输入。",
+              "description": "{{output}} 直接连接到 {{led}} 的 {{input}}。该信号路径通常应包含约 68 欧姆的串联电阻。",
+              "recommendation": "在 SN74AHCT125N 输出和 LED 数据/时钟输入之间放置约 68 欧姆的电阻。"
             },
             "digitalLedSignalGroupGroundMissing": {
               "title": "数字 LED 输入组缺少 GND",

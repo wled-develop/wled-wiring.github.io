@@ -257,8 +257,8 @@
             },
             "supplyVoltageMismatch": {
               "title": "Supply-Spannung passt nicht",
-              "shortDescription": "Die Spannung der Quelle passt nicht zu allen Supply-Eingaengen im Netz.",
-              "description": "Die Quelle liefert {{voltage}} V, aber mindestens ein Supply-Eingang erlaubt diesen Bereich nicht: {{inputs}}.",
+              "shortDescription": "Die Spannung der Quelle passt nicht zu allen Pin-Toleranzen im Supply-Netz.",
+              "description": "Die Quelle liefert {{voltage}} V, aber mindestens ein angeschlossener Pin erlaubt diesen Spannungsbereich nicht: {{inputs}}.",
               "recommendation": "Passe die Versorgungsspannung an oder trenne Komponenten mit unterschiedlichen Spannungsbereichen."
             },
             "wireConnectedToHiddenOrMissingHandle": {
@@ -452,6 +452,12 @@
               "shortDescription": "Ein verwendeter Buffer-Ausgang hat einen Eingang ohne digitale Ausgangsquelle oder einen /OE-Pin, der weder digital angesteuert noch auf GND gezogen ist.",
               "description": "{{component}} Kanal {{channel}} treibt ueber {{output}} einen digitalen Eingang, aber diese zugehoerigen Pins sind nicht korrekt angebunden: {{handles}}. A muss in einem Netz mit dig_out liegen; /OE darf in einem Netz mit dig_out oder GND liegen.",
               "recommendation": "Verbinde den zugehoerigen A-Pin mit einem passenden digitalen Ausgang und den /OE-Pin mit einem digitalen Ausgang oder GND, oder trenne den unbenutzten Y-Ausgang vom digitalen Eingang."
+            },
+            "sn74Ahct125nDirectLedOutputMissingSeriesResistor": {
+              "title": "SN74AHCT125N-Ausgang direkt an LED-Eingang",
+              "shortDescription": "Ein SN74AHCT125N-Ausgang ist direkt mit einem LED-Data- oder Clock-Eingang verbunden.",
+              "description": "{{output}} ist direkt mit {{input}} an {{led}} verbunden. In diesem Signalpfad sollte typischerweise ein Serienwiderstand von ca. 68 Ohm liegen.",
+              "recommendation": "Setze einen Widerstand von ca. 68 Ohm zwischen SN74AHCT125N-Ausgang und LED-Data-/Clock-Eingang."
             },
             "digitalLedSignalGroupGroundMissing": {
               "title": "Digitale LED-Eingangsgruppe ohne GND",

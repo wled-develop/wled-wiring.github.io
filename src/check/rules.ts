@@ -489,6 +489,19 @@ const voltageMatches = (sourceVoltage: number | undefined, target: CheckHandle) 
   return (min === undefined || sourceVoltage >= min) && (max === undefined || sourceVoltage <= max);
 };
 
+const hasVoltageTolerance = (handle: CheckHandle) => (
+  typeof handle.handle.tolVmin === 'number' ||
+  typeof handle.handle.tolVmax === 'number'
+);
+
+const voltageMatchesHandleTolerance = (sourceVoltage: number | undefined, target: CheckHandle) => {
+  if (sourceVoltage === undefined) return false;
+  const min = target.handle.tolVmin;
+  const max = target.handle.tolVmax;
+  if (min === undefined && max === undefined) return true;
+  return (min === undefined || sourceVoltage >= min) && (max === undefined || sourceVoltage <= max);
+};
+
 const digitalBiasTargets = (reachableHandles: CheckHandle[]) => (
   reachableHandles.filter((handle) => (
     isDigitalSink(handle) && !isPassiveSignalComponent(handle)
@@ -1798,9 +1811,11 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       const sourceVoltage = context.resolveVoltageOut(sources[0].handles[0]);
       if (sourceVoltage === undefined) return;
 
-      const mismatchedInputs = handlesWithAnyFunction(net.handles, ['suppl_in'])
+      const mismatchedInputs = net.handles
+        .filter((handle) => hasVoltageTolerance(handle))
         .filter((handle) => !isUsbFull(handle))
-        .filter((handle) => !voltageMatches(sourceVoltage, handle));
+        .filter((handle) => !isPassiveConnectorComponent(handle.node))
+        .filter((handle) => !voltageMatchesHandleTolerance(sourceVoltage, handle));
       if (mismatchedInputs.length === 0) return;
 
       issues.push(translatedIssue(
@@ -2063,6 +2078,7 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'componentDefinitionIncompleteForChecks',
       'ambiguousMultiFunctionHandle',
       'sn74Ahct125nUsedChannelInputMissing',
+      'sn74Ahct125nDirectLedOutputMissingSeriesResistor',
     ],
     check: runComponentRules,
   },

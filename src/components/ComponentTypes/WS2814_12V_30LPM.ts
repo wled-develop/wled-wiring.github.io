@@ -66,7 +66,7 @@ export const WS2814_12V_30LPM: Node = {
             prefferedLineDirection: "left",
             functions: ["dig_in"],
             tolVmin: 4.5,
-            tolVmax: 5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -129,6 +129,8 @@ export const WS2814_12V_30LPM: Node = {
             prefferedLineDirection: "right",
             functions: ["dig_out"],
             Vout: 5,
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -192,7 +194,9 @@ export const WS2814_12V_30LPM: Node = {
             name: "DATA",
             functions: ["not_connected"],
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_middle",

@@ -66,7 +66,7 @@ export const WS2805_24V_60LPM: Node = {
             functions: ["dig_backup_in"],
             prefferedLineDirection: "left",
             tolVmin: 4.5,
-            tolVmax: 5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "DATA_start",
@@ -89,7 +89,7 @@ export const WS2805_24V_60LPM: Node = {
             functions: ["dig_in"],
             prefferedLineDirection: "left",
             tolVmin: 4.5,
-            tolVmax: 5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_start",
@@ -153,6 +153,8 @@ export const WS2805_24V_60LPM: Node = {
             functions: ["dig_backup_out"],
             prefferedLineDirection: "right",
             Vout: 5,
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "DATA_end",
@@ -174,6 +176,8 @@ export const WS2805_24V_60LPM: Node = {
             functions: ["dig_out"],
             prefferedLineDirection: "right",
             Vout: 5,
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_end",
@@ -237,7 +241,9 @@ export const WS2805_24V_60LPM: Node = {
             name: "Backup",
             functions: ["not_connected"],
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "DATA_middle",
@@ -258,7 +264,9 @@ export const WS2805_24V_60LPM: Node = {
             name: "DATA",
             functions: ["not_connected"],
             repeated: "yes",
-            repeatAtFirst: "no"
+            repeatAtFirst: "no",
+            tolVmin: 4.5,
+            tolVmax: 5.2,
         } as HandleDataType,
         {
             hid: "GND_middle",
