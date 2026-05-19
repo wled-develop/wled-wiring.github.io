@@ -701,9 +701,9 @@ const checkFuseBypassed = (context: DiagramCheckContext) => (
         const fromHandle = context.getHandle(node.id, connection.fromHandle);
         const toHandle = context.getHandle(node.id, connection.toHandle);
         if (!fromHandle || !toHandle) return [];
-        const fromElementaryNet = context.getElementaryNetByHandle(fromHandle);
-        const toElementaryNet = context.getElementaryNetByHandle(toHandle);
-        if (!fromElementaryNet || !toElementaryNet || fromElementaryNet.id !== toElementaryNet.id) return [];
+        const fromNet = context.getComponentLinkedElementaryBasedNetByHandle(fromHandle);
+        const toNet = context.getComponentLinkedElementaryBasedNetByHandle(toHandle);
+        if (!fromNet || !toNet || fromNet.id !== toNet.id) return [];
 
         return [translatedIssue(
           'network-rules',
@@ -713,9 +713,9 @@ const checkFuseBypassed = (context: DiagramCheckContext) => (
           { component: node.data.technicalID || node.id },
           [
             nodeTarget(node),
-            ...netTargets(fromElementaryNet),
+            ...netTargets(fromNet),
           ],
-          netIssueOptions(fromElementaryNet, 'fuse-bypassed', 90, 18, {
+          netIssueOptions(fromNet, 'fuse-bypassed', 90, 18, {
             suppresses: ['duplicate-parallel-wire'],
           }),
         )];
@@ -726,6 +726,14 @@ const checkFuseBypassed = (context: DiagramCheckContext) => (
 const digitalDataIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_in'));
 const digitalBackupIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_backup_in'));
 const digitalClockIn = (handles: CheckHandle[]) => handles.find((handle) => hasFunction(handle, 'dig_clock_in'));
+
+const ledInputGroupKey = (handleId: string) => {
+  const repeatedMiddleMatch = handleId.match(/_middle_\d+$/);
+  if (repeatedMiddleMatch) return repeatedMiddleMatch[0].slice(1);
+
+  const fixedPositionMatch = handleId.match(/_(start|end)$/);
+  return fixedPositionMatch ? fixedPositionMatch[1] : undefined;
+};
 
 const ledUpstreamDataSource = (context: DiagramCheckContext, dataIn: CheckHandle) => {
   const sources = digitalSignalSourcesForInput(context, dataIn)
@@ -886,6 +894,70 @@ const checkClockedLedClockMissing = (context: DiagramCheckContext) => {
   return issues;
 };
 
+const checkDigitalLedSignalGroupGroundMissing = (context: DiagramCheckContext) => {
+  const issues: DiagramCheckIssue[] = [];
+
+  handlesByNode(context).forEach((nodeHandles) => {
+    const node = nodeHandles[0]?.node;
+    if (!node || node.data.group !== 'led') return;
+
+    const digitalSignalInputs = nodeHandles.filter((handle) => (
+      (hasFunction(handle, 'dig_in') || hasFunction(handle, 'dig_clock_in')) &&
+      handle.connectedEdges.length > 0
+    ));
+    if (digitalSignalInputs.length === 0) return;
+
+    const gndHandlesByGroup = new Map<string, CheckHandle[]>();
+    handlesWithAnyFunction(nodeHandles, ['gnd']).forEach((handle) => {
+      const groupKey = ledInputGroupKey(handle.handle.hid);
+      if (!groupKey) return;
+      gndHandlesByGroup.set(groupKey, [...(gndHandlesByGroup.get(groupKey) || []), handle]);
+    });
+
+    const signalInputsByGroup = new Map<string, CheckHandle[]>();
+    digitalSignalInputs.forEach((handle) => {
+      const groupKey = ledInputGroupKey(handle.handle.hid);
+      if (!groupKey) return;
+      signalInputsByGroup.set(groupKey, [...(signalInputsByGroup.get(groupKey) || []), handle]);
+    });
+
+    signalInputsByGroup.forEach((signalInputs, groupKey) => {
+      const gndHandles = gndHandlesByGroup.get(groupKey) || [];
+      const hasConnectedGroupGround = gndHandles.some((handle) => handle.connectedEdges.length > 0);
+      if (hasConnectedGroupGround) return;
+
+      issues.push(translatedIssue(
+        'component-rules',
+        'digitalLedSignalGroupGroundMissing',
+        `digital-led-signal-group-ground-missing-${node.id}-${groupKey}`,
+        'error',
+        {
+          component: node.data.technicalID || node.data.name || node.id,
+          group: groupKey,
+          signals: signalInputs.map(describeHandle).join(', '),
+        },
+        [
+          nodeTarget(node),
+          ...signalInputs.flatMap(handleTargets),
+          ...gndHandles.flatMap(handleTargets),
+        ],
+        {
+          priority: 47,
+          specificity: 85,
+          fingerprint: {
+            scope: 'component',
+            key: `${node.id}:${groupKey}`,
+            problem: 'digital-led-signal-group-ground-missing',
+          },
+          suppressedBy: ['ground-missing'],
+        },
+      ));
+    });
+  });
+
+  return issues;
+};
+
 const checkSignalOutputWithoutConsumer = (context: DiagramCheckContext) => (
   context.componentLinkedNets.flatMap((net) => (
     signalRuleDefinitions.flatMap((definition) => {
@@ -957,41 +1029,6 @@ const checkDataDirectionWrong = (context: DiagramCheckContext) => (
       }
       return [];
     })
-);
-
-const checkSupplyInputOnlyInternallyPowered = (context: DiagramCheckContext) => (
-  Array.from(handlesByNode(context).values()).flatMap((nodeHandles) => {
-    const node = nodeHandles[0]?.node;
-    if (!node || !isTechnicalComponent(node)) return [];
-
-    const supplyInputs = handlesWithAnyFunction(nodeHandles, ['suppl_in'])
-      .filter((handle) => !hasFunction(handle, 'usb_full'));
-    const connectedSupplyInputs = supplyInputs.filter((handle) => handle.connectedEdges.length > 0);
-    if (connectedSupplyInputs.length === 0) return [];
-
-    const hasExternalSource = connectedSupplyInputs.some((handle) => supplyInputHasExternalSource(context, handle));
-    const hasInternalSupplyOnly = connectedSupplyInputs.some((handle) => (
-      context.powerReachableHandles(handle).some((candidate) => (
-        candidate.node.id === node.id && candidate.key !== handle.key && hasFunction(candidate, 'suppl_in')
-      ))
-    ));
-    if (hasExternalSource || !hasInternalSupplyOnly) return [];
-
-    return [translatedIssue(
-      'component-rules',
-      'supplyInputOnlyInternallyPowered',
-      `supply-input-only-internally-powered-${node.id}`,
-      'warning',
-      { component: node.data.technicalID || node.id },
-      [
-        nodeTarget(node),
-        ...connectedSupplyInputs.flatMap(handleTargets),
-      ],
-      componentIssueOptions(node, 'supply-input-only-internally-powered', 60, 90, {
-        suppressedBy: ['supply-input-without-source'],
-      }),
-    )];
-  })
 );
 
 const shortConnectedHandles = (
@@ -1234,7 +1271,9 @@ const checkComponentHasOnlyOneTerminalConnected = (context: DiagramCheckContext)
         nodeTarget(node),
         ...nodeHandles.flatMap(handleTargets),
       ],
-      componentIssueOptions(node, 'component-has-only-one-terminal-connected', 65, 110),
+      componentIssueOptions(node, 'component-has-only-one-terminal-connected', 65, 110, {
+        suppressedBy: ['required-pin-unconnected'],
+      }),
     )];
   })
 );
@@ -1888,8 +1927,16 @@ const runComponentRules = (context: DiagramCheckContext) => {
     const hasUsbConnection = usbFullHandles.some((handle) => (
       handleNetHasClassification(context, handle, 'usb_net_type')
     ));
+    const connectedSupplyInputsWithoutSource = supplyInputHandles.filter((handle) => (
+      handle.connectedEdges.length > 0 && !supplyInputHasExternalSource(context, handle)
+    ));
+    const preferSupplyNetIssue = (
+      connectedSupplyInputsWithoutSource.length > 0 &&
+      !hasSupplyConnection &&
+      !hasUsbConnection
+    );
 
-    if (hasSupplyNeed && !hasSupplyConnection && !hasUsbConnection) {
+    if (hasSupplyNeed && !hasSupplyConnection && !hasUsbConnection && !preferSupplyNetIssue) {
       issues.push(translatedIssue(
         'component-rules',
         'powerMissing',
@@ -1942,6 +1989,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
   return [
     ...issues,
     ...checkUnusedRequiredFunctionalGroup(context),
+    ...checkDigitalLedSignalGroupGroundMissing(context),
     ...checkControlledOutputWithoutControlInput(context),
     ...checkAnalogLedColorChannelUnconnected(context),
     ...checkAnalogLedColorChannelMultiplePwmSignals(context),
@@ -1949,7 +1997,6 @@ const runComponentRules = (context: DiagramCheckContext) => {
     ...checkCapacitorPolarityMismatch(context),
     ...checkMainsConnectorIncomplete(context),
     ...checkProtectiveEarthMissingForMetalOrMainsDevice(context),
-    ...checkSupplyInputOnlyInternallyPowered(context),
     ...checkFuseCurrentMissingOrUnderspecified(context),
     ...checkIsolatedComponent(context),
     ...checkComponentDefinitionIncompleteForChecks(context),
@@ -2003,6 +2050,7 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'powerMissing',
       'mainsInputMissing',
       'unusedRequiredFunctionalGroup',
+      'digitalLedSignalGroupGroundMissing',
       'controlledOutputWithoutControlInput',
       'analogLedColorChannelUnconnected',
       'analogLedColorChannelMultiplePwmSignals',
@@ -2010,7 +2058,6 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'capacitorPolarityMismatch',
       'mainsConnectorIncomplete',
       'protectiveEarthMissingForMetalOrMainsDevice',
-      'supplyInputOnlyInternallyPowered',
       'fuseCurrentMissingOrUnderspecified',
       'isolatedComponent',
       'componentDefinitionIncompleteForChecks',

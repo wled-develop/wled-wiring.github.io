@@ -4,7 +4,7 @@ import type { ComponentDataType, EdgeDataType, HandleDataType } from '../types';
 
 export type CheckHandleFunction = NonNullable<HandleDataType['functions']>[number] | 'unknown';
 
-export type CheckNetLayer = 'elementary' | 'fused' | 'component-linked';
+export type CheckNetLayer = 'elementary' | 'fused' | 'component-linked' | 'component-linked-elementary-based';
 
 export type CheckNetClassification =
   | 'gnd_net_type'
@@ -61,11 +61,13 @@ export type DiagramCheckContext = {
   elementaryNets: CheckNet[];
   fusedNets: CheckNet[];
   componentLinkedNets: CheckNet[];
+  componentLinkedElementaryBasedNets: CheckNet[];
   invalidWires: CheckInvalidWire[];
   getHandle: (nodeId: string, handleId?: string | null) => CheckHandle | undefined;
   getNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
   getElementaryNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
   getFusedNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
+  getComponentLinkedElementaryBasedNetByHandle: (handle: CheckHandle) => CheckNet | undefined;
   hasFunction: (handle: CheckHandle, fn: CheckHandleFunction) => boolean;
   handlesWithFunction: (fn: CheckHandleFunction) => CheckHandle[];
   connectedHandles: (handle: CheckHandle) => CheckHandle[];
@@ -576,6 +578,7 @@ const shouldLinkDigitalNetsThroughResistor = (
 const getComponentConnectionPairs = (
   handles: CheckHandle[],
   childNetByHandleKey: Map<string, CheckNet>,
+  options: { skipFusePassThroughPairs?: boolean } = {},
 ) => {
   const handlesByNode = new Map<string, CheckHandle[]>();
   const pairs: [string, string][] = [];
@@ -590,6 +593,7 @@ const getComponentConnectionPairs = (
         const net = childNetByHandleKey.get(handle.key);
         const candidateNet = childNetByHandleKey.get(candidate.key);
         if (!net || !candidateNet || net.id === candidateNet.id) return;
+        if (options.skipFusePassThroughPairs && isFusePassThrough(handle, candidate)) return;
         if (
           shouldLinkThroughComponent(handle, candidate) ||
           shouldLinkDigitalNetsThroughResistor(handle, candidate, net, candidateNet)
@@ -653,6 +657,12 @@ export function createDiagramCheckContext(
     'component-linked',
     getComponentConnectionPairs(handles, fusedNetByHandleKey),
   );
+  const componentLinkedElementaryBasedNets = createGroupedNets(
+    elementaryNets,
+    'component-linked-elementary-based',
+    getComponentConnectionPairs(handles, elementaryNetByHandleKey, { skipFusePassThroughPairs: true }),
+  );
+  const componentLinkedElementaryBasedNetByHandleKey = netByHandleKey(componentLinkedElementaryBasedNets);
   const nets = componentLinkedNets;
   const netByHandleKeyMap = netByHandleKey(nets);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -825,11 +835,13 @@ export function createDiagramCheckContext(
     elementaryNets,
     fusedNets,
     componentLinkedNets,
+    componentLinkedElementaryBasedNets,
     invalidWires,
     getHandle: (nodeId, handleId) => (handleId ? handleByKey.get(keyOf(nodeId, handleId)) : undefined),
     getNetByHandle: (handle) => netByHandleKeyMap.get(handle.key),
     getElementaryNetByHandle: (handle) => elementaryNetByHandleKey.get(handle.key),
     getFusedNetByHandle: (handle) => fusedNetByHandleKey.get(handle.key),
+    getComponentLinkedElementaryBasedNetByHandle: (handle) => componentLinkedElementaryBasedNetByHandleKey.get(handle.key),
     hasFunction,
     handlesWithFunction: (fn) => handles.filter((handle) => hasFunction(handle, fn)),
     connectedHandles: (handle) => {

@@ -127,6 +127,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
         ...debugContext.elementaryNets,
         ...debugContext.fusedNets,
         ...debugContext.componentLinkedNets,
+        ...debugContext.componentLinkedElementaryBasedNets,
       ]
       : null);
     setActiveIssueKeys(activeIssue ? activeIssueKeys : []);
@@ -267,7 +268,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
       key: net.id,
       label: (
         <Space size={6} align="start" wrap>
-          <Tag color={net.layer === 'elementary' ? 'blue' : net.layer === 'fused' ? 'orange' : 'purple'}>
+          <Tag color={net.layer === 'elementary' ? 'blue' : net.layer === 'fused' ? 'orange' : net.layer === 'component-linked' ? 'purple' : 'cyan'}>
             {net.layer}
           </Tag>
           <Typography.Text>{net.id}</Typography.Text>

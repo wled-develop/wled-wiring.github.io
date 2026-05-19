@@ -452,6 +452,12 @@
               "shortDescription": "已使用的缓冲器输出存在未连接到数字输出源的输入，或 /OE 引脚既未由数字信号驱动也未接到 GND。",
               "description": "{{component}} 通道 {{channel}} 通过 {{output}} 驱动数字输入，但这些相关引脚连接不正确：{{handles}}。A 必须连接到包含 dig_out 的网络；/OE 可以连接到包含 dig_out 或 GND 的网络。",
               "recommendation": "将相关 A 引脚连接到合适的数字输出，并将 /OE 引脚连接到数字输出或 GND，或将未使用的 Y 输出与数字输入断开。"
+            },
+            "digitalLedSignalGroupGroundMissing": {
+              "title": "数字 LED 输入组缺少 GND",
+              "shortDescription": "数据或时钟输入已连接，但同一 LED 输入组的 GND 未连接。",
+              "description": "{{component}} 在 {{group}} 组中有已连接的数字信号输入（{{signals}}），但同一组中没有 GND 连接。",
+              "recommendation": "将同一 LED 灯带组（_start、_end 或 _middle_N）的 GND 引脚连接到公共接地网络。"
             }
           }
         }

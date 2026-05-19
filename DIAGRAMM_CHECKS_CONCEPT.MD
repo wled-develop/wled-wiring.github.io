@@ -82,7 +82,7 @@ Eingangstoleranzen werden fuer Eingangs-Handles aus `tolVmin` und `tolVmax` uebe
 
 ## Netzaufbau
 
-Die Netze werden in drei Schichten aufgebaut. Diese Schichtung ist wichtig, weil unterschiedliche Regeln unterschiedlich weit "durch" Komponenten schauen muessen.
+Die Netze werden aktuell in vier Sichten aufgebaut. Diese Schichtung ist wichtig, weil unterschiedliche Regeln unterschiedlich weit "durch" Komponenten schauen muessen und weil Sicherungen je nach Check entweder als verbindende Schutzkomponente oder als trennende Netzgrenze betrachtet werden muessen.
 
 ### 1. Elementary Nets
 
@@ -137,6 +137,57 @@ Diese Layer-Logik erlaubt z.B.:
 - weitergereichte Versorgungsausgaenge von echten unabhaengigen Quellen zu unterscheiden
 - LED-Streifen mit mehreren Einspeisepunkten als einen Verbraucherzusammenhang zu behandeln
 - digitale Signale ueber einen Serienwiderstand hinweg als erreichbar zu betrachten
+
+### 4. Component-Linked Elementary based Nets
+
+Component-Linked Elementary based Nets sind die vierte Netzsicht. Sie werden analog zu Component-Linked Nets aufgebaut, verwenden als Ausgangspunkt aber Elementary Nets statt Fused Nets.
+
+Der fachliche Unterschied ist bewusst: Sicherungen (`internalConnections.kind === 'fuse'`) verbinden diese Netze nicht. Eine Sicherung bleibt hier eine trennende Grenze. Dadurch teilen Fuses ein Component-Linked Net in mehrere separate Netze, sofern die beiden Seiten nicht ueber Wires, passive Verbindungsknoten oder andere interne Component-Link-Regeln ohne Fuse wieder zusammenhaengen.
+
+Zweck dieser Sicht:
+
+- Checks koennen erkennen, welche Bereiche wirklich ohne Sicherung direkt miteinander verbunden sind.
+- Sicherungs-Bypass- und Schutzbereichsregeln bekommen eine Netzsicht, in der die Sicherung selbst nicht schon die beiden Seiten zusammenfasst.
+- Versorgungspfade koennen getrennt betrachtet werden, wenn mehrere abgesicherte Abgaenge aus derselben Quelle kommen.
+- Fehler wie "Quelle und Verbraucher liegen im selben Component-Linked Net" koennen bei Bedarf feiner bewertet werden: einmal inklusive Sicherungen (`Component-Linked Nets`) und einmal ohne Sicherungsbruecken (`Component-Linked Elementary based Nets`).
+
+Aufbau:
+
+1. Ausgangspunkt sind die vorhandenen Elementary Nets.
+2. Fuer jedes Elementary Net wird ein Union-Find-Knoten erzeugt.
+3. Danach werden dieselben Component-Link-Regeln angewendet wie bei Component-Linked Nets, aber immer auf Basis der Elementary-Net-Zugehoerigkeit.
+4. `kind === 'fuse'` wird dabei explizit ignoriert. Eine Fuse darf in dieser Schicht keine Union-Verbindung erzeugen.
+5. `kind === 'short'` bleibt weiterhin eine harte interne Verbindung und verbindet die betroffenen Elementary-basierten Netze.
+6. Automatische interne Beziehungen wie gemeinsame GND-Handles, abhaengige `suppl_out`-zu-`suppl_in`-Pfade, gleiche feste `suppl_out`-Spannungen, gleiche `VoutDependency`, LED-`suppl_in`-Gruppierung und digitale Resistor-Pass-Throughs werden analog zur bestehenden Component-Linked-Logik angewendet.
+7. Nach dem Gruppieren entstehen Netze mit derselben Struktur wie bestehende `CheckNet`s: `handles`, `edges`, `componentIds`, `sourceHandles`, `sinkHandles`, `classifications` und `childNetIds`.
+
+Wichtig ist die Reihenfolge: Diese Netzsicht soll nicht aus Fused Nets abgeleitet werden, weil dann die Information verloren waere, welche Elementary Nets nur durch eine Sicherung zusammengekommen sind. Sie muss direkt parallel zum Fused-Net-Aufbau aus Elementary Nets entstehen.
+
+Beispiel:
+
+- PSU `V+` speist Eingang einer Sicherung.
+- Ausgang der Sicherung geht zu einem LED-Strip.
+- Die Fuse-Komponente definiert `internalConnections.kind === 'fuse'` zwischen Eingang und Ausgang.
+
+Ergebnis:
+
+- Elementary Nets: eine Seite vor der Sicherung, eine Seite nach der Sicherung.
+- Fused Nets: beide Seiten werden zu einem Fused Net gruppiert.
+- Component-Linked Nets: beide Seiten bleiben als zusammenhaengender versorgungsbezogener Kontext sichtbar.
+- Component-Linked Elementary based Nets: beide Seiten bleiben getrennt, solange keine zusaetzliche direkte Verbindung die Sicherung umgeht.
+
+Wenn dieselben beiden Sicherungsseiten zusaetzlich extern per Wire, SolderJoint, WAGO oder durch eine interne `short`-Verbindung verbunden sind, liegen sie auch in Component-Linked Elementary based Nets im selben Netz. Genau dieser Unterschied ist fuer Bypass-Erkennung und Schutzbereichsgrenzen relevant.
+
+Technische Einbindung:
+
+- `DiagramCheckContext` besitzt zusaetzlich zu `elementaryNets`, `fusedNets` und `componentLinkedNets` eine Liste `componentLinkedElementaryBasedNets`.
+- Die Lookup-Funktion `getComponentLinkedElementaryBasedNetByHandle(handle)` erlaubt Regeln, explizit diese Netzsicht anzufordern.
+- Bestehende Network Rules bleiben zunaechst auf `context.componentLinkedNets`, damit sich das aktuelle Verhalten nicht aendert.
+- Neue oder angepasste Regeln waehlen bewusst die passende Netzsicht:
+  - Component-Linked Nets fuer allgemeine elektrische/versorgungsbezogene Zusammenhaenge inklusive Sicherungen.
+  - Component-Linked Elementary based Nets fuer Schutzbereichs-, Fuse-Bypass- und "direkt verbunden ohne Sicherung"-Checks.
+- Die Regel `fuseBypassed` verwendet diese Netzsicht, damit auch Bypaesse erkannt werden, die nicht schon im selben Elementary Net liegen, sondern ueber andere Component-Link-Regeln ohne Fuse entstehen.
+- Im Debug-Modus wird diese Netzsicht zusammen mit Elementary, Fused und Component-Linked Nets angezeigt, damit Unterschiede zwischen abgesicherten und direkt verbundenen Bereichen nachvollziehbar sind.
 
 ## Netzklassifikation
 
@@ -331,6 +382,8 @@ Fehler, wenn ein Netz `suppl_in`-Handles enthaelt, aber keine unabhaengige Suppl
 
 `usb_full` wird hier explizit aus den Supply-Inputs herausgefiltert, weil USB separat als USB-Netz behandelt wird.
 
+Diese Netzmeldung hat Vorrang vor der komponentenbezogenen Meldung `powerMissing`, wenn ein Versorgungseingang bereits verdrahtet ist, der angeschlossene Versorgungspfad aber keine echte Quelle erreicht. In diesem Fall beschreibt `supplyInputWithoutSource` die Ursache praeziser: Nicht die Komponente an sich ist unverdrahtet, sondern das konkrete Supply-Netz hat keine Quelle.
+
 ### `supplySourceWithoutConsumer`
 
 Warnung, wenn ein Supply-Netz eine Quelle enthaelt, aber keinen `suppl_in`-Verbraucher und keinen digitalen Bias-Consumer.
@@ -370,6 +423,8 @@ Als versorgt gilt sie, wenn:
 
 - mindestens ein `suppl_in` in einem Supply-Netz liegt, das einen `suppl_out` einer anderen Komponente enthaelt, oder
 - mindestens ein `usb_full` in einem USB-Netz liegt.
+
+Wenn mindestens ein Nicht-USB-`suppl_in` bereits angeschlossen ist, aber keine externe Quelle erreicht, wird `powerMissing` im normalen Nutzer-Modus nicht zusaetzlich erzeugt. Dann ist `supplyInputWithoutSource` die bessere Meldung, weil sie das betroffene Netz und die angeschlossenen Versorgungseingaenge zusammenfasst. `powerMissing` bleibt fuer Faelle zustaendig, in denen eine Komponente Versorgung braucht, aber gar kein passender Versorgungspfad angeschlossen ist.
 
 ### `mainsInputMissing`
 
@@ -430,12 +485,12 @@ Empfohlene Bedeutung:
 | `signalSinkWithoutSource` | `error` | 60 | 50 | `net`/`handle` | Sollte pro betroffenem Signaltyp und Netz erscheinen. Kann durch spezifischere Signalfehler wie `mixedDigitalSignalTypes` oder `dataDirectionWrong` unterdrueckt werden. |
 | `digitalSignalVoltageMismatch` | `error` | 75 | 45 | `handle` | Konkreter als allgemeine Signalquellen-Regeln. Sollte nicht durch `signalSinkWithoutSource` verdeckt werden. |
 | `multipleSignalSources` | `error` | 65 | 55 | `net` | Wichtig, aber nach sicherheits- und versorgungsbezogenen Fehlern. Kann durch spezifischere Direction-/Subtype-Regeln unterdrueckt werden. |
-| `supplyInputWithoutSource` | `error` | 60 | 40 | `net` | Grundlegender Versorgungsfehler. Sollte vor komponentenbezogenem `powerMissing` stehen, wenn beide dieselbe Ursache beschreiben. |
+| `supplyInputWithoutSource` | `error` | 60 | 40 | `net` | Grundlegender Versorgungsfehler. Gewinnt vor komponentenbezogenem `powerMissing`, wenn ein Versorgungseingang bereits angeschlossen ist, aber das Netz keine Quelle hat. |
 | `supplySourceWithoutConsumer` | `warning` | 45 | 120 | `net` | Hinweischarakter. Sollte von konkreten Fehlern im selben Netz unterdrueckt werden, z.B. Mischfehler oder mehrere Quellen. |
 | `supplyVoltageMismatch` | `error` | 75 | 42 | `net`/`handle` | Konkreter Spannungsfehler. Sollte nur laufen/anzeigen, wenn genau eine Quelle bekannt ist und keine priorisierten Netzmischfehler existieren. |
-| `requiredPinUnconnected` | `error` | 70 | 32 | `handle` | Sehr konkret. Sollte fuer Pflichtpins sichtbar bleiben, kann aber in spaeteren Gruppenregeln als Teilursache zusammengefasst werden. |
+| `requiredPinUnconnected` | `error` | 70 | 32 | `handle` | Sehr konkret. Sollte fuer Pflichtpins sichtbar bleiben und weichere Vollstaendigkeitswarnungen desselben Bauteils, z.B. `componentHasOnlyOneTerminalConnected`, unterdruecken. |
 | `groundMissing` (Component) | `error` | 55 | 60 | `component` | Konkrete Komponentenperspektive. Kann zusammen mit Network-`groundMissing` auftreten; spaeter ggf. als Detail unter einer globalen Ground-Meldung gruppieren. |
-| `powerMissing` | `error` | 55 | 58 | `component` | Kann dieselbe Ursache wie `supplyInputWithoutSource` haben. Bei Deduplizierung sollte die Netzmeldung gewinnen, wenn sie den ganzen betroffenen Versorgungspfad besser beschreibt; die Komponentenmeldung kann als Detail erhalten bleiben. |
+| `powerMissing` | `error` | 55 | 58 | `component` | Zustaendig fuer Komponenten ohne angeschlossenen Versorgungspfad. Wenn ein angeschlossener Versorgungspfad keine Quelle hat, ist `supplyInputWithoutSource` die praezisere Meldung. |
 | `mainsInputMissing` | `error` | 70 | 12 | `component`/`handle` | Sicherheitsrelevant und konkret. Sollte vor allgemeinen Komponentenfehlern stehen. |
 | `sn74Ahct125nUsedChannelInputMissing` | `error` | 100 | 38 | `component`/`handle` | Sehr spezifisch. Sollte allgemeinere digitale Signalfehler fuer die betroffenen Pins/Kanaele unterdruecken, aber nicht Versorgung/GND-Fehler des Chips. |
 
@@ -795,7 +850,7 @@ Die Sidebar `DiagramCheckPage` bietet aktuell:
 - Highlighting der betroffenen Nodes und Edges beim Aufklappen eines Issues
 - Diagnoseanzeige fuer Fingerprint, Specificity und Suppression-Quelle, wenn ein Diagnosemodus aktiv ist
 
-Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er lokal auf `true` gesetzt wird, zeigt die Sidebar alle Elementary, Fused und Component-Linked Nets inklusive Klassifikationen, Pins, Wires und Highlight-Button.
+Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er lokal auf `true` gesetzt wird, zeigt die Sidebar alle Elementary, Fused, Component-Linked und Component-Linked-Elementary-based Nets inklusive Klassifikationen, Pins, Wires und Highlight-Button.
 
 ## Bekannte Grenzen des aktuellen Standes
 
@@ -813,7 +868,8 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `supplyInputOnlyInternallyPowered`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`.
+- Deaktiviert: `supplyInputOnlyInternallyPowered`, weil die Meldung bei LED-Streifen zu oft irrefuehrend war und durch `supplyInputWithoutSource` bzw. `powerMissing` besser abgedeckt wird.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
 - Einige Regeln sind konservativ umgesetzt, um False Positives zu reduzieren: passive Verbinder wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` werden z.B. bei `mainsWireConnectedToLowVoltageComponent` nicht als ungeeignete Endkomponente bewertet.
@@ -931,6 +987,8 @@ Warnung, wenn eine Komponente nur ueber eine intern weitergereichte Versorgung a
 
 Das kann bei Komponenten mit mehreren `suppl_in`-Pins oder internen Pass-Throughs relevant sein. Ziel ist, Faelle zu erkennen, in denen eine Komponente scheinbar ein Supply-Netz hat, dieses aber nur aus Eingangs-Pins besteht.
 
+Status: derzeit deaktiviert. Die Meldung war besonders bei LED-Streifen irrefuehrend, weil mehrere Einspeisepunkte dort normal sind und die eigentliche Ursache meist besser durch `supplyInputWithoutSource` oder `powerMissing` beschrieben wird.
+
 Moegliche Logik:
 
 - Pro Komponente `supplyInputHasExternalSource()` erweitern oder eigene Reachability nutzen.
@@ -946,7 +1004,7 @@ Bei Fuse-Boards kann ein Nutzer versehentlich die Sicherung umgehen, indem Einga
 Moegliche Logik:
 
 - `internalConnections.kind === 'fuse'` als bekannte Fuse-Paare nutzen.
-- Wenn `fromHandle` und `toHandle` nicht nur ueber den Fuse-Layer, sondern bereits im selben Elementary Net liegen, wurde die Sicherung extern ueberbrueckt.
+- Wenn `fromHandle` und `toHandle` nicht nur ueber den Fuse-Layer, sondern im selben Component-Linked Elementary based Net liegen, wurde die Sicherung extern oder ueber eine andere direkte Component-Link-Beziehung ueberbrueckt.
 - Severity `error`, weil die Schutzfunktion aufgehoben ist.
 
 #### `fuseCurrentMissingOrUnderspecified`
@@ -974,6 +1032,34 @@ Moegliche Logik:
 - Komponententypen koennen optionale Gruppen definieren, z.B. LED-Eingangsgruppe: `V+`, `GND`, `DI`, optional `BI`/`CI`.
 - Wenn mindestens ein Pin der Gruppe verbunden ist, muessen definierte Mindestpins der Gruppe plausibel verbunden sein.
 - Erfordert wahrscheinlich zusaetzliche Metadaten in Komponentendefinitionen.
+
+#### `digitalLedSignalGroupGroundMissing`
+
+Fehler, wenn an einem digitalen LED-Streifen ein `data_in`- oder `clock_in`-Pin angeschlossen ist, aber der zugehoerige GND-Anschluss derselben Eingangsgruppe nicht angeschlossen ist.
+
+Bei digitalen LED-Streifen gehoeren Daten-/Clock-Eingang und GND fachlich zur selben Einspeise- bzw. Signalgruppe. Ein Signal ohne lokalen gemeinsamen Bezug kann elektrisch unzuverlaessig sein, auch wenn die Komponente an anderer Stelle der Platine oder des Streifens einen GND-Anschluss besitzt. Die Regel soll deshalb gruppenbezogen pruefen, nicht nur komponentenweit.
+
+Gruppenzuordnung:
+
+- `_start`: z.B. `DATA_start`, `Clock_start`, `GND_start`
+- `_end`: z.B. `DATA_end`, `Clock_end`, `GND_end`
+- `_middle_N`: z.B. `DATA_middle_4`, `Clock_middle_4`, `GND_middle_4`
+
+Moegliche Logik:
+
+- Nur digitale LED-Komponenten betrachten, also LED-Komponenten mit `dig_in` und optional `dig_clock_in`; analoge LED-Streifen mit `pwm_in_*` sind nicht betroffen.
+- Sichtbare Handles nach funktionaler Eingangsgruppe normalisieren: Suffix `_start`, `_end` oder konkretes `_middle_N`.
+- Wenn ein `dig_in` oder `dig_clock_in` innerhalb einer Gruppe angeschlossen ist, muss in derselben Gruppe mindestens ein sichtbarer GND-Handle existieren und angeschlossen sein.
+- Ein GND an einer anderen Gruppe derselben LED-Komponente reicht fuer diese Regel nicht aus, weil die Meldung gezielt fehlende lokale Referenz am genutzten Signalanschluss beschreibt.
+- Wenn der passende GND-Handle fehlt oder durch aktuelle `hideConditions` unsichtbar ist, sollte das im Diagnosemodus als moegliches Komponenten-/Metadatenproblem erkennbar bleiben.
+
+Targets:
+
+- die betroffene LED-Komponente,
+- der angeschlossene `data_in`-/`clock_in`-Handle,
+- der erwartete GND-Handle derselben Gruppe, falls vorhanden.
+
+Severity: `error`, weil digitale LED-Signale ohne gemeinsamen GND-Bezug am genutzten Eingang in der Praxis nicht verlaesslich funktionieren.
 
 #### `controlledOutputWithoutControlInput`
 
@@ -1264,7 +1350,7 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `mainsWireConnectedToLowVoltageComponent` | 2 | `error` | 95 | 4 | `component`/`handle` | Sicherheitskritisch und deckt Faelle ab, die quellenbasierte Netzklassifikation uebersehen kann. Sollte zusammen mit `mainsLowVoltageMixed` dedupliziert oder gruppiert werden; im Zweifel gewinnt die klarere Meldung mit betroffener Komponente. |
 | `groundAndSupplyPolaritySwapped` | 3 | `error` | 95 | 8 | `net` | Kritischer Spezialfall. Muss `mixedClassifications` fuer dasselbe Netz unterdruecken und vor normalen Supply-/Ground-Folgefehlern stehen. |
 | `mixedDigitalSignalTypes` | 4 | `error` | 85 | 44 | `net` | Sollte generische digitale `signalSinkWithoutSource`- oder `multipleSignalSources`-Meldungen fuer dasselbe digitale Netz unterdruecken, wenn die Ursache eine Data-/Clock-/Backup-Verwechslung ist. |
-| `componentHasOnlyOneTerminalConnected` | 5 | `warning` | 65 | 110 | `component` | Guenstig umzusetzen und hilfreich. Sollte nicht haertere Pflichtpin-Fehler unterdruecken; eher als zusaetzlicher Hinweis oder durch `requiredPinUnconnected` unterdrueckbar. |
+| `componentHasOnlyOneTerminalConnected` | 5 | `warning` | 65 | 110 | `component` | Guenstig umzusetzen und hilfreich. Wird durch `requiredPinUnconnected` fuer dasselbe Bauteil unterdrueckt, damit Zweipol-Komponenten nicht gleichzeitig Fehler und Warnung fuer dieselbe fehlende Seite zeigen. |
 | `supplyVoltageUnknown` | 6 | `warning` | 55 | 95 | `net` | Sollte angezeigt werden, wenn Spannungschecks nicht aussagekraeftig sind. Wird von konkretem `supplyVoltageMismatch` unterdrueckt, sobald die Spannung bekannt ist. |
 | `fuseBypassed` | 7 | `error` | 90 | 18 | `net`/`component` | Sicherheits-/Schutzfunktionsfehler. Sollte allgemeine Fuse- oder Mixed-Netz-Hinweise fuer dieselben Fuse-Paare unterdruecken. |
 | `controlledOutputWithoutControlInput` | 8 | `error` | 85 | 52 | `component`/`handle` | Generische Regel fuer genutzte geschaltete Ausgaenge mit fehlendem digitalen Steuer-/Enable-Netz. Sollte allgemeinere Signal- oder Supply-Hinweise fuer denselben Ausgang nicht pauschal unterdruecken, aber als konkreter Komponentenfehler sichtbar sein. |
@@ -1279,7 +1365,7 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `capacitorPolarityMismatch` | 17 | `error` | 90 | 34 | `component`/`handle` | Konkreter Bauteilfehler. Sollte generische Mixed-Netz-Meldungen nicht pauschal unterdruecken, aber fuer die Kondensatorpins als beste Meldung gelten. |
 | `mainsConnectorIncomplete` | 18 | `error` | 75 | 14 | `component` | Spezifischere Zusammenfassung von mehreren `mainsInputMissing`-Pins. Kann einzelne fehlende L/N-Meldungen gruppieren, sollte PE-Sicherheitsmeldung separat lassen koennen. |
 | `protectiveEarthMissingForMetalOrMainsDevice` | 19 | `warning` oder `error` | 80 | 16 | `component`/`handle` | Sollte `mainsInputMissing` fuer PE ergaenzen oder ersetzen, wenn der Komponententyp klar sicherheitsrelevant ist. |
-| `supplyInputOnlyInternallyPowered` | 20 | `warning` | 60 | 90 | `component`/`net` | Spezialfall fuer irrefuehrende interne Pass-Throughs. Sollte nach harten Supply-Fehlern kommen und von `supplyInputWithoutSource` unterdrueckt werden, wenn keine Quelle existiert. |
+| `supplyInputOnlyInternallyPowered` | 20 | `warning` | 60 | 90 | `component`/`net` | Deaktiviert. Der Spezialfall war bei LED-Streifen irrefuehrend; fehlende echte Quellen sollen ueber `supplyInputWithoutSource` oder `powerMissing` sichtbar werden. |
 | `fuseCurrentMissingOrUnderspecified` | 21 | `info` oder `warning` | 45 | 160 | `component` | Eher Beratungsregel. Sollte erst relevant werden, wenn Sicherungsmetadaten konsistent gepflegt sind. |
 | `unusedRequiredFunctionalGroup` | 22 | `warning` oder `error` | 80 | 75 | `component` | Kann mehrere einzelne Pflichtpin-Meldungen gruppieren. Sollte erst mit passenden Gruppen-Metadaten umgesetzt werden. |
 | `powerWireCrossSectionTooSmall` | 23 | `warning` | 70 | 100 | `edge`/`net` | Wertvoll, aber erst mit Last-/Simulationsdaten belastbar. Sollte von `wireWithoutPhysicalParameters` abhaengen: ohne Parameter zuerst Parameterwarnung. |
@@ -1287,6 +1373,7 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `isolatedComponent` | 25 | `info` | 30 | 180 | `component` | Niedrige Prioritaet, da beim Entwurf haeufig normal. Sollte nicht fuer Zeichen-/Info-Komponenten erscheinen. |
 | `componentDefinitionIncompleteForChecks` | 26 | `info` | 60 | 900 | `component`/`handle` | Nur Diagnose-/Entwicklermodus. Im Nutzer-Modus standardmaessig ausblenden. |
 | `ambiguousMultiFunctionHandle` | 27 | `info` oder `warning` | 60 | 910 | `handle` | Nur Diagnose-/Entwicklermodus. Hilft Komponentenautoren, sollte Nutzer nicht stoeren. |
+| `digitalLedSignalGroupGroundMissing` | 28 | `error` | 85 | 47 | `component`/`handle` | Spezifische LED-Gruppenregel fuer Data-/Clock-Eingaenge ohne GND in derselben `_start`, `_end` oder `_middle_N`-Gruppe. Sollte allgemeine Komponenten-GND-Meldungen nicht komplett ersetzen, aber fuer den betroffenen Signalanschluss die klarere Meldung sein. |
 
 ## Empfohlene Umsetzungsreihenfolge
 

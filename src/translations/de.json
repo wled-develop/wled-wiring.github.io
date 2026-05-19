@@ -452,6 +452,12 @@
               "shortDescription": "Ein verwendeter Buffer-Ausgang hat einen Eingang ohne digitale Ausgangsquelle oder einen /OE-Pin, der weder digital angesteuert noch auf GND gezogen ist.",
               "description": "{{component}} Kanal {{channel}} treibt ueber {{output}} einen digitalen Eingang, aber diese zugehoerigen Pins sind nicht korrekt angebunden: {{handles}}. A muss in einem Netz mit dig_out liegen; /OE darf in einem Netz mit dig_out oder GND liegen.",
               "recommendation": "Verbinde den zugehoerigen A-Pin mit einem passenden digitalen Ausgang und den /OE-Pin mit einem digitalen Ausgang oder GND, oder trenne den unbenutzten Y-Ausgang vom digitalen Eingang."
+            },
+            "digitalLedSignalGroupGroundMissing": {
+              "title": "Digitale LED-Eingangsgruppe ohne GND",
+              "shortDescription": "Ein Data- oder Clock-Eingang ist angeschlossen, aber GND derselben LED-Eingangsgruppe fehlt.",
+              "description": "{{component}} hat angeschlossene digitale Signaleingaenge in Gruppe {{group}} ({{signals}}), aber keine GND-Verbindung in derselben Gruppe.",
+              "recommendation": "Verbinde den GND-Pin derselben LED-Streifen-Gruppe (_start, _end oder _middle_N) mit dem gemeinsamen Ground-Netz."
             }
           }
         }
