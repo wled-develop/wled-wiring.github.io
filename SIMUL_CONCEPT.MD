@@ -48,6 +48,8 @@ Der Sidebar-Bereich existiert bereits als Platzhalter:
 
 Dieser Bereich sollte spaeter durch eine echte `SimulationPage` ersetzt werden.
 
+Der Komponenten-Katalog in der Sidebar zeigt bei aktivem `ENABLE_SIMULATION_CONTROLS` ein kleines Simulationssymbol im Karten-Header fuer Komponenten, deren `data.simdata !== undefined` ist. Das Symbol ist nur eine Sichtbarkeitsmarkierung fuer vorhandene Simulationsdaten; es erzeugt keine eigene Modelllogik und verwendet dieselbe Freigabe wie der Modellaufbau.
+
 ## Datenmodell: Komponenten
 
 Nur Komponenten mit `data.simdata` werden in das Simulationsmodell aufgenommen.
