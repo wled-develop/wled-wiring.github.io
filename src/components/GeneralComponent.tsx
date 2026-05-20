@@ -4,7 +4,7 @@ import {createPortal} from 'react-dom';
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
             DeleteOutlined, CopyOutlined, BorderOutlined, XFilled,
-            InfoCircleOutlined, BoldOutlined, SettingOutlined,
+            InfoCircleOutlined, BoldOutlined,
             AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined} from '@ant-design/icons';
 
 import Icon from '@ant-design/icons';
@@ -33,6 +33,7 @@ import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design
 
 import ConnectionIcon from '../icons/connection.svg?react';
 import StartConnectionIcon from '../icons/startconnection.svg?react';
+import SimulationIcon from '../icons/simulation.svg?react';
 
 const { TextArea } = Input;
 
@@ -922,7 +923,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                         title={t('tooltip.ledSimulationOptions')}
                         placement="bottom"
                     >
-                        <button><SettingOutlined /></button>
+                        <button><SimulationIcon /></button>
                     </Tooltip>
                 </Popover>
             }
