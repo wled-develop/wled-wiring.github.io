@@ -1,24 +1,15 @@
 import type { LedSimulationColorMode } from "./simulationTypes";
+import {
+  LED_STRIP_CURRENT_CURVE_OPTIONS,
+  type LedCurrentCurve,
+  type LedCurrentCurveParameters,
+} from "./ledStripSimulationOptions";
 
-export type LedCurrentCurveParameters = {
-  i0A: number;
-  iLimitA: number;
-  k: number;
-  v0: number;
-};
+export type { LedCurrentCurve, LedCurrentCurveParameters };
 
-export type LedCurrentCurve = Record<LedSimulationColorMode, LedCurrentCurveParameters>;
-
-export const LED_CURRENT_CURVES: Record<string, LedCurrentCurve> = {
-  WS2814_24V: {
-    R: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-    G: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-    B: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-    RGB_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
-    SEPARATE_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
-    SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.070, k: 1.2, v0: 20.5},
-  },
-};
+export const LED_CURRENT_CURVES: Record<string, LedCurrentCurve> = Object.fromEntries(
+  Object.values(LED_STRIP_CURRENT_CURVE_OPTIONS).map((option) => [option.id, option.curve]),
+);
 
 export type LedCurrentCurveId = keyof typeof LED_CURRENT_CURVES;
 

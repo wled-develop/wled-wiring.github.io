@@ -77,6 +77,7 @@ import '@xyflow/react/dist/style.css';
 import {initialNodes, nodeTypes } from './components';
 import {edgeTypes} from './wires';
 import { SimulationOverlay } from './simulation/SimulationOverlay.tsx';
+import { initializeLedSimulationOptionValues } from './simulation/ledStripSimulationOptions.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -252,7 +253,7 @@ const FlowApp = () => {
         id: String(Math.random()),
         type,
         position,
-        data: structuredClone(componentData),
+        data: initializeLedSimulationOptionValues(structuredClone(componentData)),
       };
       undoRedo.takeSnapshot('add component');
       setNodes((nds) => nds.concat(newNode));

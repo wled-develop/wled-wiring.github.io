@@ -160,7 +160,8 @@ type SimulationParameterRef =
   | {select: string; default?: number | string | boolean}
   | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
-  | {ledCurve: string; colorMode: 'settings.ledColorMode'};
+  | {ledCurve: string; colorMode: 'settings.ledColorMode'}
+  | {ledSimulationOption: 'supplyResistance' | 'gndResistance' | 'currentCurve'};
 ```
 
 Dabei gilt:
@@ -169,7 +170,8 @@ Dabei gilt:
 - `{select: "Fuse"}` verweist auf die `technicalID`/HID eines Auswahlfelds der Komponente.
 - `{lookup: "miniOtoResistanceByCurrent", by: {select: "Fuse"}}` verweist auf eine in `simdata` definierte Lookup-Tabelle.
 - `{table: {"5": 0.01, "10": 0.006}, by: {select: "Fuse"}, default: 0.01}` erlaubt kleine lokale Tabellen direkt im Element.
-- `{ledCurve: "WS2814_24V", colorMode: "settings.ledColorMode"}` verweist auf eine LED-Stromkennlinie in `src/simulation/ledCurrentLookups.ts`. Der LED-Typ wird separat ueber den Parameter `ledType` des `digitalLed`-Elements angegeben und wird nicht im `currentCurve` gedoppelt.
+- `{ledCurve: "WS2814_24V", colorMode: "settings.ledColorMode"}` ist die alte direkte Kennlinienreferenz. Fuer neue digitale LED-Streifen soll stattdessen `{ledSimulationOption: "currentCurve"}` verwendet werden.
+- `{ledSimulationOption: "supplyResistance" | "gndResistance" | "currentCurve"}` verweist auf die in der LED-Komponenteninstanz gespeicherte Auswahl aus `ledSimulationOptionValues`.
 - `default` wird verwendet, wenn ein Feld fehlt oder eine Lookup-Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
 
 Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID` darf zur Auswahl eines Modelladapters oder fuer Defaults dienen, aber die explizite `simdata`-Struktur ist die Freigabe, dass eine Komponente simuliert wird.
@@ -360,19 +362,29 @@ I = I0 + Ilim / (1 + exp(-k * (V - V0)))
 
 Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
 
+### Auswaehlbare LED-Streifen-Simulationsoptionen
+
+Digitale LED-Streifen verwenden fuer `supplyResistanceOhm`, `gndResistanceOhm` und `currentCurve` keine freien Nutzereingaben. Die Komponentendefinition legt in `ledSimulationOptions` fest, welche Varianten fuer die jeweilige LED-Komponente erlaubt sind und welche Variante empfohlen ist. Die konkrete Node-Instanz speichert die Auswahl in `ledSimulationOptionValues`.
+
+Die zentralen Varianten liegen in `src/simulation/ledStripSimulationOptions.ts`:
+
+- Widerstandsvarianten beschreiben den positiven oder negativen Kupferpfad pro physikalischer LED, z.B. typischer, guter oder schlechter 5-mm-Streifen.
+- Current-Curve-Varianten enthalten die vollstaendige `LedCurrentCurve` mit `LedCurrentCurveParameters` fuer alle Farbmodi.
+
+`simdata` verweist bei umgestellten digitalen LED-Komponenten ueber `{ledSimulationOption: "supplyResistance"}`, `{ledSimulationOption: "gndResistance"}` und `{ledSimulationOption: "currentCurve"}` auf diese Auswahl. Der Modellaufbau loest diese Referenzen in primitive Simulationsparameter auf. Der Solver erhaelt weiterhin numerische Widerstaende und eine Kennlinien-ID; die elektrische Modellierung aendert sich dadurch nicht.
+
+Fuer alte gespeicherte LED-Komponenten gibt es keine stille Abwaertskompatibilitaet. Wenn eine digitale LED-Komponente noch direkte LED-Widerstandswerte oder alte `{ledCurve: ...}`-Parameter verwendet, erzeugt die Simulation ein Fehler-Issue mit dem Hinweis, dass die Komponentendaten aus der aktuellen Vorlage aktualisiert werden muessen. Erst ein explizites Komponentenupdate setzt fehlende oder nicht mehr erlaubte LED-Optionswerte auf die empfohlenen Defaults.
+
 Beispiel fuer `digitalLed`-Parameter:
 
 ```ts
 parameters: {
-  supplyResistanceOhm: 0.002,
-  gndResistanceOhm: 0.002,
+  supplyResistanceOhm: {ledSimulationOption: "supplyResistance"},
+  gndResistanceOhm: {ledSimulationOption: "gndResistance"},
   ledType: "WS2814_24V",
   ledsPerMeter: 60,
   physLedsPerLogicLed: 6,
-  currentCurve: {
-    ledCurve: "WS2814_24V",
-    colorMode: "settings.ledColorMode",
-  },
+  currentCurve: {ledSimulationOption: "currentCurve"},
 }
 ```
 
@@ -1096,7 +1108,7 @@ Optional:
 3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
 4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
 5. Sicherungs-Lookups zuerst direkt in `simdata`.
-6. LED-Stromkennlinien pro LED-Typ in `src/simulation/ledCurrentLookups.ts`.
+6. LED-Stromkennlinien und LED-Streifen-Widerstandsvarianten in `src/simulation/ledStripSimulationOptions.ts`; `src/simulation/ledCurrentLookups.ts` stellt daraus die Solver-Kennlinien bereit.
 7. `physLengths[i].length` ist Meter.
 8. `_middle_N` entspricht `repeatIndex === N`; `physLengths.startIndex === N` markiert eine Abschnittsgrenze.
 9. `_middle_N`-Spannung nur anzeigen, wenn `physLengths.startIndex === N` existiert.
@@ -1128,7 +1140,7 @@ Optional:
 35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische LEDs pro Meter.
 36. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`.
 37. Serienwiderstaende digitaler LED-Streifen und LED-Kennlinien-Stroeme werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
-38. LED-Stromkennlinien liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden in `src/simulation/ledCurrentLookups.ts` zentral gepflegt; `currentCurve` enthaelt nur Kennlinien-ID und Farbmodus-Referenz, nicht nochmal den LED-Typ.
+38. LED-Stromkennlinien liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden als auswaehlbare Varianten in `src/simulation/ledStripSimulationOptions.ts` zentral gepflegt; `currentCurve` wird beim Modellaufbau aus `ledSimulationOptionValues.currentCurve` zu einer Kennlinien-ID aufgeloest.
 39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
 41. Pins, die durch Komponentenoptionen aktuell unsichtbar sind, werden ignoriert; elementare `simdata`-Elemente mit mindestens einem unsichtbaren Terminal werden fuer diese Konfiguration uebersprungen.

@@ -6,6 +6,7 @@ import { type ComponentDataType, EdgeDataType } from '../types';
 import "../i18n"
 import LocaleSwitcher from "../utils/LocaleSwitcher";
 import {ComponentList} from "../components/ComponentList.ts"
+import { initializeLedSimulationOptionValues } from "../simulation/ledStripSimulationOptions.ts";
 
 import {
   ReactFlow,
@@ -109,7 +110,7 @@ const FlowApp = () => {
                   id: String(Math.random()),
                   type,
                   position: {x:0, y:0} as XYPosition,
-                  data,
+                  data: initializeLedSimulationOptionValues(structuredClone(data)),
                 };
                 setNodes((nds) => {
                   nds=[newNode];

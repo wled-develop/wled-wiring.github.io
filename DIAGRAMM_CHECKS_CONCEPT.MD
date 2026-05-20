@@ -1332,6 +1332,8 @@ Info fuer Entwickler oder Debug-Modus, wenn eine Komponente fuer Checks zu wenig
 
 Beispiele:
 
+- Digitale LED-Streifen, die fuer Simulation umgestellt sind, benoetigen `ledSimulationOptions` und konkrete `ledSimulationOptionValues`. Die eigentliche harte Meldung fuer fehlende oder veraltete LED-Simulationsoptionen wird beim Simulationsmodellaufbau erzeugt, nicht als normale Diagramm-Check-Regel. Dadurch bleibt die Check-Engine auf Verdrahtung und Komponentenmetadaten fokussiert.
+
 - elektrische Handles ohne `functions`
 - Supply-Eingaenge ohne `tolVmin` / `tolVmax`
 - Ausgaenge ohne `Vout` oder aufloesbare `VoutDependency`

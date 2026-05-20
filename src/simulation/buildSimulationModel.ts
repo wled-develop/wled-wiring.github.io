@@ -4,6 +4,7 @@ import { createDiagramCheckContext } from "../check/checkContext";
 import type { CheckHandle, CheckNet, CheckNetClassification } from "../check/checkContext";
 import type { ComponentDataType, EdgeDataType, HandleDataType } from "../types";
 import { calculateCopperWireResistanceFromEdgeData } from "./wireResistance";
+import { resolveLedSimulationOptionParameter } from "./ledStripSimulationOptions";
 import type {
   ComponentSimulationElementUse,
   ComponentSimulationElementType,
@@ -195,7 +196,7 @@ const resolveParameter = (
   ref: SimulationParameterRef,
   node: Node<ComponentDataType>,
   settings: SimulationSettings,
-): {ok: true; value: SimulationParameterPrimitive} | {ok: false; message: string} => {
+): {ok: true; value: SimulationParameterPrimitive} | {ok: false; message: string; issue?: SimulationCheckIssue} => {
   if(typeof ref === "number" || typeof ref === "string" || typeof ref === "boolean") {
     return {ok: true, value: ref};
   }
@@ -242,8 +243,26 @@ const resolveParameter = (
     };
   }
 
+  if("ledSimulationOption" in ref) {
+    const result = resolveLedSimulationOptionParameter(node.data, node.id, ref.ledSimulationOption);
+    if(result.ok) return result;
+
+    return {
+      ok: false,
+      message: result.issue.description,
+      issue: result.issue,
+    };
+  }
+
   return {ok: false, message: "Unsupported simulation parameter reference."};
 };
+
+const isLedSimulationOptionRef = (ref: SimulationParameterRef | undefined) => (
+  typeof ref === "object" &&
+  ref !== null &&
+  !Array.isArray(ref) &&
+  "ledSimulationOption" in ref
+);
 
 const resolveParameters = (
   element: ComponentSimulationElementUse,
@@ -256,6 +275,24 @@ const resolveParameters = (
 
   const resolved: Record<string, SimulationParameterPrimitive> = {};
 
+  if(element.type === "digitalLed") {
+    const digitalParameters = parameters as DigitalLedElementUse["parameters"];
+    [
+      ["supplyResistanceOhm", digitalParameters.supplyResistanceOhm],
+      ["gndResistanceOhm", digitalParameters.gndResistanceOhm],
+      ["currentCurve", digitalParameters.currentCurve],
+    ].forEach(([key, ref]) => {
+      if(isLedSimulationOptionRef(ref as SimulationParameterRef)) return;
+
+      issues.push(issue(
+        `simulation-led-options:${node.id}:${element.id}:${key}`,
+        "LED simulation options need an update",
+        "This LED component uses outdated simulation parameters. Please update this component from the current component template.",
+        [{type: "node", nodeId: node.id}],
+      ));
+    });
+  }
+
   Object.entries(parameters).forEach(([key, ref]) => {
     const result = resolveParameter(ref, node, settings);
     if(result.ok) {
@@ -263,7 +300,7 @@ const resolveParameters = (
       return;
     }
 
-    issues.push(issue(
+    issues.push(result.issue ?? issue(
       `simulation-parameter:${node.id}:${element.id}:${key}`,
       "Simulation parameter could not be resolved",
       result.message,

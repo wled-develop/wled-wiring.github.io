@@ -1,5 +1,9 @@
 import type { Node, HandleType, Position, Edge} from '@xyflow/react';
 import type { ComponentSimulationDefinition } from './simulation/simulationTypes';
+import type {
+  LedStripSimulationOptionSelection,
+  LedStripSimulationOptionValues,
+} from './simulation/ledStripSimulationOptions';
 
 export type GeneralComponent = Node<ComponentDataType, 'general-component-type'>;
 export type EditableWire = Edge<EdgeDataType, 'editable-wire-type'>;
@@ -165,6 +169,8 @@ export type HandleDataType = {
     selectFields?: CompSelectFieldDataType[];
     internalConnections?: ComponentInternalConnectionType[];
     simdata?: ComponentSimulationDefinition;
+    ledSimulationOptions?: LedStripSimulationOptionSelection;
+    ledSimulationOptionValues?: LedStripSimulationOptionValues;
     // these variables for node that is assigned to a wire and holds information about the wire
     wireInfoForNodeId?: string;
     correspondingWireSelected?: boolean;

@@ -22,6 +22,25 @@ export const WS2814_24V_60LPM: Node = {
         borderWidth: 2,
         resizableX: true,
         physLengthStep: 0.016667,
+        ledSimulationOptions: {
+            supplyResistance: {
+                options: ["typical_5mm", "good_5mm", "poor_5mm"],
+                recommended: "typical_5mm",
+            },
+            gndResistance: {
+                options: ["typical_5mm", "good_5mm", "poor_5mm"],
+                recommended: "typical_5mm",
+            },
+            currentCurve: {
+                options: ["ws2814_24v_typical", "ws2814_24v_conservative", "ws2814_24v_low_current"],
+                recommended: "ws2814_24v_typical",
+            },
+        },
+        ledSimulationOptionValues: {
+            supplyResistance: "typical_5mm",
+            gndResistance: "typical_5mm",
+            currentCurve: "ws2814_24v_typical",
+        },
         simdata: {
             version: 1,
             elements: [
@@ -35,15 +54,12 @@ export const WS2814_24V_60LPM: Node = {
                         gndOut: "GND_end",
                     },
                     parameters: {
-                        supplyResistanceOhm: 0.002,
-                        gndResistanceOhm: 0.002,
+                        supplyResistanceOhm: {ledSimulationOption: "supplyResistance"},
+                        gndResistanceOhm: {ledSimulationOption: "gndResistance"},
                         ledType: "WS2814_24V",
                         ledsPerMeter: 60,
                         physLedsPerLogicLed: 6,
-                        currentCurve: {
-                            ledCurve: "WS2814_24V",
-                            colorMode: "settings.ledColorMode",
-                        },
+                        currentCurve: {ledSimulationOption: "currentCurve"},
                     },
                 },
             ],

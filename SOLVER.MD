@@ -119,7 +119,7 @@ Eine logische digitale LED besteht aus:
 - GND-Serienwiderstand
 - Stromsenke zwischen lokalem Supply- und lokalem GND-Knoten
 
-Der Zielstrom kommt aus LED-Typ, Farbmodus, lokaler LED-Spannung und Helligkeit. Kennlinien-Strom, Supply-Serienwiderstand und GND-Serienwiderstand sind in `simdata` pro physikalischer LED angegeben und werden fuer die logische LED mit `physLedsPerLogicLed` multipliziert. Die Anzahl der Solver-Elemente pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `ledsPerMeter` meint physikalische LEDs pro Meter.
+Der Zielstrom kommt aus LED-Typ, Farbmodus, lokaler LED-Spannung und Helligkeit. Kennlinien-Strom, Supply-Serienwiderstand und GND-Serienwiderstand werden fuer digitale LED-Streifen aus den in der Komponenteninstanz gespeicherten `ledSimulationOptionValues` aufgeloest. Die Varianten selbst liegen in `src/simulation/ledStripSimulationOptions.ts`. Nach dieser Aufloesung erhaelt der Solver weiterhin primitive Werte pro physikalischer LED; diese werden fuer die logische LED mit `physLedsPerLogicLed` multipliziert. Die Anzahl der Solver-Elemente pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `ledsPerMeter` meint physikalische LEDs pro Meter.
 
 Die Stromsenke wird iterativ als DC-Stromquelle gestempelt. Nach jeder linearen Loesung wird die lokale Spannung `V = V(supplyOut) - V(gndOut)` des jeweiligen LED-Netzelements ausgewertet. Der naechste LED-Strom pro physikalischer LED kommt aus der Kennlinie:
 
@@ -127,7 +127,9 @@ Die Stromsenke wird iterativ als DC-Stromquelle gestempelt. Nach jeder linearen 
 I = I0 + Ilim / (1 + exp(-k * (V - V0)))
 ```
 
-`I0`, `Ilim`, `k` und `V0` sind pro LED-Typ und Farbmodus einstellbar. Der berechnete Strom wird mit der Helligkeit `0..1` skaliert und anschliessend mit `physLedsPerLogicLed` auf die logische LED hochskaliert. Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
+`I0`, `Ilim`, `k` und `V0` sind pro Current-Curve-Variante und Farbmodus definiert. Der berechnete Strom wird mit der Helligkeit `0..1` skaliert und anschliessend mit `physLedsPerLogicLed` auf die logische LED hochskaliert. Das wird iterativ geloest, weil `I` von der lokalen Spannung abhaengt.
+
+Wenn eine LED-Komponente noch alte direkte LED-Simulationsparameter verwendet oder keine gueltigen `ledSimulationOptionValues` besitzt, wird kein Ersatzwert geraten. Der Modellaufbau erzeugt ein Fehler-Issue, dass die Komponente aus der aktuellen Vorlage aktualisiert werden muss.
 
 ## Iterationsablauf
 

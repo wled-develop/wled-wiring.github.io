@@ -9,6 +9,7 @@ import { useReactFlow} from '@xyflow/react';
 
 import { useTranslation } from "react-i18next";
 import { useUndoRedo } from '../utils/undoRedo';
+import { initializeLedSimulationOptionValues } from '../simulation/ledStripSimulationOptions';
 
 const ComponentGroups=["controller", "led", "psu", "levelshifter", "electronics", "others"];
 const touchCapablePointerQuery = '(hover: none), (pointer: coarse), (any-pointer: coarse)';
@@ -204,7 +205,7 @@ export const ComponentPage = () => {
                                 id: String(Math.random()),
                                 type,
                                 position,
-                                data: structuredClone(compData),
+                                data: initializeLedSimulationOptionValues(structuredClone(compData)),
                               };
                               takeSnapshot('add component');
                               reactFlowInstance.setNodes((nds) => nds.concat(newNode));

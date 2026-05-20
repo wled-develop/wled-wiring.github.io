@@ -42,7 +42,50 @@
     "selectMulti": "Mehrfachauswahl",
     "deleteSelected": "Auswahl löschen",
     "componentInfo": "Komponenten-Info anzeigen",
-    "switchConnLineType": "Verbindungstyp umschalten"
+    "switchConnLineType": "Verbindungstyp umschalten",
+    "ledSimulationOptions": "LED-Simulation einstellen"
+  },
+  "ledSimulationOptions": {
+    "title": "LED-Simulation",
+    "recommended": "empfohlen",
+    "unknownOption": "Unbekannte Option. Aktualisiere diese Komponente aus der aktuellen Vorlage.",
+    "fields": {
+      "supplyResistance": "Positiver Pfad / V+ Widerstand",
+      "gndResistance": "Negativer Pfad / GND Widerstand",
+      "currentCurve": "LED-Stromkennlinie"
+    },
+    "resistance": {
+      "typical_5mm": {
+        "name": "Typischer Streifen 5 mm Breite",
+        "description": "Typischer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,002 Ohm pro physikalischer LED."
+      },
+      "good_5mm": {
+        "name": "Guter Streifen 5 mm Breite",
+        "description": "Besserer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,0015 Ohm pro physikalischer LED."
+      },
+      "poor_5mm": {
+        "name": "Schlechter Streifen 5 mm Breite",
+        "description": "Hoeherer Widerstand fuer einen schwachen 5-mm-LED-Streifen: 0,004 Ohm pro physikalischer LED."
+      },
+      "narrow_fcob_path": {
+        "name": "Schmaler Pfad FCOB-Streifen",
+        "description": "Schmaler FCOB-Streifenpfad: 0,002 Ohm pro physikalischer LED."
+      }
+    },
+    "currentCurve": {
+      "ws2814_24v_typical": {
+        "name": "Typische WS2814 24 V",
+        "description": "Typische spannungsabhaengige WS2814-24-V-Stromkennlinie."
+      },
+      "ws2814_24v_conservative": {
+        "name": "Konservative WS2814 24 V",
+        "description": "WS2814-24-V-Kennlinie mit hoeherem Strom fuer konservative Spannungsabfall-Schaetzungen."
+      },
+      "ws2814_24v_low_current": {
+        "name": "Sparsame WS2814 24 V",
+        "description": "WS2814-24-V-Kennlinie mit niedrigerem Strom fuer Streifen mit geringerem Verbrauch."
+      }
+    }
   },
   "popover": {
     "selectWireLength": "Kabellänge auswählen (physikalisch):",

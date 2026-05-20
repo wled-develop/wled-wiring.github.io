@@ -2,6 +2,7 @@ import type { Node } from '@xyflow/react';
 
 import { ComponentList } from '../components/ComponentList.ts';
 import { ComponentDataType } from '../types';
+import { withUpdatedLedSimulationOptionDefaults } from '../simulation/ledStripSimulationOptions';
 
 const ignoredComponentDataKeys = new Set([
     "rotation",
@@ -22,6 +23,7 @@ const ignoredComponentDataKeys = new Set([
     "wireInfo_crosssection",
     "wireInfo_crosssectionUnit",
     "wireInfo_color",
+    "ledSimulationOptionValues",
 ]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -299,16 +301,18 @@ const mergeTemplateValueIntoCurrent = (
 export const buildUpdatedComponentData = (
     currentComponentData: ComponentDataType,
     templateComponentData: ComponentDataType,
-) => mergeTemplateValueIntoCurrent(
-    currentComponentData,
-    templateComponentData,
-    {
-        componentTechnicalID: currentComponentData.technicalID,
+) => withUpdatedLedSimulationOptionDefaults(
+    mergeTemplateValueIntoCurrent(
         currentComponentData,
         templateComponentData,
-        path: [],
-    },
-) as ComponentDataType;
+        {
+            componentTechnicalID: currentComponentData.technicalID,
+            currentComponentData,
+            templateComponentData,
+            path: [],
+        },
+    ) as ComponentDataType,
+);
 
 export const getNodeComponentTemplateUpdateInfo = (
     node: Node,

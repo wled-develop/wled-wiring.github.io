@@ -42,7 +42,50 @@
     "selectMulti": "multiple select",
     "deleteSelected": "delete selected",
     "componentInfo": "Component info",
-    "switchConnLineType": "change connection type"
+    "switchConnLineType": "change connection type",
+    "ledSimulationOptions": "LED simulation settings"
+  },
+  "ledSimulationOptions": {
+    "title": "LED simulation",
+    "recommended": "recommended",
+    "unknownOption": "Unknown option. Update this component from the current template.",
+    "fields": {
+      "supplyResistance": "Positive path / V+ resistance",
+      "gndResistance": "Negative path / GND resistance",
+      "currentCurve": "LED current curve"
+    },
+    "resistance": {
+      "typical_5mm": {
+        "name": "Typical 5 mm strip",
+        "description": "Typical copper path for a 5 mm LED strip: 0.002 Ohm per physical LED."
+      },
+      "good_5mm": {
+        "name": "Good 5 mm strip",
+        "description": "Better copper path for a 5 mm LED strip: 0.0015 Ohm per physical LED."
+      },
+      "poor_5mm": {
+        "name": "Poor 5 mm strip",
+        "description": "Higher-resistance copper path for a weak 5 mm LED strip: 0.004 Ohm per physical LED."
+      },
+      "narrow_fcob_path": {
+        "name": "Narrow FCOB path",
+        "description": "Narrow FCOB strip path: 0.002 Ohm per physical LED."
+      }
+    },
+    "currentCurve": {
+      "ws2814_24v_typical": {
+        "name": "Typical WS2814 24 V",
+        "description": "Typical voltage-dependent WS2814 24 V current curve."
+      },
+      "ws2814_24v_conservative": {
+        "name": "Conservative WS2814 24 V",
+        "description": "Higher-current WS2814 24 V curve for conservative voltage-drop estimates."
+      },
+      "ws2814_24v_low_current": {
+        "name": "Low-current WS2814 24 V",
+        "description": "Lower-current WS2814 24 V curve for strips that draw less current."
+      }
+    }
   },
   "popover": {
     "selectWireLength": "Select wire length (physically):",

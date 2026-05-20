@@ -4,7 +4,7 @@ import {createPortal} from 'react-dom';
 import {    RotateLeftOutlined, RotateRightOutlined,
             ArrowsAltOutlined, ShrinkOutlined,
             DeleteOutlined, CopyOutlined, BorderOutlined, XFilled,
-            InfoCircleOutlined, BoldOutlined,
+            InfoCircleOutlined, BoldOutlined, SettingOutlined,
             AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined} from '@ant-design/icons';
 
 import Icon from '@ant-design/icons';
@@ -21,6 +21,12 @@ import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdate
 import { useUndoRedo } from '../utils/undoRedo.tsx';
 import { useSelectedElementsCount } from '../utils/useSelectedElementsCount.ts';
 import { rotateComponentWires } from '../utils/rotateWireRouting.ts';
+import { ENABLE_SIMULATION_CONTROLS } from '../simulation/simulationFeatureFlags.ts';
+import {
+    LED_STRIP_CURRENT_CURVE_OPTIONS,
+    LED_STRIP_RESISTANCE_OPTIONS,
+    type LedStripSimulationOptionKey,
+} from '../simulation/ledStripSimulationOptions.ts';
 
 import { InputNumber, ColorPicker, ColorPickerProps, Input, Popover, Tooltip, Select, Segmented, message, Button as AntButton, Table} from 'antd';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
@@ -53,6 +59,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
 
     const [openColorPicker, setOpenColorPicker] = useState(false);
     const [openComponentUpdatePopover, setOpenComponentUpdatePopover] = useState(false);
+    const [openLedSimulationOptionsPopover, setOpenLedSimulationOptionsPopover] = useState(false);
     const [pinTooltip, setPinTooltip] = useState<PinTooltipState | null>(null);
     const [pinTooltipLayout, setPinTooltipLayout] = useState<PinTooltipLayout | null>(null);
     const [infoTextDraft, setInfoTextDraft] = useState(() => data.InfoText ?? data.infoText ?? "");
@@ -415,6 +422,103 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         label: handle.name + (handle.repeated?(" ("+handle.repeatIndex+")"):"")
     }));
 
+    const showLedSimulationOptions = ENABLE_SIMULATION_CONTROLS && compData.group==="led" && compData.ledSimulationOptions!=undefined;
+    const ledSimulationOptionLabels: Record<LedStripSimulationOptionKey, string> = {
+        supplyResistance: t('ledSimulationOptions.fields.supplyResistance'),
+        gndResistance: t('ledSimulationOptions.fields.gndResistance'),
+        currentCurve: t('ledSimulationOptions.fields.currentCurve'),
+    };
+
+    const ledSimulationOptionDetails = (key: LedStripSimulationOptionKey, optionId: string) => {
+        const option = key==="currentCurve"
+            ? LED_STRIP_CURRENT_CURVE_OPTIONS[optionId]
+            : LED_STRIP_RESISTANCE_OPTIONS[optionId];
+
+        return option
+            ? {
+                name: t(option.name),
+                description: t(option.description),
+            }
+            : {
+                name: optionId,
+                description: t('ledSimulationOptions.unknownOption'),
+            };
+    };
+
+    const updateLedSimulationOption = (key: LedStripSimulationOptionKey, value: string) => {
+        takeSnapshot('update led simulation options');
+        reactFlowInstance.updateNodeData(id, {
+            ledSimulationOptionValues: {
+                ...compData.ledSimulationOptionValues,
+                [key]: value,
+            },
+        });
+    };
+
+    const ledSimulationOptionsContent = (
+        <div
+            style={{
+                width: 360,
+                maxWidth: 360,
+            }}
+        >
+            {(["supplyResistance", "gndResistance", "currentCurve"] as LedStripSimulationOptionKey[]).map((key) => {
+                const selection = compData.ledSimulationOptions?.[key];
+                if(!selection) return null;
+
+                const selectedValue = compData.ledSimulationOptionValues?.[key] || selection.recommended || selection.options[0];
+                const selectedDetails = ledSimulationOptionDetails(key, selectedValue);
+                const recommended = selection.recommended || (selection.options.length===1 ? selection.options[0] : undefined);
+
+                return (
+                    <div
+                        key={key}
+                        style={{
+                            marginBottom: 14,
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: 4,
+                            }}
+                        >
+                            {ledSimulationOptionLabels[key]}
+                        </div>
+                        <Select
+                            size="small"
+                            value={selectedValue}
+                            disabled={selection.options.length<=1}
+                            style={{
+                                width: "100%",
+                            }}
+                            options={selection.options.map((optionId) => {
+                                const details = ledSimulationOptionDetails(key, optionId);
+                                return {
+                                    value: optionId,
+                                    label: optionId===recommended
+                                        ? `${details.name} (${t('ledSimulationOptions.recommended')})`
+                                        : details.name,
+                                };
+                            })}
+                            onChange={(value) => updateLedSimulationOption(key, value)}
+                        />
+                        <div
+                            style={{
+                                color: "rgba(0, 0, 0, 0.65)",
+                                fontSize: 12,
+                                lineHeight: 1.35,
+                                marginTop: 4,
+                            }}
+                        >
+                            {selectedDetails.description}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+
 
 
     const componentTemplateData = getComponentTemplateData(compData.technicalID);
@@ -704,6 +808,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
 
         setOpenColorPicker(false);
         setOpenComponentUpdatePopover(false);
+        setOpenLedSimulationOptionsPopover(false);
         setOpenStartConnection(false);
         setOpenCloseConnection(false);
         setPinTooltip(null);
@@ -805,6 +910,22 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                     <button><InfoCircleOutlined /></button>
                 </Tooltip>
             </Popover>
+            {showLedSimulationOptions &&
+                <Popover
+                    content={ledSimulationOptionsContent}
+                    title={t('ledSimulationOptions.title')}
+                    trigger="click"
+                    open={openLedSimulationOptionsPopover}
+                    onOpenChange={(open) => setOpenLedSimulationOptionsPopover(open)}
+                >
+                    <Tooltip
+                        title={t('tooltip.ledSimulationOptions')}
+                        placement="bottom"
+                    >
+                        <button><SettingOutlined /></button>
+                    </Tooltip>
+                </Popover>
+            }
 
             {
                 combinedHandlesArrayVisible.length>0 && 
