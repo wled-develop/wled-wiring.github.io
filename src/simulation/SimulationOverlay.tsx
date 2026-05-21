@@ -43,6 +43,8 @@ type SegmentPoint = {
   length: number;
 };
 
+type Rect = {left: number; right: number; top: number; bottom: number};
+
 const LABEL_PADDING_X = 8;
 const LABEL_HEIGHT = 20;
 const LEADER_LINE_THRESHOLD = 28;
@@ -54,6 +56,8 @@ const WIRE_ARROW_MIN_GAP_PX = 2;
 const WIRE_ARROW_CROSSING_PADDING_PX = 4;
 const VOLTAGE_DELTA_ARROW_OFFSET_PX = 9;
 const VOLTAGE_DELTA_LABEL_GAP_PX = 24;
+const VOLTAGE_DELTA_ARROW_STROKE_WIDTH = 2;
+const VOLTAGE_DELTA_ARROW_BOUNDS_PADDING = 2;
 const WIRE_LABEL_GAP = 20;
 const HOVER_NORMAL_DISPLAY_DISTANCE = 40;
 const HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX = 16;
@@ -509,23 +513,141 @@ const ledPairedGndHandleId = (handleId: string) => {
   return match ? `GND_${match[2]}` : undefined;
 };
 
+const ledStripHandlePosition = (handleId: string) => {
+  const match = /^(?:\d+V)_(start|end|middle_\d+)$/.exec(handleId);
+  if(!match) return undefined;
+  if(match[1].startsWith("middle_")) return "middle";
+  return match[1] as "start" | "end";
+};
+
+const distanceOutsideRect = (point: XYPoint, bounds: Rect) => {
+  const dx = point.x < bounds.left
+    ? bounds.left - point.x
+    : point.x > bounds.right
+      ? point.x - bounds.right
+      : 0;
+  const dy = point.y < bounds.top
+    ? bounds.top - point.y
+    : point.y > bounds.bottom
+      ? point.y - bounds.bottom
+      : 0;
+
+  return Math.hypot(dx, dy);
+};
+
+const insetRect = (bounds: Rect, inset: number): Rect => ({
+  left: bounds.left + inset,
+  right: bounds.right - inset,
+  top: bounds.top + inset,
+  bottom: bounds.bottom - inset,
+});
+
+const screenLineRect = (from: XYPoint, to: XYPoint, padding: number): Rect => ({
+  left: Math.min(from.x, to.x) - padding,
+  right: Math.max(from.x, to.x) + padding,
+  top: Math.min(from.y, to.y) - padding,
+  bottom: Math.max(from.y, to.y) + padding,
+});
+
+const chooseVoltageDeltaNormal = (
+  supplyAnchor: XYPoint,
+  gndAnchor: XYPoint,
+  direction: XYPoint,
+  baseNormal: XYPoint,
+  supplyHandleId: string,
+  nodeBounds: Rect,
+  wireObstacles: Rect[],
+) => {
+  const handlePosition = ledStripHandlePosition(supplyHandleId);
+  const innerBounds = insetRect(nodeBounds, VOLTAGE_DELTA_ARROW_BOUNDS_PADDING);
+  const normals = [baseNormal, {x: -baseNormal.x, y: -baseNormal.y}];
+  const nodeCenter = {
+    x: (nodeBounds.left + nodeBounds.right) / 2,
+    y: (nodeBounds.top + nodeBounds.bottom) / 2,
+  };
+
+  return normals
+    .map((normal) => {
+      const arrowStart = {
+        x: supplyAnchor.x + normal.x * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+        y: supplyAnchor.y + normal.y * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+      };
+      const arrowEnd = {
+        x: gndAnchor.x + normal.x * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+        y: gndAnchor.y + normal.y * VOLTAGE_DELTA_ARROW_OFFSET_PX,
+      };
+      const rect = screenLineRect(
+        arrowStart,
+        arrowEnd,
+        VOLTAGE_DELTA_ARROW_STROKE_WIDTH / 2 + VOLTAGE_DELTA_ARROW_BOUNDS_PADDING,
+      );
+      const wirePenalty = wireObstacles.reduce((sum, obstacle) => sum + rectOverlapPenalty(rect, obstacle), 0);
+      const outsidePenalty = distanceOutsideRect(arrowStart, innerBounds) + distanceOutsideRect(arrowEnd, innerBounds);
+      const center = {
+        x: (arrowStart.x + arrowEnd.x) / 2,
+        y: (arrowStart.y + arrowEnd.y) / 2,
+      };
+      const centerPenalty = Math.hypot(center.x - nodeCenter.x, center.y - nodeCenter.y) * 0.01;
+      const directionTieBreaker = Math.abs(direction.x) >= Math.abs(direction.y)
+        ? (normal.y < 0 ? 0 : 0.1)
+        : (normal.x < 0 ? 0 : 0.1);
+      const endpointPenalty = handlePosition === "start" || handlePosition === "end"
+        ? outsidePenalty * 1000 + centerPenalty
+        : wirePenalty * 12 + outsidePenalty * 3 + centerPenalty + directionTieBreaker;
+
+      return {normal, penalty: endpointPenalty};
+    })
+    .sort((a, b) => a.penalty - b.penalty)[0].normal;
+};
+
+const voltageDeltaLeaderTarget = (
+  labelPosition: XYPoint,
+  arrowStart: XYPoint,
+  arrowEnd: XYPoint,
+  fallbackNormal: XYPoint,
+) => {
+  const closest = closestPointOnSegment(labelPosition, arrowStart, arrowEnd).point;
+  const dx = labelPosition.x - closest.x;
+  const dy = labelPosition.y - closest.y;
+  const length = Math.hypot(dx, dy);
+  const outward = length > 0.001
+    ? {x: dx / length, y: dy / length}
+    : fallbackNormal;
+  const offset = VOLTAGE_DELTA_ARROW_STROKE_WIDTH / 2 + 0.75;
+
+  return {
+    x: closest.x + outward.x * offset,
+    y: closest.y + outward.y * offset,
+  };
+};
+
 const createVoltageDeltaOverlay = (
   id: string,
+  node: Node<ComponentDataType>,
+  supplyHandleId: string,
   supplyAnchor: XYPoint,
   gndAnchor: XYPoint,
   deltaV: number,
+  viewport: {x: number; y: number; zoom: number},
   scale: number,
   existingLabels: OverlayLabel[],
   obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+  wireObstacles: Rect[],
 ) => {
   const dx = gndAnchor.x - supplyAnchor.x;
   const dy = gndAnchor.y - supplyAnchor.y;
   const length = Math.hypot(dx, dy) || 1;
   const direction = {x: dx / length, y: dy / length};
   const normal = {x: -direction.y, y: direction.x};
-  const preferredNormal = Math.abs(direction.x) >= Math.abs(direction.y)
-    ? (normal.y < 0 ? normal : {x: -normal.x, y: -normal.y})
-    : (normal.x < 0 ? normal : {x: -normal.x, y: -normal.y});
+  const preferredNormal = chooseVoltageDeltaNormal(
+    supplyAnchor,
+    gndAnchor,
+    direction,
+    normal,
+    supplyHandleId,
+    nodeScreenBounds(node, viewport),
+    wireObstacles,
+  );
   const arrowStart = {
     x: supplyAnchor.x + preferredNormal.x * VOLTAGE_DELTA_ARROW_OFFSET_PX,
     y: supplyAnchor.y + preferredNormal.y * VOLTAGE_DELTA_ARROW_OFFSET_PX,
@@ -549,6 +671,7 @@ const createVoltageDeltaOverlay = (
     obstacles,
     VOLTAGE_DELTA_LABEL_GAP_PX,
   );
+  const leaderTarget = voltageDeltaLeaderTarget(labelPosition, arrowStart, arrowEnd, preferredNormal);
 
   return {
     arrow: {
@@ -566,8 +689,8 @@ const createVoltageDeltaOverlay = (
       valueLines,
       x: labelPosition.x,
       y: labelPosition.y,
-      anchorX: arrowCenter.x,
-      anchorY: arrowCenter.y,
+      anchorX: leaderTarget.x,
+      anchorY: leaderTarget.y,
       width: size.width,
       height: size.height,
     },
@@ -835,10 +958,11 @@ export const SimulationOverlay = () => {
     const scale = overlayScale(viewport.zoom);
     const labels: OverlayLabel[] = [];
     const arrows: OverlayArrow[] = [];
+    const wireObstacles = wireObstacleRects(edges, nodeById, viewport);
     const obstacles = [
       ...handleObstacleRects(nodes, viewport),
       ...nodeObstacleRects(nodes, viewport),
-      ...wireObstacleRects(edges, nodeById, viewport),
+      ...wireObstacles,
     ];
     const pinResultByNodeHandle = new Map(
       simulationResult.pinResults.map((pinResult) => [`${pinResult.nodeId}:${pinResult.handleId}`, pinResult]),
@@ -910,12 +1034,16 @@ export const SimulationOverlay = () => {
 
             const overlay = createVoltageDeltaOverlay(
               `${node.id}:${supplyResult.handleId}:${gndHandleId}`,
+              node,
+              supplyResult.handleId,
               screenPoint(supplyEndpoint, viewport),
               screenPoint(gndEndpoint, viewport),
               supplyResult.voltageV - gndResult.voltageV,
+              viewport,
               scale,
               labels,
               obstacles,
+              wireObstacles,
             );
             arrows.push(overlay.arrow);
             labels.push(overlay.label);
@@ -1050,6 +1178,16 @@ export const SimulationOverlay = () => {
           >
             <path d="M0,0 L8,3 L0,6 Z" fill="#fa8c16" />
           </marker>
+          <marker
+            id="simulation-voltage-leader-arrowhead"
+            markerHeight="5"
+            markerWidth="7"
+            orient="auto"
+            refX="7"
+            refY="2.5"
+          >
+            <path d="M0,0 L7,2.5 L0,5 Z" fill="#fa8c16" opacity="0.72" />
+          </marker>
         </defs>
         {overlayData.arrows.map((arrow) => (
           <line
@@ -1078,7 +1216,7 @@ export const SimulationOverlay = () => {
             strokeDasharray="3 3"
             strokeWidth={1}
             markerEnd={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
-              ? "url(#simulation-voltage-arrowhead)"
+              ? "url(#simulation-voltage-leader-arrowhead)"
               : "url(#simulation-leader-arrowhead)"}
           />
         ))}
