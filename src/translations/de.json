@@ -57,19 +57,19 @@
     "resistance": {
       "typical_5mm": {
         "name": "Typischer Streifen 5 mm Breite",
-        "description": "Typischer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,002 Ohm pro physikalischer LED."
+        "description": "Typischer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,12 Ohm pro Meter."
       },
       "good_5mm": {
         "name": "Guter Streifen 5 mm Breite",
-        "description": "Besserer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,0015 Ohm pro physikalischer LED."
+        "description": "Besserer Kupferpfad fuer einen 5-mm-LED-Streifen: 0,09 Ohm pro Meter."
       },
       "poor_5mm": {
         "name": "Schlechter Streifen 5 mm Breite",
-        "description": "Hoeherer Widerstand fuer einen schwachen 5-mm-LED-Streifen: 0,004 Ohm pro physikalischer LED."
+        "description": "Hoeherer Widerstand fuer einen schwachen 5-mm-LED-Streifen: 0,24 Ohm pro Meter."
       },
       "narrow_fcob_path": {
         "name": "Schmaler Pfad FCOB-Streifen",
-        "description": "Schmaler FCOB-Streifenpfad: 0,002 Ohm pro physikalischer LED."
+        "description": "Schmaler FCOB-Streifenpfad: 0,12 Ohm pro Meter."
       }
     },
     "currentCurve": {

@@ -57,19 +57,19 @@
     "resistance": {
       "typical_5mm": {
         "name": "Typical 5 mm strip",
-        "description": "Typical copper path for a 5 mm LED strip: 0.002 Ohm per physical LED."
+        "description": "Typical copper path for a 5 mm LED strip: 0.12 Ohm per meter."
       },
       "good_5mm": {
         "name": "Good 5 mm strip",
-        "description": "Better copper path for a 5 mm LED strip: 0.0015 Ohm per physical LED."
+        "description": "Better copper path for a 5 mm LED strip: 0.09 Ohm per meter."
       },
       "poor_5mm": {
         "name": "Poor 5 mm strip",
-        "description": "Higher-resistance copper path for a weak 5 mm LED strip: 0.004 Ohm per physical LED."
+        "description": "Higher-resistance copper path for a weak 5 mm LED strip: 0.24 Ohm per meter."
       },
       "narrow_fcob_path": {
         "name": "Narrow FCOB path",
-        "description": "Narrow FCOB strip path: 0.002 Ohm per physical LED."
+        "description": "Narrow FCOB strip path: 0.12 Ohm per meter."
       }
     },
     "currentCurve": {

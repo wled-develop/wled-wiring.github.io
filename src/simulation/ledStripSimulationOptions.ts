@@ -6,6 +6,7 @@ export type LedCurrentCurveParameters = {
   iLimitA: number;
   k: number;
   v0: number;
+  kUI?: number;
 };
 
 export type LedCurrentCurve = Record<LedSimulationColorMode, LedCurrentCurveParameters>;
@@ -48,25 +49,25 @@ export const LED_STRIP_RESISTANCE_OPTIONS: Record<string, LedStripResistanceOpti
     id: "typical_5mm",
     name: "ledSimulationOptions.resistance.typical_5mm.name",
     description: "ledSimulationOptions.resistance.typical_5mm.description",
-    resistanceOhm: 0.002,
+    resistanceOhm: 0.12,
   },
   good_5mm: {
     id: "good_5mm",
     name: "ledSimulationOptions.resistance.good_5mm.name",
     description: "ledSimulationOptions.resistance.good_5mm.description",
-    resistanceOhm: 0.0015,
+    resistanceOhm: 0.09,
   },
   poor_5mm: {
     id: "poor_5mm",
     name: "ledSimulationOptions.resistance.poor_5mm.name",
     description: "ledSimulationOptions.resistance.poor_5mm.description",
-    resistanceOhm: 0.004,
+    resistanceOhm: 0.24,
   },
   narrow_fcob_path: {
     id: "narrow_fcob_path",
     name: "ledSimulationOptions.resistance.narrow_fcob_path.name",
     description: "ledSimulationOptions.resistance.narrow_fcob_path.description",
-    resistanceOhm: 0.002,
+    resistanceOhm: 0.12,
   },
 };
 
@@ -211,4 +212,3 @@ export const resolveLedSimulationOptionParameter = (
 
   return {ok: true, value: option.resistanceOhm};
 };
-

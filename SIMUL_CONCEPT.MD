@@ -352,14 +352,14 @@ Parameter:
 - Stromkennlinienparameter fuer Farbe `Separate-White`: `I0`, `Ilim`, `k`, `V0`
 - Stromkennlinienparameter fuer Kombination `Separate-White + RGB-White`: `I0`, `Ilim`, `k`, `V0`
 
-`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. Die Werte in `simdata` bleiben pro physikalischer LED angegeben: `supplyResistanceOhm`, `gndResistanceOhm` und der Strom aus der Kennlinie werden fuer das digitale LED-Netzelement mit `physLedsPerLogicLed` multipliziert. Der Stromwert der LED-Stromsenke wird also aus der passenden Kennlinie bestimmt, mit der Helligkeit skaliert und danach fuer die logische LED entsprechend der Gruppierung hochskaliert.
+`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. `supplyResistanceOhm` und `gndResistanceOhm` werden als Widerstand pro Meter des Streifens angegeben. Fuer ein logisches LED-Netzelement wird daraus `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` berechnet. Nur der Strom aus der Kennlinie bleibt pro physikalischer LED angegeben; er wird mit der Helligkeit skaliert und danach fuer die logische LED mit `physLedsPerLogicLed` hochskaliert.
 
 `RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
 
-Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus werden die Parameter `I0`, `Ilim`, `k` und `V0` gesetzt. Die lokale LED-Spannung ist `V = V(supplyOut) - V(gndOut)`, und der Strom pro physikalischer LED wird berechnet als:
+Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus werden die Parameter `I0`, `Ilim`, `k`, `V0` und optional `kUI` gesetzt. Wenn `kUI` fehlt, gilt `0`. Die lokale LED-Spannung ist `V = V(supplyOut) - V(gndOut)`, und der Strom pro physikalischer LED wird berechnet als:
 
 ```text
-I = I0 + Ilim / (1 + exp(-k * (V - V0)))
+I = I0 + Ilim / (1 + exp(-k * (V - V0))) + kUI * V
 ```
 
 Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
@@ -370,7 +370,7 @@ Digitale LED-Streifen verwenden fuer `supplyResistanceOhm`, `gndResistanceOhm` u
 
 Die zentralen Varianten liegen in `src/simulation/ledStripSimulationOptions.ts`:
 
-- Widerstandsvarianten beschreiben den positiven oder negativen Kupferpfad pro physikalischer LED, z.B. typischer, guter oder schlechter 5-mm-Streifen.
+- Widerstandsvarianten beschreiben den positiven oder negativen Kupferpfad pro Meter, z.B. typischer, guter oder schlechter 5-mm-Streifen.
 - Current-Curve-Varianten enthalten die vollstaendige `LedCurrentCurve` mit `LedCurrentCurveParameters` fuer alle Farbmodi.
 
 `simdata` verweist bei umgestellten digitalen LED-Komponenten ueber `{ledSimulationOption: "supplyResistance"}`, `{ledSimulationOption: "gndResistance"}` und `{ledSimulationOption: "currentCurve"}` auf diese Auswahl. Der Modellaufbau loest diese Referenzen in primitive Simulationsparameter auf. Der Solver erhaelt weiterhin numerische Widerstaende und eine Kennlinien-ID; die elektrische Modellierung aendert sich dadurch nicht.
@@ -427,7 +427,7 @@ Digitale LED-Streifen:
 - `physLengths[i].length` ist verbindlich in Metern
 - pro Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet, wie viele logische LEDs der Abschnitt hat; `lengthM` ist dabei die Laenge dieses LED-Streifen-Abschnitts
 - fuer jede logische LED wird ein digitales LED-Netzelement in Reihe erzeugt
-- Serienwiderstaende werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert
+- Serienwiderstaende werden pro Meter angegeben und fuer das logische LED-Netzelement mit `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` umgerechnet
 - dadurch koennen Spannungen an einzelnen `_middle_N`-Pins berechnet werden
 
 `WAGO_2x` und `WAGO_3x`:
@@ -1141,7 +1141,7 @@ Optional:
 34. Die Anzahl logischer LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
 35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische LEDs pro Meter.
 36. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`.
-37. Serienwiderstaende digitaler LED-Streifen und LED-Kennlinien-Stroeme werden pro physikalischer LED angegeben und fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
+37. Serienwiderstaende digitaler LED-Streifen werden pro Meter angegeben und fuer das logische LED-Netzelement mit `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` umgerechnet. LED-Kennlinien-Stroeme bleiben pro physikalischer LED angegeben und werden fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
 38. LED-Stromkennlinien liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden als auswaehlbare Varianten in `src/simulation/ledStripSimulationOptions.ts` zentral gepflegt; `currentCurve` wird beim Modellaufbau aus `ledSimulationOptionValues.currentCurve` zu einer Kennlinien-ID aufgeloest.
 39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.

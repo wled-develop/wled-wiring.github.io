@@ -337,20 +337,27 @@ const scaleDigitalLedParameters = (
   const gndResistanceOhm = scaled.gndResistanceOhm;
   const ledsPerMeter = scaled.ledsPerMeter;
 
+  if(typeof ledsPerMeter !== "number" || !Number.isFinite(ledsPerMeter) || ledsPerMeter <= 0) {
+    issues.push(issue(
+      `simulation-led-density:${node.id}:${element.id}`,
+      "Invalid LED density",
+      "Digital LED simulation needs a positive ledsPerMeter value.",
+      [{type: "node", nodeId: node.id}],
+    ));
+    return parameters;
+  }
+
   if(typeof supplyResistanceOhm === "number") {
-    scaled.supplyResistanceOhm = supplyResistanceOhm * physLedsPerLogicLed;
-    scaled.physicalSupplyResistanceOhm = supplyResistanceOhm;
+    scaled.supplyResistanceOhm = supplyResistanceOhm * physLedsPerLogicLed / ledsPerMeter;
+    scaled.supplyResistanceOhmPerMeter = supplyResistanceOhm;
   }
 
   if(typeof gndResistanceOhm === "number") {
-    scaled.gndResistanceOhm = gndResistanceOhm * physLedsPerLogicLed;
-    scaled.physicalGndResistanceOhm = gndResistanceOhm;
+    scaled.gndResistanceOhm = gndResistanceOhm * physLedsPerLogicLed / ledsPerMeter;
+    scaled.gndResistanceOhmPerMeter = gndResistanceOhm;
   }
 
-  if(typeof ledsPerMeter === "number") {
-    scaled.logicLedsPerMeter = ledsPerMeter / physLedsPerLogicLed;
-  }
-
+  scaled.logicLedsPerMeter = ledsPerMeter / physLedsPerLogicLed;
   scaled.currentScaleFactor = physLedsPerLogicLed;
 
   return scaled;

@@ -33,7 +33,11 @@ const sigmoid = (value: number) => {
 export const calculateLedCurrentA = (
   parameters: LedCurrentCurveParameters,
   voltageV: number,
-) => parameters.i0A + parameters.iLimitA * sigmoid(parameters.k * (voltageV - parameters.v0));
+) => {
+  const kUI = parameters.kUI ?? 0;
+
+  return parameters.i0A + parameters.iLimitA * sigmoid(parameters.k * (voltageV - parameters.v0)) + kUI * voltageV;
+};
 
 export const getLedCurrentA = (
   curveId: string,
@@ -63,7 +67,8 @@ export const getLedCurrentA = (
     !Number.isFinite(parameters.i0A) ||
     !Number.isFinite(parameters.iLimitA) ||
     !Number.isFinite(parameters.k) ||
-    !Number.isFinite(parameters.v0)
+    !Number.isFinite(parameters.v0) ||
+    (parameters.kUI !== undefined && !Number.isFinite(parameters.kUI))
   ) {
     return {
       ok: false,
