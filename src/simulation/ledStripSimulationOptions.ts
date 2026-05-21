@@ -49,7 +49,7 @@ export const LED_STRIP_RESISTANCE_OPTIONS: Record<string, LedStripResistanceOpti
     id: "typical_5mm",
     name: "ledSimulationOptions.resistance.typical_5mm.name",
     description: "ledSimulationOptions.resistance.typical_5mm.description",
-    resistanceOhm: 0.12,
+    resistanceOhm: 0.115,
   },
   good_5mm: {
     id: "good_5mm",
@@ -77,12 +77,12 @@ export const LED_STRIP_CURRENT_CURVE_OPTIONS: Record<string, LedStripCurrentCurv
     name: "ledSimulationOptions.currentCurve.ws2814_24v_typical.name",
     description: "ledSimulationOptions.currentCurve.ws2814_24v_typical.description",
     curve: {
-      R: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-      G: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-      B: {i0A: 0, iLimitA: 0.030, k: 1.2, v0: 20.5},
-      RGB_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
-      SEPARATE_WHITE: {i0A: 0, iLimitA: 0.040, k: 1.2, v0: 20.5},
-      SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.070, k: 1.2, v0: 20.5},
+      R: {i0A: 0.0000005, iLimitA: 0.00295, k: 0.00701, v0: 0.27109, kUI: 0},
+      G: {i0A: 0.0000200, iLimitA: 0.00274, k: 0.01233, v0: 0.28563, kUI: 0.0000075},
+      B: {i0A: 0.0000300, iLimitA: 0.00267, k: 0.01635, v0: 0.29811, kUI: 0.0000062},
+      RGB_WHITE: {i0A: 0, iLimitA: 0.00730, k: 0.01263, v0: 0.28616, kUI: 0.0000206},
+      SEPARATE_WHITE: {i0A: 0, iLimitA: 0.00259, k: 0.02235, v0: 0.28928, kUI: 0.0000099},
+      SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.00954, k: 0.01505, v0: 0.28725, kUI: 0.0000278},
     },
   },
   ws2814_24v_conservative: {
