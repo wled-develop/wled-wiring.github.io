@@ -277,6 +277,8 @@ Wenn der Ausgangsstrom das dynamische Limit ueberschreitet, verhaelt sich der Au
 
 Wenn der Ausgangsstrom ueber 150% des dynamischen oder festen Ausgangslimits steigt, bricht die Simulation mit Fehler ab.
 
+Implementierungsstand: Der DCDC-Ausgang wird als geregelte Ausgangsspannungsquelle gestempelt. Nach jeder Loesung wird der Ausgangsstrom gemessen und daraus mit `Pin = Uout * Iout / efficiency` der Eingangsstrom fuer die naechste Iteration berechnet. Dieser Eingangsstrom wird als Stromsenke zwischen `inPositive` und `inNegative` gestempelt und belastet dadurch vorgelagerte PSU- und Leitungsmodelle. Ein optionales `outputCurrentLimitA` nutzt dieselbe Spannungsdegradation wie eine PSU. Nicht-isolierte Wandler muessen ihre gemeinsame Masse explizit per `shortBridge` in `simdata` beschreiben; `DCDC_mini` verwendet eine Bruecke zwischen `GND1` und `GND2`.
+
 ### Kurzschlussbruecke
 
 Eine Kurzschlussbruecke besteht aus zwei Terminals und verbindet diese hart miteinander. Beide Terminals bilden elektrisch denselben Simulationsknoten.
@@ -1086,6 +1088,7 @@ Die Datei `simulation_test/ltspice/HowToMakeReferences.md` beschreibt, wie neue 
 Aktuell vorhandene Referenzfaelle:
 
 - `PSU_Resistor`: einfache PSU-Last mit Widerstand. Dieser Fall prueft Grundgleichungen fuer Spannungsquelle, Leitungswiderstaende, Strom und Spannungsabfall ohne LED-Nichtlinearitaet.
+- `dcdc_psu_resistor`: 12-V-PSU, DCDC-Wandler auf 5 V und 10-Ohm-Last. Dieser Fall prueft geregelte DCDC-Ausgangsspannung, Ausgangslaststrom und den iterativen Eingangsstrom aus Ausgangsleistung und Wirkungsgrad. Die zugehoerige LTspice-Datei liegt als `dcdc_psu_resistor.cir` im Fixture-Verzeichnis.
 - `ws2814_single_feed_1m`: 1 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall ist klein und eignet sich als Kalibrierung fuer LED-Kennlinie, LED-Serienwiderstaende und Wire-Ergebnisableitung.
 - `ws2814_single_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall prueft sichtbaren Spannungsabfall ueber den Streifen und die iterative LED-Stromberechnung.
 - `ws2814_double_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung an Anfang und Ende. Dieser Fall prueft Stromaufteilung ueber mehrere Einspeisepfade und Start-/End-Spannungen am LED-Streifen.

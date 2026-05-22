@@ -34,6 +34,8 @@ const SOURCE_VOLTAGE_CONVERGENCE_V = 0.00005;
 const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
 const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
 const NONLINEAR_RELAXATION = 0.35;
+const DCDC_INPUT_CURRENT_CONVERGENCE_A = 0.000005;
+const MIN_DCDC_INPUT_VOLTAGE_V = 0.5;
 
 type VoltageSourceStamp = {
   elementId: string;
@@ -57,6 +59,12 @@ type VoltageSourceState = {
 };
 
 type VoltageSourceStateByElementId = Map<string, VoltageSourceState>;
+
+type DcdcInputState = {
+  currentA: number;
+};
+
+type DcdcInputStateByElementId = Map<string, DcdcInputState>;
 
 const numberParameter = (
   parameters: Record<string, string | number | boolean> | undefined,
@@ -283,6 +291,15 @@ const voltageSourceCurrentLimit = (element: SimulationElement) => {
   return undefined;
 };
 
+const dcdcEfficiency = (element: SimulationElement) => {
+  if(element.type !== "dcdcConverter") return undefined;
+
+  const efficiency = numberParameter(element.parameters, "efficiency");
+  if(efficiency === undefined || efficiency <= 0 || efficiency > 1) return undefined;
+
+  return efficiency;
+};
+
 const createInitialVoltageSourceStates = (model: SimulationModel): VoltageSourceStateByElementId => {
   const states: VoltageSourceStateByElementId = new Map();
 
@@ -293,6 +310,20 @@ const createInitialVoltageSourceStates = (model: SimulationModel): VoltageSource
     states.set(element.id, {
       voltageV,
       wasOverloaded: false,
+    });
+  });
+
+  return states;
+};
+
+const createInitialDcdcInputStates = (model: SimulationModel): DcdcInputStateByElementId => {
+  const states: DcdcInputStateByElementId = new Map();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "dcdcConverter") return;
+
+    states.set(element.id, {
+      currentA: 0,
     });
   });
 
@@ -421,6 +452,66 @@ const updateVoltageSourceStates = (
   };
 };
 
+const relaxedDcdcInputCurrent = (
+  previousCurrentA: number,
+  targetCurrentA: number,
+) => previousCurrentA + (targetCurrentA - previousCurrentA) * NONLINEAR_RELAXATION;
+
+const updateDcdcInputStates = (
+  model: SimulationModel,
+  linearModel: LinearDcModel,
+  values: number[],
+  circuitVoltages: Map<string, number>,
+  currentStates: DcdcInputStateByElementId,
+) => {
+  const nextStates: DcdcInputStateByElementId = new Map(currentStates);
+  const voltageSourceByElementId = new Map(linearModel.voltageSources.map((source) => [source.elementId, source]));
+  let maxCurrentDeltaA = 0;
+
+  model.elements.forEach((element) => {
+    if(element.type !== "dcdcConverter") return;
+
+    const source = voltageSourceByElementId.get(element.id);
+    const outputCurrentA = source?.currentVariableIndex !== undefined
+      ? Math.abs(values[source.currentVariableIndex] ?? 0)
+      : 0;
+    const outputPositiveVoltage = circuitVoltages.get(element.terminals.outPositive);
+    const outputNegativeVoltage = circuitVoltages.get(element.terminals.outNegative);
+    const inputPositiveVoltage = circuitVoltages.get(element.terminals.inPositive);
+    const inputNegativeVoltage = circuitVoltages.get(element.terminals.inNegative);
+    const efficiency = dcdcEfficiency(element);
+    const previousCurrentA = currentStates.get(element.id)?.currentA ?? 0;
+
+    if(
+      outputPositiveVoltage === undefined ||
+      outputNegativeVoltage === undefined ||
+      inputPositiveVoltage === undefined ||
+      inputNegativeVoltage === undefined ||
+      efficiency === undefined
+    ) {
+      return;
+    }
+
+    const outputVoltageV = Math.abs(outputPositiveVoltage - outputNegativeVoltage);
+    const inputVoltageV = Math.abs(inputPositiveVoltage - inputNegativeVoltage);
+    const inputPowerW = outputVoltageV * outputCurrentA / efficiency;
+    const targetCurrentA = inputVoltageV > MIN_DCDC_INPUT_VOLTAGE_V
+      ? inputPowerW / inputVoltageV
+      : inputPowerW / MIN_DCDC_INPUT_VOLTAGE_V;
+    const nextCurrentA = relaxedDcdcInputCurrent(previousCurrentA, targetCurrentA);
+
+    maxCurrentDeltaA = Math.max(maxCurrentDeltaA, Math.abs(previousCurrentA - targetCurrentA));
+    nextStates.set(element.id, {
+      currentA: nextCurrentA,
+    });
+  });
+
+  return {
+    nextStates,
+    maxCurrentDeltaA,
+  };
+};
+
 const createExtremeVoltageSourceOverloadIssues = (
   model: SimulationModel,
   linearModel: LinearDcModel,
@@ -532,6 +623,7 @@ const buildLinearDcModel = (
   model: SimulationModel,
   ledCurrentByElementId: LedCurrentByElementId = new Map(),
   voltageSourceStates: VoltageSourceStateByElementId = new Map(),
+  dcdcInputStates: DcdcInputStateByElementId = new Map(),
 ): LinearDcModel => {
   const activeCircuitNodeIds = collectActiveCircuitNodeIds(model);
   const circuitNodeIndexById = createCircuitNodeIndexById({
@@ -596,6 +688,16 @@ const buildLinearDcModel = (
           powerW / minVoltageV,
         );
       }
+    }
+
+    if(element.type === "dcdcConverter") {
+      stampCurrentSource(
+        rhs,
+        circuitNodeIndexById,
+        element.terminals.inPositive,
+        element.terminals.inNegative,
+        dcdcInputStates.get(element.id)?.currentA ?? 0,
+      );
     }
 
     if(element.type === "digitalLed") {
@@ -876,7 +978,13 @@ export const runSimulation = (
 
   let ledCurrentByElementId = createInitialLedCurrents(modelResult.model);
   let voltageSourceStates = createInitialVoltageSourceStates(modelResult.model);
-  let linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId, voltageSourceStates);
+  let dcdcInputStates = createInitialDcdcInputStates(modelResult.model);
+  let linearModel = buildLinearDcModel(
+    modelResult.model,
+    ledCurrentByElementId,
+    voltageSourceStates,
+    dcdcInputStates,
+  );
   let solverResult = denseLinearSystemSolver.solve(linearModel.system);
   let converged = false;
 
@@ -899,6 +1007,13 @@ export const runSimulation = (
     const circuitVoltages = createCircuitVoltages(modelResult.model, linearModel, solverResult.values);
     const rawNextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
     const nextLedCurrentByElementId = relaxedLedCurrents(ledCurrentByElementId, rawNextLedCurrentByElementId);
+    const dcdcInputUpdate = updateDcdcInputStates(
+      modelResult.model,
+      linearModel,
+      solverResult.values,
+      circuitVoltages,
+      dcdcInputStates,
+    );
     const sourceUpdate = updateVoltageSourceStates(
       modelResult.model,
       linearModel,
@@ -908,17 +1023,25 @@ export const runSimulation = (
 
     if(
       maxLedCurrentDeltaA(ledCurrentByElementId, rawNextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
-      sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V
+      sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V &&
+      dcdcInputUpdate.maxCurrentDeltaA <= DCDC_INPUT_CURRENT_CONVERGENCE_A
     ) {
       ledCurrentByElementId = rawNextLedCurrentByElementId;
       voltageSourceStates = sourceUpdate.nextStates;
+      dcdcInputStates = dcdcInputUpdate.nextStates;
       converged = true;
       break;
     }
 
     ledCurrentByElementId = nextLedCurrentByElementId;
     voltageSourceStates = sourceUpdate.nextStates;
-    linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId, voltageSourceStates);
+    dcdcInputStates = dcdcInputUpdate.nextStates;
+    linearModel = buildLinearDcModel(
+      modelResult.model,
+      ledCurrentByElementId,
+      voltageSourceStates,
+      dcdcInputStates,
+    );
     solverResult = denseLinearSystemSolver.solve(linearModel.system);
   }
 

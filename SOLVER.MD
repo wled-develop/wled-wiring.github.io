@@ -111,6 +111,8 @@ Praktischer fuer die erste Version: `IinAvailable` wird durch vorgelagerte PSU-/
 
 Dieser Ansatz ist nicht perfekt, aber ausreichend fuer drei Nachkommastellen im Ergebnis und liefert sinnvolle Ueberlastmeldungen.
 
+Implementierungsstand: Der Ausgang wird als MNA-Spannungsquelle gestempelt. Nach jeder linearen Loesung wird der Ausgangsstrom der Quelle ausgewertet; mit Ausgangsspannung und Wirkungsgrad wird daraus die Eingangsleistung und der Eingangsstrom fuer die naechste Iteration berechnet. Dieser Eingangsstrom wird als Stromsenke zwischen `inPositive` und `inNegative` gestempelt. `outputCurrentLimitA` verwendet die gleiche iterative Spannungsdegradation wie PSU-Quellen. Nicht-isolierte Wandler verbinden ihre Masseknoten nicht implizit; sie muessen dafuer eine explizite `shortBridge` in `simdata` haben.
+
 ### Digitale LED
 
 Eine einzelne digitale LED im Solver entspricht einer logischen LED des Streifens, nicht zwingend einer physikalischen LED. Je nach Streifen werden mehrere physikalische LEDs zu einer logischen LED gruppiert; die Gruppengroesse kommt aus `physLedsPerLogicLed`.
@@ -146,11 +148,12 @@ Wenn eine LED-Komponente noch alte direkte LED-Simulationsparameter verwendet od
 6. Elementstroeme und Knotenspannungen berechnen.
 7. Nichtlineare Elemente aktualisieren:
    - PSU-Degradation
-   - DCDC-Ausgangslimit
+   - DCDC-Eingangsstrom und DCDC-Ausgangslimit
    - LED-Strom bei Unterspannung
 8. Konvergenz pruefen:
    - maximale Spannungsdifferenz der nichtlinearen Zielgroessen < `0.00005 V`
    - maximale Stromdifferenz der LED-Zielstroeme < `0.000005 A`
+   - maximale Stromdifferenz der DCDC-Eingangsstroeme < `0.000005 A`
    - oder alle Ergebniswerte wuerden sich nach Rundung auf drei Nachkommastellen nicht mehr aendern
 9. Bei Nichtkonvergenz nach z.B. 50 Iterationen: Ergebnis als Fehler markieren.
 
@@ -218,6 +221,7 @@ Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
 - Start-/End-/Middle-Grenzen der LED-Streifen werden als `SimulationVirtualPin` ausgegeben.
 - MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
 - PSU-Spannungsquellen werden bei Stromlimit-Ueberschreitung iterativ ueber `voltageDropPctAt150Current` degradert. Der Solver konvergiert erst, wenn LED-Stroeme und PSU-Zielspannungen stabil sind.
+- DCDC-Wandler stempeln ihren Ausgang als geregelte Spannungsquelle und ihre Eingangsseite iterativ als Stromsenke aus Ausgangsleistung und Wirkungsgrad. Optionale Ausgangsstromlimits degradieren die Ausgangsspannung wie bei PSU-Quellen.
 - Ergebnisableitung fuer Pin-Spannungen, Wire-Stroeme, Wire-Spannungsabfaelle, LED-Netzelement-Differenzspannungen und `ΔVmin`.
 - Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit inklusive degradierter PSU-Ueberlast und Sicherungs-Nennstrom.
 
@@ -236,14 +240,7 @@ Der aktuelle Solver verwendet noch eine dichte Matrix. Fuer lange LED-Streifen m
 
 ### Iterativer Nichtlinear-Solver
 
-Der Solver besitzt inzwischen einen Iterationsrahmen fuer digitale LED-Stromsenken und PSU-Degradation. Fuer weitere nichtlineare Elemente, insbesondere DCDC-Wandler, muss derselbe Rahmen noch erweitert werden:
-
-1. Startzustand fuer alle nichtlinearen Elemente setzen.
-2. Lineares System stempeln und loesen.
-3. Elementstroeme und lokale Spannungen auswerten.
-4. Zielwerte fuer nichtlineare Elemente aktualisieren.
-5. Konvergenz ueber Spannungs- und Stromdifferenzen pruefen.
-6. Bei Nichtkonvergenz mit klarer Fehlermeldung abbrechen.
+Der Solver besitzt inzwischen einen Iterationsrahmen fuer digitale LED-Stromsenken, PSU-Degradation und DCDC-Eingangsleistung. Offen bleibt vor allem, Nichtkonvergenzmeldungen fachlich feiner auf einzelne Quellen, Wandler oder LED-Streifen zu beziehen.
 
 ### PSU-Stromlimit und Spannungsdegradation
 
@@ -253,12 +250,10 @@ Der Abbruch bei extremer Ueberlast wird nach Konvergenz bewertet: liegt der fina
 
 ### DCDC-Wandler-Modell
 
-Der DCDC-Wandler ist derzeit nur als ideale Ausgangsspannungsquelle modelliert. Es fehlt:
+Der DCDC-Wandler besitzt inzwischen ein iteratives Eingangsleistungsmodell und ein optionales festes Ausgangsstromlimit mit Spannungsdegradation. Offen bleibt:
 
-- Eingangsleistung aus Ausgangsleistung und Wirkungsgrad berechnen.
-- Dynamisches Ausgangsstromlimit aus verfuegbarer Eingangsleistung ableiten.
-- Ausgangsspannung bei Ueberlast analog zur PSU degradieren.
-- Eingangsseite elektrisch korrekt belasten.
+- Dynamisches Ausgangsstromlimit aus explizit verfuegbarer Eingangsleistung fachlich genauer definieren.
+- Eigene LTspice-Referenzfaelle fuer DCDC-Ueberlast ergaenzen. Der Grundfall PSU -> DCDC -> Widerstand ist mit `simulation_test/ltspice/dcdc_psu_resistor` abgedeckt.
 
 ### Spannungsabhaengige LED-Stroeme
 
@@ -305,3 +300,5 @@ npm run test:ltspice
 ```
 
 Der Harness laedt alle Faelle unter `simulation_test/ltspice/*` mit `diagram.json` und `expected.json`, fuehrt `runSimulation()` aus und vergleicht Pin-, Wire- und LED-Streifen-Ergebnisse gegen die im Fixture angegebenen Toleranzen. Aktuelle Fehlschlaege sind Solver-Abweichungen bzw. Nichtkonvergenz und sollen als Arbeitsliste fuer die naechsten Solver-Schritte dienen.
+
+Der DCDC-Grundfall `dcdc_psu_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_psu_resistor.cir`. Sie beschreibt eine 12-V-Eingangsquelle, einen ideal geregelten 5-V-DCDC-Ausgang mit 90 % Wirkungsgrad und eine 10-Ohm-Last. Der automatisierte Harness nutzt weiterhin `diagram.json` und `expected.json`; die `.cir`-Datei dient als reproduzierbare externe Referenz.

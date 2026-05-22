@@ -64,6 +64,11 @@ export const DCDC_mini: Node = {
                         voltageDropPctAt150Current: 50,
                     },
                 },
+                {
+                    id: "gnd-bridge",
+                    type: "shortBridge",
+                    terminals: {a: "GND1", b: "GND2"},
+                },
             ],
         },
         handles: [
