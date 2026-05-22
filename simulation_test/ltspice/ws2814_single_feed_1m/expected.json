@@ -1,0 +1,43 @@
+{
+  "source": "LTSpice",
+  "case": "ws2814_single_feed_1m",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.001,
+    "currentA": 0.001,
+    "voltageDropV": 0.001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "PSU_HP",
+        "handleId": "Vout1",
+        "voltageV": 24.0
+      }
+    ],
+    "wires": [
+      {
+        "label": "psu_to_led_vplus",
+        "currentA": 0.465,
+        "voltageDropV": 0.002
+      },
+	  {
+        "label": "led_to_psu_gnd",
+        "currentA": 0.465,
+        "voltageDropV": 0.002
+      }
+    ],
+    "ledStrips": [
+      {
+        "nodeTechnicalID": "WS2814_24V_60LPM",
+        "minDeltaVoltageV": 23.937,
+        "startVoltageDeltaVtoGNDV": 23.996,
+        "endVoltageDeltaVtoGNDV": 23.937,
+        "totalCurrentA": 0.465
+      }
+    ]
+  }
+}

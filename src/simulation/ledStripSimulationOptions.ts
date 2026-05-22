@@ -77,12 +77,12 @@ export const LED_STRIP_CURRENT_CURVE_OPTIONS: Record<string, LedStripCurrentCurv
     name: "ledSimulationOptions.currentCurve.ws2814_24v_typical.name",
     description: "ledSimulationOptions.currentCurve.ws2814_24v_typical.description",
     curve: {
-      R: {i0A: 0.0000005, iLimitA: 0.00295, k: 0.00701, v0: 0.27109, kUI: 0},
-      G: {i0A: 0.0000200, iLimitA: 0.00274, k: 0.01233, v0: 0.28563, kUI: 0.0000075},
-      B: {i0A: 0.0000300, iLimitA: 0.00267, k: 0.01635, v0: 0.29811, kUI: 0.0000062},
-      RGB_WHITE: {i0A: 0, iLimitA: 0.00730, k: 0.01263, v0: 0.28616, kUI: 0.0000206},
-      SEPARATE_WHITE: {i0A: 0, iLimitA: 0.00259, k: 0.02235, v0: 0.28928, kUI: 0.0000099},
-      SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.00954, k: 0.01505, v0: 0.28725, kUI: 0.0000278},
+      R: {i0A: 0.0000005, iLimitA: 0.00295, k: 0.421, v0: 16.270, kUI: 0},
+      G: {i0A: 0.0000200, iLimitA: 0.00274, k: 0.740, v0: 17.140, kUI: 0.0000075},
+      B: {i0A: 0.0000300, iLimitA: 0.00267, k: 0.981, v0: 17.890, kUI: 0.0000062},
+      RGB_WHITE: {i0A: 0, iLimitA: 0.00730, k: 0.758, v0: 17.170, kUI: 0.0000206},
+      SEPARATE_WHITE: {i0A: 0, iLimitA: 0.00259, k: 1.341, v0: 17.360, kUI: 0.0000099},
+      SEPARATE_AND_RGB_WHITE: {i0A: 0, iLimitA: 0.00954, k: 0.903, v0: 17.240, kUI: 0.0000278},
     },
   },
   ws2814_24v_conservative: {
