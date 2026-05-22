@@ -1093,6 +1093,16 @@ Diese LTspice-Faelle sollen fuer jede fachliche Aenderung am Modellaufbau, Solve
 
 Wichtig fuer automatische Tests: `expected.json` muss gueltiges JSON bleiben, Dezimalwerte muessen also mit Punkt geschrieben werden. Wenn einzelne Referenzen voruebergehend fachlich erwartete Abweichungen enthalten, sollen diese nicht geloescht, sondern mit Kommentar in einer separaten `notes.md` oder im Test-Report erklaert werden.
 
+Automatische Ausfuehrung:
+
+```text
+npm run test:ltspice
+```
+
+Der Test-Harness liegt in `scripts/ltspiceRegression.ts` und wird ueber `scripts/runLtspiceRegression.mjs` mit esbuild fuer Node gebuendelt. Er verwendet den echten `runSimulation()`-Pfad, keine nachgebauten Testmodelle. Pin-Sollwerte werden ueber `nodeTechnicalID` und `handleId` zugeordnet. Wire-Sollwerte koennen direkt ueber `edgeId` oder ein Edge-Testlabel zugeordnet werden; solange die bestehenden Fixtures nur freie `label`-Texte in `expected.json` enthalten, werden die erwarteten Wires in Reihenfolge gegen die simulierten DC-Wires verglichen. Fuer neue Fixtures ist `edgeId` oder ein explizites Testlabel vorzuziehen.
+
+Der Test darf waehrend der Solver-Entwicklung fehlschlagen. Ein Fehlschlag bedeutet dann: Die Testinfrastruktur funktioniert und zeigt, welche LTspice-Sollwerte noch nicht erreicht werden. Vor Solver-Aenderungen sollte der aktuelle Stand notiert werden; nach der Aenderung duerfen nur fachlich erklaerte Differenzen bleiben.
+
 Optional:
 
 - Gemeinsame Netzlogik aus `check/checkContext.ts` spaeter nach `src/netlist/` extrahieren.
@@ -1124,7 +1134,7 @@ Optional:
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. [x] Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen. Umgesetzt mit LTspice-Referenzen unter `simulation_test/ltspice/`.
 16. [x] PSU-Degradation bei ueberschrittenem Stromlimit implementieren. Umgesetzt in `src/simulation/runSimulation.ts`: Quellenstrom wird iterativ ausgewertet, die Zielspannung wird ueber `voltageDropPctAt150Current` reduziert, und konvergierte Ueberlast erzeugt weiterhin ein Simulations-Issue.
-17. Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen: `diagram.json` laden, Simulation ausfuehren und `expected.json` mit Toleranzen vergleichen.
+17. [x] Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen. Umgesetzt mit `npm run test:ltspice`, `scripts/ltspiceRegression.ts` und `scripts/runLtspiceRegression.mjs`.
 18. DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen.
 
 ## Geklaerte Entscheidungen

@@ -295,3 +295,11 @@ Fuer die naechste Stufe werden reproduzierbare Solver-Tests gebraucht:
 - Widerspruechliche Spannungsquellen.
 - Sehr lange LED-Streifen als Performance-Test.
 - Erwartete Werte mit Toleranzen fuer Spannung, Strom, `ΔV` und `ΔVmin`.
+
+LTspice-Referenztests sind als automatischer Harness umgesetzt:
+
+```text
+npm run test:ltspice
+```
+
+Der Harness laedt alle Faelle unter `simulation_test/ltspice/*` mit `diagram.json` und `expected.json`, fuehrt `runSimulation()` aus und vergleicht Pin-, Wire- und LED-Streifen-Ergebnisse gegen die im Fixture angegebenen Toleranzen. Aktuelle Fehlschlaege sind Solver-Abweichungen bzw. Nichtkonvergenz und sollen als Arbeitsliste fuer die naechsten Solver-Schritte dienen.
