@@ -758,6 +758,18 @@ const createSolvedCheckIssues = (
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
 
+  model.elements.forEach((element) => {
+    if(element.type !== "dcdcConverter") return;
+    if(!dcdcInputStates.get(element.id)?.isInputPowerLimitAmbiguous) return;
+
+    issues.push(issue(
+      `simulation-dcdc-input-power-ambiguous:${element.id}`,
+      "DCDC input power limit is ambiguous",
+      "Multiple input voltage sources are passively reachable from this DCDC input. The dynamic input-power limit was not calculated because source sharing is not modeled.",
+      [{type: "element", elementId: element.id}],
+    ));
+  });
+
   linearModel.voltageSources.forEach((source) => {
     if(source.currentVariableIndex === undefined) return;
 

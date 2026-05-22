@@ -7,6 +7,7 @@ export const DCDC_INPUT_CURRENT_CONVERGENCE_A = 0.000005;
 export type DcdcInputState = {
   currentA: number;
   availableOutputCurrentLimitA?: number;
+  isInputPowerLimitAmbiguous: boolean;
   wasInputPowerLimited: boolean;
 };
 
@@ -78,12 +79,16 @@ const dcdcInputSupplyCurrentLimit = (
   model: SimulationModel,
   dcdcElement: SimulationElement,
 ) => {
-  if(dcdcElement.type !== "dcdcConverter") return undefined;
+  if(dcdcElement.type !== "dcdcConverter") {
+    return {
+      currentLimitA: undefined,
+      isAmbiguous: false,
+    };
+  }
 
   const positiveInputNodes = connectedPassiveCircuitNodeIds(model, dcdcElement.terminals.inPositive);
   const negativeInputNodes = connectedPassiveCircuitNodeIds(model, dcdcElement.terminals.inNegative);
-  let totalCurrentLimitA = 0;
-  let hasCurrentLimit = false;
+  const sourceCurrentLimitsA: number[] = [];
 
   model.elements.forEach((element) => {
     if(element.type !== "voltageSource") return;
@@ -97,11 +102,27 @@ const dcdcInputSupplyCurrentLimit = (
     const currentLimitA = voltageSourceCurrentLimit(element);
     if(currentLimitA === undefined || currentLimitA < 0) return;
 
-    totalCurrentLimitA += currentLimitA;
-    hasCurrentLimit = true;
+    sourceCurrentLimitsA.push(currentLimitA);
   });
 
-  return hasCurrentLimit ? totalCurrentLimitA : undefined;
+  if(sourceCurrentLimitsA.length === 0) {
+    return {
+      currentLimitA: undefined,
+      isAmbiguous: false,
+    };
+  }
+
+  if(sourceCurrentLimitsA.length > 1) {
+    return {
+      currentLimitA: undefined,
+      isAmbiguous: true,
+    };
+  }
+
+  return {
+    currentLimitA: sourceCurrentLimitsA[0],
+    isAmbiguous: false,
+  };
 };
 
 const relaxedDcdcInputCurrent = (
@@ -127,6 +148,7 @@ export const createInitialDcdcInputStates = (model: SimulationModel): DcdcInputS
 
     states.set(element.id, {
       currentA: 0,
+      isInputPowerLimitAmbiguous: false,
       wasInputPowerLimited: false,
     });
   });
@@ -182,16 +204,17 @@ export const updateDcdcInputStates = (
       ? inputPowerW / inputVoltageV
       : inputPowerW / MIN_DCDC_INPUT_VOLTAGE_V;
     const nextCurrentA = relaxedDcdcInputCurrent(previousCurrentA, targetCurrentA, options.nonlinearRelaxation);
-    const inputSupplyCurrentLimitA = dcdcInputSupplyCurrentLimit(model, element);
-    const availableOutputCurrentLimitA = inputSupplyCurrentLimitA !== undefined &&
+    const inputSupplyCurrentLimit = dcdcInputSupplyCurrentLimit(model, element);
+    const availableOutputCurrentLimitA = inputSupplyCurrentLimit.currentLimitA !== undefined &&
       nominalOutputVoltageV > options.sourceVoltageConvergenceV
-      ? inputVoltageV * inputSupplyCurrentLimitA * efficiency / nominalOutputVoltageV
+      ? inputVoltageV * inputSupplyCurrentLimit.currentLimitA * efficiency / nominalOutputVoltageV
       : undefined;
 
     maxCurrentDeltaA = Math.max(maxCurrentDeltaA, Math.abs(previousCurrentA - targetCurrentA));
     nextStates.set(element.id, {
       currentA: nextCurrentA,
       availableOutputCurrentLimitA,
+      isInputPowerLimitAmbiguous: inputSupplyCurrentLimit.isAmbiguous,
       wasInputPowerLimited: (
         currentStates.get(element.id)?.wasInputPowerLimited ||
         (
