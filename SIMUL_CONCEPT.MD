@@ -1119,11 +1119,13 @@ Optional:
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
-12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert; Nichtlinear-Iterationen fuer PSU-/DCDC-Degradation bleiben Folgearbeit.
+12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert.
 13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits und Sicherungs-Nennstroeme.
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. [x] Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen. Umgesetzt mit LTspice-Referenzen unter `simulation_test/ltspice/`.
-16. Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen: `diagram.json` laden, Simulation ausfuehren und `expected.json` mit Toleranzen vergleichen.
+16. [x] PSU-Degradation bei ueberschrittenem Stromlimit implementieren. Umgesetzt in `src/simulation/runSimulation.ts`: Quellenstrom wird iterativ ausgewertet, die Zielspannung wird ueber `voltageDropPctAt150Current` reduziert, und konvergierte Ueberlast erzeugt weiterhin ein Simulations-Issue.
+17. Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen: `diagram.json` laden, Simulation ausfuehren und `expected.json` mit Toleranzen vergleichen.
+18. DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen.
 
 ## Geklaerte Entscheidungen
 

@@ -28,8 +28,11 @@ export type RunSimulationResult =
     };
 
 const MIN_RESISTANCE_OHM = 1e-9;
-const MAX_LED_CURRENT_ITERATIONS = 50;
+const MAX_NONLINEAR_ITERATIONS = 50;
 const LED_CURRENT_CONVERGENCE_A = 0.0005;
+const SOURCE_VOLTAGE_CONVERGENCE_V = 0.0005;
+const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
+const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
 
 type VoltageSourceStamp = {
   elementId: string;
@@ -46,6 +49,13 @@ type LinearDcModel = {
 };
 
 type LedCurrentByElementId = Map<string, number>;
+
+type VoltageSourceState = {
+  voltageV: number;
+  wasOverloaded: boolean;
+};
+
+type VoltageSourceStateByElementId = Map<string, VoltageSourceState>;
 
 const numberParameter = (
   parameters: Record<string, string | number | boolean> | undefined,
@@ -232,8 +242,136 @@ const maxLedCurrentDeltaA = (
   return maxDeltaA;
 };
 
+const voltageSourceNominalVoltage = (element: SimulationElement) => {
+  if(element.type === "voltageSource") {
+    return numberParameter(element.parameters, "voltageV");
+  }
+
+  if(element.type === "dcdcConverter") {
+    return numberParameter(element.parameters, "outputVoltageV");
+  }
+
+  return undefined;
+};
+
+const voltageSourceCurrentLimit = (element: SimulationElement) => {
+  if(element.type === "voltageSource") {
+    return numberParameter(element.parameters, "currentLimitA");
+  }
+
+  if(element.type === "dcdcConverter") {
+    return numberParameter(element.parameters, "outputCurrentLimitA");
+  }
+
+  return undefined;
+};
+
+const createInitialVoltageSourceStates = (model: SimulationModel): VoltageSourceStateByElementId => {
+  const states: VoltageSourceStateByElementId = new Map();
+
+  model.elements.forEach((element) => {
+    const voltageV = voltageSourceNominalVoltage(element);
+    if(voltageV === undefined) return;
+
+    states.set(element.id, {
+      voltageV,
+      wasOverloaded: false,
+    });
+  });
+
+  return states;
+};
+
+const degradedVoltageForCurrent = (
+  nominalVoltageV: number,
+  currentA: number,
+  currentLimitA: number,
+  voltageDropPctAt150Current: number,
+) => {
+  if(currentLimitA <= 0) return nominalVoltageV;
+  if(currentA <= currentLimitA + CURRENT_LIMIT_TOLERANCE_A) return nominalVoltageV;
+
+  const overload = Math.min(0.5, Math.max(0, currentA / currentLimitA - 1));
+  const voltageFractionAt150 = Math.min(1, Math.max(0, voltageDropPctAt150Current / 100));
+  const dropSlope = (1 - voltageFractionAt150) / 0.5;
+  const voltageFraction = Math.max(0, 1 - dropSlope * overload);
+
+  return nominalVoltageV * voltageFraction;
+};
+
+const updateVoltageSourceStates = (
+  model: SimulationModel,
+  linearModel: LinearDcModel,
+  values: number[],
+  currentStates: VoltageSourceStateByElementId,
+) => {
+  const elementById = new Map(model.elements.map((element) => [element.id, element]));
+  const nextStates: VoltageSourceStateByElementId = new Map(currentStates);
+  let maxVoltageDeltaV = 0;
+
+  linearModel.voltageSources.forEach((source) => {
+    if(source.currentVariableIndex === undefined) return;
+
+    const element = elementById.get(source.elementId);
+    if(!element) return;
+
+    const nominalVoltageV = voltageSourceNominalVoltage(element);
+    const currentLimitA = voltageSourceCurrentLimit(element);
+    if(nominalVoltageV === undefined || currentLimitA === undefined) return;
+
+    const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
+    const voltageDropPctAt150Current = numberParameter(element.parameters, "voltageDropPctAt150Current")
+      ?? DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT;
+    const nextVoltageV = currentLimitA > 0
+      ? degradedVoltageForCurrent(nominalVoltageV, currentA, currentLimitA, voltageDropPctAt150Current)
+      : nominalVoltageV;
+    const previousState = currentStates.get(source.elementId);
+
+    maxVoltageDeltaV = Math.max(maxVoltageDeltaV, Math.abs((previousState?.voltageV ?? nominalVoltageV) - nextVoltageV));
+    nextStates.set(source.elementId, {
+      voltageV: nextVoltageV,
+      wasOverloaded: previousState?.wasOverloaded || currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A,
+    });
+  });
+
+  return {
+    nextStates,
+    maxVoltageDeltaV,
+  };
+};
+
+const createExtremeVoltageSourceOverloadIssues = (
+  model: SimulationModel,
+  linearModel: LinearDcModel,
+  values: number[],
+) => {
+  const issues: SimulationCheckIssue[] = [];
+  const elementById = new Map(model.elements.map((element) => [element.id, element]));
+
+  linearModel.voltageSources.forEach((source) => {
+    if(source.currentVariableIndex === undefined) return;
+
+    const element = elementById.get(source.elementId);
+    const currentLimitA = element ? voltageSourceCurrentLimit(element) : undefined;
+    if(currentLimitA === undefined || currentLimitA <= 0) return;
+
+    const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
+    if(currentA > currentLimitA * 1.5 + CURRENT_LIMIT_TOLERANCE_A) {
+      issues.push(issue(
+        `simulation-current-limit-extreme:${source.elementId}`,
+        "Current limit exceeded too far",
+        `Voltage source current ${currentA.toFixed(3)} A is above 150% of the limit ${currentLimitA.toFixed(3)} A. Simulation was stopped.`,
+        [{type: "element", elementId: source.elementId}],
+      ));
+    }
+  });
+
+  return issues;
+};
+
 const voltageSourcesFromElements = (
   model: SimulationModel,
+  voltageSourceStates: VoltageSourceStateByElementId = new Map(),
 ): VoltageSourceStamp[] => {
   const sources = model.elements.flatMap((element) => {
     if(element.type === "voltageSource") {
@@ -243,7 +381,7 @@ const voltageSourcesFromElements = (
         elementId: element.id,
         positiveCircuitNodeId: element.terminals.positive,
         negativeCircuitNodeId: element.terminals.negative,
-        voltageV,
+        voltageV: voltageSourceStates.get(element.id)?.voltageV ?? voltageV,
       }];
     }
 
@@ -254,7 +392,7 @@ const voltageSourcesFromElements = (
         elementId: element.id,
         positiveCircuitNodeId: element.terminals.outPositive,
         negativeCircuitNodeId: element.terminals.outNegative,
-        voltageV,
+        voltageV: voltageSourceStates.get(element.id)?.voltageV ?? voltageV,
       }];
     }
 
@@ -312,13 +450,14 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
 const buildLinearDcModel = (
   model: SimulationModel,
   ledCurrentByElementId: LedCurrentByElementId = new Map(),
+  voltageSourceStates: VoltageSourceStateByElementId = new Map(),
 ): LinearDcModel => {
   const activeCircuitNodeIds = collectActiveCircuitNodeIds(model);
   const circuitNodeIndexById = createCircuitNodeIndexById({
     ...model,
     circuitNodes: model.circuitNodes.filter((node) => activeCircuitNodeIds.has(node.id)),
   });
-  const voltageSources = voltageSourcesFromElements(model).map((source, index) => ({
+  const voltageSources = voltageSourcesFromElements(model, voltageSourceStates).map((source, index) => ({
     ...source,
     currentVariableIndex: circuitNodeIndexById.size + index,
   }));
@@ -499,6 +638,7 @@ const createSolvedCheckIssues = (
   linearModel: LinearDcModel,
   values: number[],
   circuitVoltages: Map<string, number>,
+  voltageSourceStates: VoltageSourceStateByElementId,
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
@@ -508,17 +648,17 @@ const createSolvedCheckIssues = (
 
     const element = elementById.get(source.elementId);
     const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
-    const currentLimitA = element?.type === "voltageSource"
-      ? numberParameter(element.parameters, "currentLimitA")
-      : element?.type === "dcdcConverter"
-        ? numberParameter(element.parameters, "outputCurrentLimitA")
-        : undefined;
+    const currentLimitA = element ? voltageSourceCurrentLimit(element) : undefined;
+    const wasOverloaded = voltageSourceStates.get(source.elementId)?.wasOverloaded;
 
-    if(currentLimitA !== undefined && currentLimitA >= 0 && currentA > currentLimitA + 0.0005) {
+    if(currentLimitA !== undefined && currentLimitA >= 0 && (wasOverloaded || currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A)) {
+      const description = currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A
+        ? `Voltage source current ${currentA.toFixed(3)} A exceeds limit ${currentLimitA.toFixed(3)} A. The output voltage was reduced by the source overload model.`
+        : `Voltage source current exceeded limit ${currentLimitA.toFixed(3)} A during solver iteration. Final current is ${currentA.toFixed(3)} A after output voltage reduction.`;
       issues.push(issue(
         `simulation-current-limit:${source.elementId}`,
         "Current limit exceeded",
-        `Voltage source current ${currentA.toFixed(3)} A exceeds limit ${currentLimitA.toFixed(3)} A.`,
+        description,
         [{type: "element", elementId: source.elementId}],
       ));
     }
@@ -562,6 +702,7 @@ const createSimulationResult = (
   checkIssues: SimulationCheckIssue[],
   linearModel: LinearDcModel,
   values: number[],
+  voltageSourceStates: VoltageSourceStateByElementId,
 ): SimulationResult => {
   const circuitVoltages = createCircuitVoltages(model, linearModel, values);
   const ledElementVoltageResults = createLedElementVoltageResults(model, circuitVoltages);
@@ -603,7 +744,7 @@ const createSimulationResult = (
       resistanceOhm: wire.resistanceOhm,
     };
   });
-  const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages);
+  const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages, voltageSourceStates);
   const allCheckIssues = [...checkIssues, ...solvedCheckIssues];
 
   return {
@@ -653,11 +794,12 @@ export const runSimulation = (
   }
 
   let ledCurrentByElementId = createInitialLedCurrents(modelResult.model);
-  let linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId);
+  let voltageSourceStates = createInitialVoltageSourceStates(modelResult.model);
+  let linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId, voltageSourceStates);
   let solverResult = denseLinearSystemSolver.solve(linearModel.system);
   let converged = false;
 
-  for(let iteration = 0; iteration < MAX_LED_CURRENT_ITERATIONS; iteration += 1) {
+  for(let iteration = 0; iteration < MAX_NONLINEAR_ITERATIONS; iteration += 1) {
     if(solverResult.status !== "ok" || !solverResult.values) {
       return {
         ok: false,
@@ -675,14 +817,25 @@ export const runSimulation = (
 
     const circuitVoltages = createCircuitVoltages(modelResult.model, linearModel, solverResult.values);
     const nextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
+    const sourceUpdate = updateVoltageSourceStates(
+      modelResult.model,
+      linearModel,
+      solverResult.values,
+      voltageSourceStates,
+    );
 
-    if(maxLedCurrentDeltaA(ledCurrentByElementId, nextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A) {
+    if(
+      maxLedCurrentDeltaA(ledCurrentByElementId, nextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
+      sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V
+    ) {
+      voltageSourceStates = sourceUpdate.nextStates;
       converged = true;
       break;
     }
 
     ledCurrentByElementId = nextLedCurrentByElementId;
-    linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId);
+    voltageSourceStates = sourceUpdate.nextStates;
+    linearModel = buildLinearDcModel(modelResult.model, ledCurrentByElementId, voltageSourceStates);
     solverResult = denseLinearSystemSolver.solve(linearModel.system);
   }
 
@@ -701,12 +854,30 @@ export const runSimulation = (
     };
   }
 
+  const extremeOverloadIssues = createExtremeVoltageSourceOverloadIssues(
+    modelResult.model,
+    linearModel,
+    solverResult.values ?? [],
+  );
+
+  if(extremeOverloadIssues.length > 0) {
+    return {
+      ok: false,
+      diagramFingerprint,
+      issues: [
+        ...modelResult.issues,
+        ...extremeOverloadIssues,
+      ],
+    };
+  }
+
   const result = createSimulationResult(
     modelResult.model,
     diagramFingerprint,
     modelResult.issues,
     linearModel,
     solverResult.values ?? [],
+    voltageSourceStates,
   );
 
   return {

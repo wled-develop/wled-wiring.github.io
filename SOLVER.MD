@@ -214,11 +214,12 @@ Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
 - Referenzknoten wird aus der Spannungsquelle mit dem hoechsten Stromlimit gewaehlt; bei Gleichstand deterministisch.
 - Digitale LED-Streifen werden anhand von `physLengths`, `ledsPerMeter` und `physLedsPerLogicLed` in interne LED-Elemente expandiert.
 - Start-/End-/Middle-Grenzen der LED-Streifen werden als `SimulationVirtualPin` ausgegeben.
-- MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, ideale Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
+- MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
+- PSU-Spannungsquellen werden bei Stromlimit-Ueberschreitung iterativ ueber `voltageDropPctAt150Current` degradert. Der Solver konvergiert erst, wenn LED-Stroeme und PSU-Zielspannungen stabil sind.
 - Ergebnisableitung fuer Pin-Spannungen, Wire-Stroeme, Wire-Spannungsabfaelle, LED-Netzelement-Differenzspannungen und `ΔVmin`.
-- Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit und Sicherungs-Nennstrom.
+- Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit inklusive degradierter PSU-Ueberlast und Sicherungs-Nennstrom.
 
-Die aktuelle Implementierung ist damit ein brauchbarer DC-Zwischenschritt mit iterativen digitalen LED-Stromsenken, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
+Die aktuelle Implementierung ist damit ein brauchbarer DC-Zwischenschritt mit iterativen digitalen LED-Stromsenken und PSU-Degradation, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
 
 ## Was noch fuer einen richtigen Solver fehlt
 
@@ -233,7 +234,7 @@ Der aktuelle Solver verwendet noch eine dichte Matrix. Fuer lange LED-Streifen m
 
 ### Iterativer Nichtlinear-Solver
 
-Die geplanten nichtlinearen Elemente werden derzeit nur als lineare Naeherung behandelt. Es fehlt ein Iterationsrahmen:
+Der Solver besitzt inzwischen einen Iterationsrahmen fuer digitale LED-Stromsenken und PSU-Degradation. Fuer weitere nichtlineare Elemente, insbesondere DCDC-Wandler, muss derselbe Rahmen noch erweitert werden:
 
 1. Startzustand fuer alle nichtlinearen Elemente setzen.
 2. Lineares System stempeln und loesen.
@@ -244,12 +245,9 @@ Die geplanten nichtlinearen Elemente werden derzeit nur als lineare Naeherung be
 
 ### PSU-Stromlimit und Spannungsdegradation
 
-Aktuell wird das Stromlimit nur nach der Loesung geprueft. Fuer das richtige Verhalten fehlt:
+PSU-Spannungsquellen werten den Quellenstrom nach jeder Iteration aus. Bei `I > currentLimitA` wird die Zielspannung anhand `voltageDropPctAt150Current` reduziert und das lineare System mit dieser Spannung erneut geloest. Die Simulation meldet weiterhin einen Check-Fehler fuer die Quelle, auch wenn die degradierte Loesung konvergiert.
 
-- Quellenstrom nach jeder Iteration auswerten.
-- Bei `I > currentLimitA` die Zielspannung anhand `voltageDropPctAt150Current` reduzieren.
-- Bei `I > 1.5 * currentLimitA` abbrechen.
-- Ueberlast als Check-Fehler melden, auch wenn die degradierte Loesung konvergiert.
+Der Abbruch bei extremer Ueberlast wird nach Konvergenz bewertet: liegt der finale Quellenstrom ueber `1.5 * currentLimitA`, wird kein Ergebnis ausgegeben. Kurzzeitige Ueberschreitungen waehrend der Iteration fuehren noch nicht zum Abbruch, damit der Solver von der nominalen Startspannung in einen degradierten stabilen Arbeitspunkt finden kann.
 
 ### DCDC-Wandler-Modell
 
