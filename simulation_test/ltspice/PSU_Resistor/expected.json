@@ -1,0 +1,34 @@
+{
+  "source": "LTSpice",
+  "case": "PSU_Resistor",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.0001,
+    "currentA": 0.0001,
+    "voltageDropV": 0.0001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "PSU_HP",
+        "handleId": "Vout1",
+        "voltageV": 6.89727
+      }
+    ],
+    "wires": [
+      {
+        "label": "psu_to_resistor",
+        "currentA": 2.62053,
+        "voltageDropV": 1.87631
+      },
+	  {
+        "label": "resistor_to_psu_gnd",
+        "currentA": 2.620545,
+        "voltageDropV": 1.87631
+      }
+    ]
+  }
+}

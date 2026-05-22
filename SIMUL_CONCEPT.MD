@@ -1072,6 +1072,27 @@ src/simulation/
 
 Beispiele fuer Simulation und Ueberpruefung liegen im Verzeichnis `simulation_test/`. Dort sollen Testdiagramme, erwartete Simulationsergebnisse und Sonderfaelle wie Ueberlast, fehlende Wire-Daten oder LED-Streifen-Spannungsabfaelle gesammelt werden.
 
+### LTspice-Referenzbeispiele
+
+Unter `simulation_test/ltspice/` liegen reproduzierbare Referenzfaelle, die gegen LTspice-Sollwerte verglichen werden sollen. Jeder Fall enthaelt mindestens:
+
+- `diagram.json`: exportiertes WLED-Wiring-Diagramm fuer genau diesen Aufbau.
+- `expected.json`: aus LTspice uebernommene Sollwerte inklusive Simulationseinstellungen und Toleranzen.
+
+Die Datei `simulation_test/ltspice/HowToMakeReferences.md` beschreibt, wie neue Referenzen aufgebaut werden sollen und welche Messwerte besonders nuetzlich sind.
+
+Aktuell vorhandene Referenzfaelle:
+
+- `PSU_Resistor`: einfache PSU-Last mit Widerstand. Dieser Fall prueft Grundgleichungen fuer Spannungsquelle, Leitungswiderstaende, Strom und Spannungsabfall ohne LED-Nichtlinearitaet.
+- `ws2814_single_feed_1m`: 1 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall ist klein und eignet sich als Kalibrierung fuer LED-Kennlinie, LED-Serienwiderstaende und Wire-Ergebnisableitung.
+- `ws2814_single_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall prueft sichtbaren Spannungsabfall ueber den Streifen und die iterative LED-Stromberechnung.
+- `ws2814_double_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung an Anfang und Ende. Dieser Fall prueft Stromaufteilung ueber mehrere Einspeisepfade und Start-/End-Spannungen am LED-Streifen.
+- `ws2814_double_feed_10m_PSU_3A_Limit`: 10 m WS2814-24-V-Streifen mit Doppeleinspeisung und 3-A-PSU-Limit. Dieser Fall ist die Referenz fuer PSU-Ueberlast und Spannungsdegradation bei ueberschrittenem Stromlimit.
+
+Diese LTspice-Faelle sollen fuer jede fachliche Aenderung am Modellaufbau, Solver, LED-Strommodell, Wire-Widerstand oder PSU-/DCDC-Ueberlastmodell verwendet werden. Ziel ist ein automatisierter Regressionstest, der `diagram.json` laedt, die Simulation mit den in `expected.json` definierten Einstellungen ausfuehrt und Pin-, Wire- und LED-Streifen-Sollwerte innerhalb der angegebenen Toleranzen vergleicht.
+
+Wichtig fuer automatische Tests: `expected.json` muss gueltiges JSON bleiben, Dezimalwerte muessen also mit Punkt geschrieben werden. Wenn einzelne Referenzen voruebergehend fachlich erwartete Abweichungen enthalten, sollen diese nicht geloescht, sondern mit Kommentar in einer separaten `notes.md` oder im Test-Report erklaert werden.
+
 Optional:
 
 - Gemeinsame Netzlogik aus `check/checkContext.ts` spaeter nach `src/netlist/` extrahieren.
@@ -1101,7 +1122,8 @@ Optional:
 12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert; Nichtlinear-Iterationen fuer PSU-/DCDC-Degradation bleiben Folgearbeit.
 13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits und Sicherungs-Nennstroeme.
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
-15. Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
+15. [x] Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen. Umgesetzt mit LTspice-Referenzen unter `simulation_test/ltspice/`.
+16. Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen: `diagram.json` laden, Simulation ausfuehren und `expected.json` mit Toleranzen vergleichen.
 
 ## Geklaerte Entscheidungen
 

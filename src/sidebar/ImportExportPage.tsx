@@ -1,6 +1,6 @@
 
 import { useReactFlow, useUpdateNodeInternals, getViewportForBounds, Rect, type Edge, type Node} from '@xyflow/react';
-import { Flex, Button, Divider, theme, Modal, Tooltip, message, Select } from 'antd';
+import { Flex, Button, Divider, theme, Modal, Tooltip, message, Select, Input, Typography } from 'antd';
 import {CopyOutlined} from '@ant-design/icons'
 import { useState } from 'react';
 
@@ -21,6 +21,60 @@ type ImportedFlow = {
     y: number;
     zoom: number;
   };
+};
+
+type WritableFileHandle = {
+  name: string;
+  getFile: () => Promise<File>;
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+};
+
+type FilePickerWindow = Window & typeof globalThis & {
+  showOpenFilePicker?: (options?: {
+    types?: Array<{
+      description: string;
+      accept: Record<string, string[]>;
+    }>;
+    multiple?: boolean;
+  }) => Promise<WritableFileHandle[]>;
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    types?: Array<{
+      description: string;
+      accept: Record<string, string[]>;
+    }>;
+  }) => Promise<WritableFileHandle>;
+};
+
+const DefaultModelFileName = 'wled-wiring.json';
+
+const modelJsonFileType = {
+  description: 'WLED wiring model',
+  accept: { 'application/json': ['.json'] },
+};
+
+const sanitizeModelFileName = (name: string) => {
+  const cleaned = name.trim().replace(/[\\/:*?"<>|]/g, '-');
+  const withFallback = cleaned.length > 0 ? cleaned : DefaultModelFileName.replace(/\.json$/i, '');
+  return /\.json$/i.test(withFallback) ? withFallback : `${withFallback}.json`;
+};
+
+const getExportBaseName = (fileName: string) => (
+  sanitizeModelFileName(fileName).replace(/\.json$/i, '') || 'wled-wiring'
+);
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> => (
@@ -60,6 +114,10 @@ export const ImportExportPage = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
   const [modalApi, modalContextHolder] = Modal.useModal();
   const { clearHistory, takeSnapshot } = useUndoRedo();
+  const [documentFileName, setDocumentFileName] = useState(DefaultModelFileName);
+  const [modelFileHandle, setModelFileHandle] = useState<WritableFileHandle | null>(null);
+  const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
+  const [saveAsFileName, setSaveAsFileName] = useState(DefaultModelFileName);
 
   const askForComponentTemplateUpdates = (loadedNodes: Node[]) => {
     const updateInfos = findNodeComponentTemplateUpdates(loadedNodes, t('sidebar.components.updateValueMissing'));
@@ -128,7 +186,155 @@ export const ImportExportPage = () => {
     return {element, viewport, imageWidth, imageHeight};
   }
 
-  const ExportFileName="wled-wiring";
+  const exportBaseName = getExportBaseName(documentFileName);
+
+  const createModelBlob = () => (
+    new Blob([createDiagramExportJson(reactFlow)], { type: 'application/json' })
+  );
+
+  const saveModelToHandle = async (fileHandle: WritableFileHandle) => {
+    const writable = await fileHandle.createWritable();
+    await writable.write(createModelBlob());
+    await writable.close();
+  };
+
+  const downloadModel = (fileName: string) => {
+    const nextFileName = sanitizeModelFileName(fileName);
+    downloadBlob(createModelBlob(), nextFileName);
+    setDocumentFileName(nextFileName);
+    messageApi.open({
+      type: 'success',
+      content: t('message.saveModelDownloadStarted'),
+      duration: 2,
+    });
+  };
+
+  const handleSave = async () => {
+    if (modelFileHandle) {
+      try {
+        await saveModelToHandle(modelFileHandle);
+        setDocumentFileName(sanitizeModelFileName(modelFileHandle.name));
+        messageApi.open({
+          type: 'success',
+          content: t('message.saveModelSuccess'),
+          duration: 2,
+        });
+        return;
+      } catch {
+        setModelFileHandle(null);
+      }
+    }
+
+    downloadModel(documentFileName);
+  };
+
+  const handleSaveAs = async () => {
+    const pickerWindow = window as FilePickerWindow;
+    if (pickerWindow.showSaveFilePicker) {
+      try {
+        const fileHandle = await pickerWindow.showSaveFilePicker({
+          suggestedName: sanitizeModelFileName(documentFileName),
+          types: [modelJsonFileType],
+        });
+        await saveModelToHandle(fileHandle);
+        setModelFileHandle(fileHandle);
+        setDocumentFileName(sanitizeModelFileName(fileHandle.name));
+        messageApi.open({
+          type: 'success',
+          content: t('message.saveModelSuccess'),
+          duration: 2,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        messageApi.open({
+          type: 'error',
+          content: t('message.saveModelError'),
+          duration: 3,
+        });
+      }
+      return;
+    }
+
+    setSaveAsFileName(sanitizeModelFileName(documentFileName));
+    setSaveAsModalOpen(true);
+  };
+
+  const applyImportedFlow = (flow: ImportedFlow, fileName: string, fileHandle: WritableFileHandle | null) => {
+    reactFlow.setNodes(flow.nodes);
+    reactFlow.setEdges(flow.edges);
+    reactFlow.setViewport(flow.viewport);
+    clearHistory();
+    setDocumentFileName(sanitizeModelFileName(fileName));
+    setModelFileHandle(fileHandle);
+    messageApi.open({
+      type: 'success',
+      content: t('message.loadModelSuccess'),
+      duration: 2,
+    });
+    setTimeout(() => {
+      askForComponentTemplateUpdates(flow.nodes);
+    }, 0);
+  };
+
+  const handleOpenFile = async () => {
+    const pickerWindow = window as FilePickerWindow;
+    if (pickerWindow.showOpenFilePicker) {
+      try {
+        const [fileHandle] = await pickerWindow.showOpenFilePicker({
+          types: [modelJsonFileType],
+          multiple: false,
+        });
+        if (!fileHandle) return;
+
+        const file = await fileHandle.getFile();
+        const jsonData = await file.text();
+        const flow = parseImportedFlow(jsonData);
+        applyImportedFlow(flow, file.name, fileHandle);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        messageApi.open({
+          type: 'error',
+          content: t('message.loadModelError'),
+          duration: 3,
+        });
+      }
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const jsonData = e.target?.result;
+          if (typeof jsonData === 'string') {
+            try {
+              const flow = parseImportedFlow(jsonData);
+              applyImportedFlow(flow, file.name, null);
+            } catch {
+              messageApi.open({
+                type: 'error',
+                content: t('message.loadModelError'),
+                duration: 3,
+              });
+            }
+          }
+        };
+        reader.onerror = () => {
+          messageApi.open({
+            type: 'error',
+            content: t('message.loadModelError'),
+            duration: 3,
+          });
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
 
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -188,63 +394,17 @@ export const ImportExportPage = () => {
           >
             {t('sidebar.export.dividerSaveOpen')}
         </Divider>
+        <Typography.Text type="secondary">
+          {t('sidebar.export.currentFile', { name: documentFileName })}
+        </Typography.Text>
         <Button
-          onClick={() => {
-            const data = createDiagramExportJson(reactFlow);
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = ExportFileName+".json"; // name of the file to be downloaded
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url); // free up memory
-
-          }}
+          onClick={handleSave}
         >{t('sidebar.export.buttonSave')}</Button>
         <Button
-           onClick={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = (event) => {
-              const file = (event.target as HTMLInputElement).files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                  const jsonData = e.target?.result;
-                  if (typeof jsonData === 'string') {
-                    try {
-                      const flow = parseImportedFlow(jsonData);
-                      reactFlow.setNodes(flow.nodes);
-                      reactFlow.setEdges(flow.edges);
-                      reactFlow.setViewport(flow.viewport);
-                      clearHistory();
-                      setTimeout(() => {
-                        askForComponentTemplateUpdates(flow.nodes);
-                      }, 0);
-                    } catch {
-                      messageApi.open({
-                        type: 'error',
-                        content: t('message.loadModelError'),
-                        duration: 3,
-                      });
-                    }
-                  }
-                };
-                reader.onerror = () => {
-                  messageApi.open({
-                    type: 'error',
-                    content: t('message.loadModelError'),
-                    duration: 3,
-                  });
-                };
-                reader.readAsText(file);
-              }
-            };
-            input.click();
-           }}
+          onClick={handleSaveAs}
+        >{t('sidebar.export.buttonSaveAs')}</Button>
+        <Button
+           onClick={handleOpenFile}
         >{t('sidebar.export.buttonOpen')}</Button>
         <Divider key={"Divider2" }
             style={{fontSize: token.fontSize}}
@@ -265,7 +425,7 @@ export const ImportExportPage = () => {
               },
             }).then((dataUrl) => {
               const a = document.createElement('a');
-              a.setAttribute('download', ExportFileName+'.png');
+              a.setAttribute('download', exportBaseName+'.png');
               a.setAttribute('href', dataUrl);
               a.click();
             }).finally(() => element.remove());
@@ -285,7 +445,7 @@ export const ImportExportPage = () => {
               },
             }).then((dataUrl) => {
               const a = document.createElement('a');
-              a.setAttribute('download', ExportFileName+'.jpg');
+              a.setAttribute('download', exportBaseName+'.jpg');
               a.setAttribute('href', dataUrl);
               a.click();
               element.remove();
@@ -306,7 +466,7 @@ export const ImportExportPage = () => {
               },
             }).then((dataUrl) => {
               const a = document.createElement('a');
-              a.setAttribute('download', ExportFileName+'.svg');
+              a.setAttribute('download', exportBaseName+'.svg');
               a.setAttribute('href', dataUrl);
               a.click();
               element.remove();
@@ -349,6 +509,31 @@ export const ImportExportPage = () => {
       >
       </Select>
       </Flex>
+
+      <Modal
+        title={t('sidebar.export.saveAsModalTitle')}
+        open={saveAsModalOpen}
+        okText={t('sidebar.export.saveAsModalOk')}
+        cancelText={t('sidebar.export.share.modalButtonCancel')}
+        onOk={() => {
+          const nextFileName = sanitizeModelFileName(saveAsFileName);
+          downloadModel(nextFileName);
+          setModelFileHandle(null);
+          setSaveAsModalOpen(false);
+        }}
+        onCancel={() => setSaveAsModalOpen(false)}
+      >
+        <Input
+          value={saveAsFileName}
+          onChange={(event) => setSaveAsFileName(event.target.value)}
+          onPressEnter={() => {
+            const nextFileName = sanitizeModelFileName(saveAsFileName);
+            downloadModel(nextFileName);
+            setModelFileHandle(null);
+            setSaveAsModalOpen(false);
+          }}
+        />
+      </Modal>
 
       <Modal
         title={t('sidebar.export.share.modalTitle')}
