@@ -62,6 +62,8 @@ type VoltageSourceStateByElementId = Map<string, VoltageSourceState>;
 
 type DcdcInputState = {
   currentA: number;
+  availableOutputCurrentLimitA?: number;
+  wasInputPowerLimited: boolean;
 };
 
 type DcdcInputStateByElementId = Map<string, DcdcInputState>;
@@ -291,6 +293,21 @@ const voltageSourceCurrentLimit = (element: SimulationElement) => {
   return undefined;
 };
 
+const voltageSourceEffectiveCurrentLimit = (
+  element: SimulationElement,
+  dcdcInputStates: DcdcInputStateByElementId = new Map(),
+) => {
+  const fixedLimitA = voltageSourceCurrentLimit(element);
+  const dynamicDcdcLimitA = element.type === "dcdcConverter"
+    ? dcdcInputStates.get(element.id)?.availableOutputCurrentLimitA
+    : undefined;
+  const limits = [fixedLimitA, dynamicDcdcLimitA].filter((limit): limit is number => (
+    limit !== undefined && Number.isFinite(limit) && limit >= 0
+  ));
+
+  return limits.length > 0 ? Math.min(...limits) : undefined;
+};
+
 const dcdcEfficiency = (element: SimulationElement) => {
   if(element.type !== "dcdcConverter") return undefined;
 
@@ -324,10 +341,76 @@ const createInitialDcdcInputStates = (model: SimulationModel): DcdcInputStateByE
 
     states.set(element.id, {
       currentA: 0,
+      wasInputPowerLimited: false,
     });
   });
 
   return states;
+};
+
+const connectedPassiveCircuitNodeIds = (
+  model: SimulationModel,
+  startCircuitNodeId: string | undefined,
+) => {
+  const visited = new Set<string>();
+  if(!startCircuitNodeId) return visited;
+
+  const adjacency = new Map<string, string[]>();
+  const addConnection = (a: string | undefined, b: string | undefined) => {
+    if(!a || !b) return;
+    adjacency.set(a, [...(adjacency.get(a) ?? []), b]);
+    adjacency.set(b, [...(adjacency.get(b) ?? []), a]);
+  };
+
+  model.wires.forEach((wire) => addConnection(wire.sourceCircuitNodeId, wire.targetCircuitNodeId));
+  model.elements.forEach((element) => {
+    if(element.type === "resistor" || element.type === "fuse") {
+      addConnection(element.terminals.a, element.terminals.b);
+    }
+  });
+
+  const queue = [startCircuitNodeId];
+  visited.add(startCircuitNodeId);
+
+  for(let index = 0; index < queue.length; index += 1) {
+    adjacency.get(queue[index])?.forEach((nextCircuitNodeId) => {
+      if(visited.has(nextCircuitNodeId)) return;
+      visited.add(nextCircuitNodeId);
+      queue.push(nextCircuitNodeId);
+    });
+  }
+
+  return visited;
+};
+
+const dcdcInputSupplyCurrentLimit = (
+  model: SimulationModel,
+  dcdcElement: SimulationElement,
+) => {
+  if(dcdcElement.type !== "dcdcConverter") return undefined;
+
+  const positiveInputNodes = connectedPassiveCircuitNodeIds(model, dcdcElement.terminals.inPositive);
+  const negativeInputNodes = connectedPassiveCircuitNodeIds(model, dcdcElement.terminals.inNegative);
+  let totalCurrentLimitA = 0;
+  let hasCurrentLimit = false;
+
+  model.elements.forEach((element) => {
+    if(element.type !== "voltageSource") return;
+    if(
+      !positiveInputNodes.has(element.terminals.positive) ||
+      !negativeInputNodes.has(element.terminals.negative)
+    ) {
+      return;
+    }
+
+    const currentLimitA = voltageSourceCurrentLimit(element);
+    if(currentLimitA === undefined || currentLimitA < 0) return;
+
+    totalCurrentLimitA += currentLimitA;
+    hasCurrentLimit = true;
+  });
+
+  return hasCurrentLimit ? totalCurrentLimitA : undefined;
 };
 
 const degradedVoltageForCurrent = (
@@ -409,6 +492,7 @@ const updateVoltageSourceStates = (
   linearModel: LinearDcModel,
   values: number[],
   currentStates: VoltageSourceStateByElementId,
+  dcdcInputStates: DcdcInputStateByElementId,
 ) => {
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
   const nextStates: VoltageSourceStateByElementId = new Map(currentStates);
@@ -421,7 +505,7 @@ const updateVoltageSourceStates = (
     if(!element) return;
 
     const nominalVoltageV = voltageSourceNominalVoltage(element);
-    const currentLimitA = voltageSourceCurrentLimit(element);
+    const currentLimitA = voltageSourceEffectiveCurrentLimit(element, dcdcInputStates);
     if(nominalVoltageV === undefined || currentLimitA === undefined) return;
 
     const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
@@ -494,15 +578,28 @@ const updateDcdcInputStates = (
 
     const outputVoltageV = Math.abs(outputPositiveVoltage - outputNegativeVoltage);
     const inputVoltageV = Math.abs(inputPositiveVoltage - inputNegativeVoltage);
+    const nominalOutputVoltageV = numberParameter(element.parameters, "outputVoltageV") ?? outputVoltageV;
     const inputPowerW = outputVoltageV * outputCurrentA / efficiency;
     const targetCurrentA = inputVoltageV > MIN_DCDC_INPUT_VOLTAGE_V
       ? inputPowerW / inputVoltageV
       : inputPowerW / MIN_DCDC_INPUT_VOLTAGE_V;
     const nextCurrentA = relaxedDcdcInputCurrent(previousCurrentA, targetCurrentA);
+    const inputSupplyCurrentLimitA = dcdcInputSupplyCurrentLimit(model, element);
+    const availableOutputCurrentLimitA = inputSupplyCurrentLimitA !== undefined && nominalOutputVoltageV > SOURCE_VOLTAGE_CONVERGENCE_V
+      ? inputVoltageV * inputSupplyCurrentLimitA * efficiency / nominalOutputVoltageV
+      : undefined;
 
     maxCurrentDeltaA = Math.max(maxCurrentDeltaA, Math.abs(previousCurrentA - targetCurrentA));
     nextStates.set(element.id, {
       currentA: nextCurrentA,
+      availableOutputCurrentLimitA,
+      wasInputPowerLimited: (
+        currentStates.get(element.id)?.wasInputPowerLimited ||
+        (
+          availableOutputCurrentLimitA !== undefined &&
+          outputCurrentA > availableOutputCurrentLimitA + CURRENT_LIMIT_TOLERANCE_A
+        )
+      ),
     });
   });
 
@@ -516,6 +613,7 @@ const createExtremeVoltageSourceOverloadIssues = (
   model: SimulationModel,
   linearModel: LinearDcModel,
   values: number[],
+  dcdcInputStates: DcdcInputStateByElementId,
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
@@ -524,7 +622,7 @@ const createExtremeVoltageSourceOverloadIssues = (
     if(source.currentVariableIndex === undefined) return;
 
     const element = elementById.get(source.elementId);
-    const currentLimitA = element ? voltageSourceCurrentLimit(element) : undefined;
+    const currentLimitA = element ? voltageSourceEffectiveCurrentLimit(element, dcdcInputStates) : undefined;
     if(currentLimitA === undefined || currentLimitA <= 0) return;
 
     const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
@@ -822,6 +920,7 @@ const createSolvedCheckIssues = (
   values: number[],
   circuitVoltages: Map<string, number>,
   voltageSourceStates: VoltageSourceStateByElementId,
+  dcdcInputStates: DcdcInputStateByElementId,
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
@@ -831,10 +930,20 @@ const createSolvedCheckIssues = (
 
     const element = elementById.get(source.elementId);
     const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
-    const currentLimitA = element ? voltageSourceCurrentLimit(element) : undefined;
+    const currentLimitA = element ? voltageSourceEffectiveCurrentLimit(element, dcdcInputStates) : undefined;
     const wasOverloaded = voltageSourceStates.get(source.elementId)?.wasOverloaded;
 
     if(currentLimitA !== undefined && currentLimitA >= 0 && (wasOverloaded || currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A)) {
+      if(element?.type === "dcdcConverter" && dcdcInputStates.get(source.elementId)?.wasInputPowerLimited) {
+        issues.push(issue(
+          `simulation-dcdc-input-power-limit:${source.elementId}`,
+          "DCDC input power limited",
+          `DCDC output current ${currentA.toFixed(3)} A exceeds the dynamic input-power limit ${currentLimitA.toFixed(3)} A. The output voltage was reduced by the DCDC input power model.`,
+          [{type: "element", elementId: source.elementId}],
+        ));
+        return;
+      }
+
       const description = currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A
         ? `Voltage source current ${currentA.toFixed(3)} A exceeds limit ${currentLimitA.toFixed(3)} A. The output voltage was reduced by the source overload model.`
         : `Voltage source current exceeded limit ${currentLimitA.toFixed(3)} A during solver iteration. Final current is ${currentA.toFixed(3)} A after output voltage reduction.`;
@@ -886,6 +995,7 @@ const createSimulationResult = (
   linearModel: LinearDcModel,
   values: number[],
   voltageSourceStates: VoltageSourceStateByElementId,
+  dcdcInputStates: DcdcInputStateByElementId,
 ): SimulationResult => {
   const circuitVoltages = createCircuitVoltages(model, linearModel, values);
   const ledElementVoltageResults = createLedElementVoltageResults(model, circuitVoltages);
@@ -927,7 +1037,7 @@ const createSimulationResult = (
       resistanceOhm: wire.resistanceOhm,
     };
   });
-  const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages, voltageSourceStates);
+  const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages, voltageSourceStates, dcdcInputStates);
   const allCheckIssues = [...checkIssues, ...solvedCheckIssues];
 
   return {
@@ -1019,6 +1129,7 @@ export const runSimulation = (
       linearModel,
       solverResult.values,
       voltageSourceStates,
+      dcdcInputUpdate.nextStates,
     );
 
     if(
@@ -1064,6 +1175,7 @@ export const runSimulation = (
     modelResult.model,
     linearModel,
     solverResult.values ?? [],
+    dcdcInputStates,
   );
 
   if(extremeOverloadIssues.length > 0) {
@@ -1084,6 +1196,7 @@ export const runSimulation = (
     linearModel,
     solverResult.values ?? [],
     voltageSourceStates,
+    dcdcInputStates,
   );
 
   return {

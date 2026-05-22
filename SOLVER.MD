@@ -111,7 +111,7 @@ Praktischer fuer die erste Version: `IinAvailable` wird durch vorgelagerte PSU-/
 
 Dieser Ansatz ist nicht perfekt, aber ausreichend fuer drei Nachkommastellen im Ergebnis und liefert sinnvolle Ueberlastmeldungen.
 
-Implementierungsstand: Der Ausgang wird als MNA-Spannungsquelle gestempelt. Nach jeder linearen Loesung wird der Ausgangsstrom der Quelle ausgewertet; mit Ausgangsspannung und Wirkungsgrad wird daraus die Eingangsleistung und der Eingangsstrom fuer die naechste Iteration berechnet. Dieser Eingangsstrom wird als Stromsenke zwischen `inPositive` und `inNegative` gestempelt. `outputCurrentLimitA` verwendet die gleiche iterative Spannungsdegradation wie PSU-Quellen. Nicht-isolierte Wandler verbinden ihre Masseknoten nicht implizit; sie muessen dafuer eine explizite `shortBridge` in `simdata` haben.
+Implementierungsstand: Der Ausgang wird als MNA-Spannungsquelle gestempelt. Nach jeder linearen Loesung wird der Ausgangsstrom der Quelle ausgewertet; mit Ausgangsspannung und Wirkungsgrad wird daraus die Eingangsleistung und der Eingangsstrom fuer die naechste Iteration berechnet. Dieser Eingangsstrom wird als Stromsenke zwischen `inPositive` und `inNegative` gestempelt. `outputCurrentLimitA` verwendet die gleiche iterative Spannungsdegradation wie PSU-Quellen. Das dynamische Ausgangslimit wird aus passiv erreichbaren Eingangsspannungsquellen mit Stromlimit, aktueller Eingangsspannung, Wirkungsgrad und nominaler Ausgangsspannung berechnet. Wird dieses Limit ueberschritten, degradiert der Ausgang und es entsteht ein `DCDC input power limited`-Issue. Nicht-isolierte Wandler verbinden ihre Masseknoten nicht implizit; sie muessen dafuer eine explizite `shortBridge` in `simdata` haben.
 
 ### Digitale LED
 
@@ -250,10 +250,9 @@ Der Abbruch bei extremer Ueberlast wird nach Konvergenz bewertet: liegt der fina
 
 ### DCDC-Wandler-Modell
 
-Der DCDC-Wandler besitzt inzwischen ein iteratives Eingangsleistungsmodell und ein optionales festes Ausgangsstromlimit mit Spannungsdegradation. Offen bleibt:
+Der DCDC-Wandler besitzt inzwischen ein iteratives Eingangsleistungsmodell, ein optionales festes Ausgangsstromlimit und ein dynamisches Ausgangsstromlimit aus begrenzter Eingangsleistung. Offen bleibt:
 
-- Dynamisches Ausgangsstromlimit aus explizit verfuegbarer Eingangsleistung fachlich genauer definieren.
-- Weitere Referenzfaelle fuer dynamische Eingangsleistungsbegrenzung ergaenzen. Der Grundfall PSU -> DCDC -> Widerstand ist mit `simulation_test/ltspice/dcdc_psu_resistor` abgedeckt; DCDC-Ueberlast durch festes Ausgangslimit ist mit `simulation_test/ltspice/dcdc_overload_resistor` abgedeckt.
+- Mehrquellen- und komplexe Eingangsnetze fuer die dynamische Eingangsleistungsbegrenzung fachlich feiner definieren. Der Grundfall PSU -> DCDC -> Widerstand ist mit `simulation_test/ltspice/dcdc_psu_resistor` abgedeckt; DCDC-Ueberlast durch festes Ausgangslimit ist mit `simulation_test/ltspice/dcdc_overload_resistor` abgedeckt; begrenzte DCDC-Eingangsleistung durch PSU-Stromlimit ist mit `simulation_test/ltspice/dcdc_input_limited_resistor` abgedeckt.
 
 ### Spannungsabhaengige LED-Stroeme
 
@@ -304,3 +303,5 @@ Der Harness laedt alle Faelle unter `simulation_test/ltspice/*` mit `diagram.jso
 Der DCDC-Grundfall `dcdc_psu_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_psu_resistor.cir`. Sie beschreibt eine 12-V-Eingangsquelle, einen ideal geregelten 5-V-DCDC-Ausgang mit 90 % Wirkungsgrad und eine 10-Ohm-Last. Der automatisierte Harness nutzt weiterhin `diagram.json` und `expected.json`; die `.cir`-Datei dient als reproduzierbare externe Referenz.
 
 Der DCDC-Ueberlastfall `dcdc_overload_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_overload_resistor.cir`. Sie beschreibt denselben Grundaufbau mit festem 0,4-A-Ausgangslimit. Das Fixture erwartet die degradierte Ausgangsspannung und genau ein Simulation-Check-Issue fuer das ueberschrittene DCDC-Stromlimit.
+
+Der DCDC-Eingangsleistungsfall `dcdc_input_limited_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_input_limited_resistor.cir`. Sie beschreibt eine 12-V-Eingangsquelle mit 0,1-A-Stromlimit, einen 5-V-DCDC-Ausgang mit 90 % Wirkungsgrad und eine 10-Ohm-Last. Das Fixture erwartet die degradierte Ausgangsspannung, ein `DCDC input power limited`-Issue und wegen der bestehenden Solver-Policy auch das transiente PSU-Stromlimit-Issue aus der Iteration.

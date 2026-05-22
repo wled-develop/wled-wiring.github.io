@@ -1,0 +1,58 @@
+{
+  "source": "LTspice",
+  "case": "dcdc_input_limited_resistor",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.0001,
+    "currentA": 0.0001,
+    "voltageDropV": 0.0001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "IN",
+        "voltageV": 12
+      },
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "OUT",
+        "voltageV": 3.0167493
+      },
+      {
+        "nodeTechnicalID": "Resistor",
+        "handleId": "1",
+        "voltageV": 3.0167487
+      }
+    ],
+    "wires": [
+      {
+        "label": "psu_to_dcdc_in",
+        "currentA": 0.0843333,
+        "voltageDropV": 0.0000001
+      },
+      {
+        "label": "dcdc_to_resistor_plus",
+        "currentA": 0.301734,
+        "voltageDropV": 0.0000005
+      }
+    ],
+    "checkIssues": [
+      {
+        "id": "simulation-dcdc-input-power-limit:component:dcdc:dcdc",
+        "severity": "error",
+        "title": "DCDC input power limited",
+        "descriptionIncludes": "dynamic input-power limit"
+      },
+      {
+        "id": "simulation-current-limit:component:psu:source",
+        "severity": "error",
+        "title": "Current limit exceeded",
+        "descriptionIncludes": "exceeded limit 0.100 A during solver iteration"
+      }
+    ]
+  }
+}
