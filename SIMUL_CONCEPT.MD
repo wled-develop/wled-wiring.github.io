@@ -239,6 +239,8 @@ Wenn der Strom ueber 150% des Stromlimits steigt, wird die Simulation abgebroche
 
 Bei Ueberschreiten des Stromlimits erzeugt der Simulations-Check eine Fehlermeldung. Die Degradation ist trotzdem Teil des Modells, damit der Solver in Ueberlastfaellen ein plausibles Ergebnis liefern kann.
 
+Die Solver-Implementierung berechnet fuer die degradierende Quelle einen stabilisierten Arbeitspunkt aus aktueller Quellenspannung, geloestem Quellenstrom und der dokumentierten linearen Degradationskennlinie. Dadurch konvergieren sowohl rein ohmsche Ueberlastfaelle als auch digitale LED-Streifen mit spannungsabhaengigem Strom gegen dieselbe Kennlinie, ohne zwischen Nominalspannung und reduzierter Spannung zu springen.
+
 Beispiel:
 
 - `PSU`: Spannungsquelle zwischen Supply-Ausgang und GND, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.

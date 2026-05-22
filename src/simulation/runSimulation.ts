@@ -29,10 +29,11 @@ export type RunSimulationResult =
 
 const MIN_RESISTANCE_OHM = 1e-9;
 const MAX_NONLINEAR_ITERATIONS = 100;
-const LED_CURRENT_CONVERGENCE_A = 0.0005;
-const SOURCE_VOLTAGE_CONVERGENCE_V = 0.0005;
+const LED_CURRENT_CONVERGENCE_A = 0.000005;
+const SOURCE_VOLTAGE_CONVERGENCE_V = 0.00005;
 const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
 const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
+const NONLINEAR_RELAXATION = 0.35;
 
 type VoltageSourceStamp = {
   elementId: string;
@@ -242,6 +243,22 @@ const maxLedCurrentDeltaA = (
   return maxDeltaA;
 };
 
+const relaxedLedCurrents = (
+  current: LedCurrentByElementId,
+  next: LedCurrentByElementId,
+): LedCurrentByElementId => {
+  const elementIds = new Set([...current.keys(), ...next.keys()]);
+  const relaxed = new Map<string, number>();
+
+  elementIds.forEach((elementId) => {
+    const currentA = current.get(elementId) ?? 0;
+    const nextA = next.get(elementId) ?? 0;
+    relaxed.set(elementId, currentA + (nextA - currentA) * NONLINEAR_RELAXATION);
+  });
+
+  return relaxed;
+};
+
 const voltageSourceNominalVoltage = (element: SimulationElement) => {
   if(element.type === "voltageSource") {
     return numberParameter(element.parameters, "voltageV");
@@ -299,6 +316,63 @@ const degradedVoltageForCurrent = (
   return nominalVoltageV * voltageFraction;
 };
 
+const degradedVoltageForEquivalentLoad = (
+  nominalVoltageV: number,
+  solvedCurrentA: number,
+  solvedVoltageV: number,
+  currentLimitA: number,
+  voltageDropPctAt150Current: number,
+) => {
+  if(currentLimitA <= 0) {
+    return {
+      voltageV: nominalVoltageV,
+      wasOverloaded: false,
+    };
+  }
+
+  const equivalentConductance = Math.abs(solvedVoltageV) > SOURCE_VOLTAGE_CONVERGENCE_V
+    ? Math.abs(solvedCurrentA / solvedVoltageV)
+    : undefined;
+  if(equivalentConductance === undefined || !Number.isFinite(equivalentConductance)) {
+    return {
+      voltageV: degradedVoltageForCurrent(
+        nominalVoltageV,
+        solvedCurrentA,
+        currentLimitA,
+        voltageDropPctAt150Current,
+      ),
+      wasOverloaded: solvedCurrentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A,
+    };
+  }
+
+  const nominalCurrentA = equivalentConductance * nominalVoltageV;
+  if(nominalCurrentA <= currentLimitA + CURRENT_LIMIT_TOLERANCE_A) {
+    return {
+      voltageV: nominalVoltageV,
+      wasOverloaded: false,
+    };
+  }
+
+  const voltageFractionAt150 = Math.min(1, Math.max(0, voltageDropPctAt150Current / 100));
+  const dropSlope = (1 - voltageFractionAt150) / 0.5;
+  if(dropSlope <= 0) {
+    return {
+      voltageV: nominalVoltageV,
+      wasOverloaded: true,
+    };
+  }
+
+  const voltageV = nominalVoltageV * (1 + dropSlope) /
+    (1 + nominalVoltageV * dropSlope * equivalentConductance / currentLimitA);
+  const minVoltageV = nominalVoltageV * voltageFractionAt150;
+  const clampedVoltageV = Math.min(nominalVoltageV, Math.max(minVoltageV, voltageV));
+
+  return {
+    voltageV: clampedVoltageV,
+    wasOverloaded: true,
+  };
+};
+
 const updateVoltageSourceStates = (
   model: SimulationModel,
   linearModel: LinearDcModel,
@@ -322,15 +396,22 @@ const updateVoltageSourceStates = (
     const currentA = Math.abs(values[source.currentVariableIndex] ?? 0);
     const voltageDropPctAt150Current = numberParameter(element.parameters, "voltageDropPctAt150Current")
       ?? DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT;
-    const nextVoltageV = currentLimitA > 0
-      ? degradedVoltageForCurrent(nominalVoltageV, currentA, currentLimitA, voltageDropPctAt150Current)
-      : nominalVoltageV;
     const previousState = currentStates.get(source.elementId);
+    const sourceUpdate = degradedVoltageForEquivalentLoad(
+      nominalVoltageV,
+      currentA,
+      previousState?.voltageV ?? nominalVoltageV,
+      currentLimitA,
+      voltageDropPctAt150Current,
+    );
+    const targetVoltageV = currentLimitA > 0 ? sourceUpdate.voltageV : nominalVoltageV;
+    const previousVoltageV = previousState?.voltageV ?? nominalVoltageV;
+    const nextVoltageV = previousVoltageV + (targetVoltageV - previousVoltageV) * NONLINEAR_RELAXATION;
 
-    maxVoltageDeltaV = Math.max(maxVoltageDeltaV, Math.abs((previousState?.voltageV ?? nominalVoltageV) - nextVoltageV));
+    maxVoltageDeltaV = Math.max(maxVoltageDeltaV, Math.abs(previousVoltageV - targetVoltageV));
     nextStates.set(source.elementId, {
       voltageV: nextVoltageV,
-      wasOverloaded: previousState?.wasOverloaded || currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A,
+      wasOverloaded: previousState?.wasOverloaded || sourceUpdate.wasOverloaded || currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A,
     });
   });
 
@@ -816,7 +897,8 @@ export const runSimulation = (
     }
 
     const circuitVoltages = createCircuitVoltages(modelResult.model, linearModel, solverResult.values);
-    const nextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
+    const rawNextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
+    const nextLedCurrentByElementId = relaxedLedCurrents(ledCurrentByElementId, rawNextLedCurrentByElementId);
     const sourceUpdate = updateVoltageSourceStates(
       modelResult.model,
       linearModel,
@@ -825,9 +907,10 @@ export const runSimulation = (
     );
 
     if(
-      maxLedCurrentDeltaA(ledCurrentByElementId, nextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
+      maxLedCurrentDeltaA(ledCurrentByElementId, rawNextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
       sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V
     ) {
+      ledCurrentByElementId = rawNextLedCurrentByElementId;
       voltageSourceStates = sourceUpdate.nextStates;
       converged = true;
       break;

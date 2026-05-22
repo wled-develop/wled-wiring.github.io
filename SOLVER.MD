@@ -87,6 +87,8 @@ Nach einer Loesung wird der Quellenstrom ausgewertet:
 
 Der Solver iteriert, bis sich die Spannung und der Strom nur noch gering aendern oder eine maximale Iterationszahl erreicht ist. Bei jeder Ueberschreitung von `Ilimit` wird ein Simulations-Check-Fehler erzeugt, auch wenn die degradierte Spannung konvergiert.
 
+Die Implementierung loest den degradierenden Quellen-Arbeitspunkt stabilisiert: Aus dem geloesten Quellenstrom und der aktuellen Quellenspannung wird fuer die lineare Degradationskennlinie eine aequivalente Lastleitfaehigkeit abgeleitet. Daraus wird die naechste Zielspannung direkt auf der Kennlinie berechnet. Nichtlineare Zustaende wie PSU-Zielspannung und LED-Stromsenken werden mit Relaxation aktualisiert; die Konvergenzpruefung vergleicht weiterhin gegen die ungeglaetteten Zielwerte, damit der Solver nicht nur wegen kleiner Relaxationsschritte vorzeitig abbricht.
+
 ### DCDC-Wandler
 
 Der DCDC-Wandler wird als Ausgangsspannungsquelle plus Eingangsleistungsmodell behandelt.
@@ -147,8 +149,8 @@ Wenn eine LED-Komponente noch alte direkte LED-Simulationsparameter verwendet od
    - DCDC-Ausgangslimit
    - LED-Strom bei Unterspannung
 8. Konvergenz pruefen:
-   - maximale Spannungsdifferenz der Ergebnisgroessen < `0.0005 V`
-   - maximale Stromdifferenz der Ergebnisgroessen < `0.0005 A`
+   - maximale Spannungsdifferenz der nichtlinearen Zielgroessen < `0.00005 V`
+   - maximale Stromdifferenz der LED-Zielstroeme < `0.000005 A`
    - oder alle Ergebniswerte wuerden sich nach Rundung auf drei Nachkommastellen nicht mehr aendern
 9. Bei Nichtkonvergenz nach z.B. 50 Iterationen: Ergebnis als Fehler markieren.
 
