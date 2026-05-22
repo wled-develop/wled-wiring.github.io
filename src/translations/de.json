@@ -533,6 +533,12 @@
       "noIssues": "Keine Simulationsmeldungen.",
       "issueCount": "{{count}} Simulationsmeldung(en)",
       "affectedElements": "Betroffene Elemente",
+      "issues": {
+        "dcdcInputPowerAmbiguous": {
+          "title": "DCDC-Eingangsleistungslimit ist mehrdeutig",
+          "description": "Von diesem DCDC-Eingang sind mehrere Eingangsspannungsquellen passiv erreichbar. Das dynamische Eingangsleistungslimit wurde nicht berechnet, weil Stromteilung zwischen Quellen nicht modelliert ist."
+        }
+      },
       "severity": {
         "error": "Fehler",
         "warning": "Warnung",

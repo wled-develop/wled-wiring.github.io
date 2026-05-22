@@ -1,0 +1,310 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 0},
+      "data": {
+        "technicalID": "PSU_HP",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 12},
+          {"technicalID": "source_current", "type": "number_input", "value": 10}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "source",
+              "type": "voltageSource",
+              "terminals": {"positive": "Vout1", "negative": "GND1"},
+              "parameters": {
+                "voltageV": {"field": "source_voltage"},
+                "currentLimitA": {"field": "source_current"},
+                "voltageDropPctAt150Current": 50
+              }
+            }
+          ]
+        },
+        "handles": [
+          {"hid": "Vout1", "functions": ["suppl_out"], "x": 0, "y": 0},
+          {"hid": "GND1", "functions": ["gnd"], "x": 0, "y": 20}
+        ]
+      }
+    },
+    {
+      "id": "dcdc_a",
+      "type": "general-component-type",
+      "position": {"x": 220, "y": 0},
+      "data": {
+        "technicalID": "DCDC_mini",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 5}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "dcdc",
+              "type": "dcdcConverter",
+              "terminals": {
+                "inPositive": "IN",
+                "inNegative": "GND1",
+                "outPositive": "OUT",
+                "outNegative": "GND2"
+              },
+              "parameters": {
+                "outputVoltageV": {"field": "source_voltage"},
+                "efficiency": 0.9,
+                "voltageDropPctAt150Current": 50
+              }
+            },
+            {
+              "id": "gnd-bridge",
+              "type": "shortBridge",
+              "terminals": {"a": "GND1", "b": "GND2"}
+            }
+          ]
+        },
+        "handles": [
+          {"hid": "IN", "functions": ["suppl_in"], "x": 0, "y": 0},
+          {"hid": "GND1", "functions": ["gnd"], "x": 0, "y": 20},
+          {"hid": "OUT", "functions": ["suppl_out"], "x": 40, "y": 0},
+          {"hid": "GND2", "functions": ["gnd"], "x": 40, "y": 20}
+        ]
+      }
+    },
+    {
+      "id": "dcdc_b",
+      "type": "general-component-type",
+      "position": {"x": 220, "y": 130},
+      "data": {
+        "technicalID": "DCDC_mini",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 5}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "dcdc",
+              "type": "dcdcConverter",
+              "terminals": {
+                "inPositive": "IN",
+                "inNegative": "GND1",
+                "outPositive": "OUT",
+                "outNegative": "GND2"
+              },
+              "parameters": {
+                "outputVoltageV": {"field": "source_voltage"},
+                "efficiency": 0.9,
+                "voltageDropPctAt150Current": 50
+              }
+            },
+            {
+              "id": "gnd-bridge",
+              "type": "shortBridge",
+              "terminals": {"a": "GND1", "b": "GND2"}
+            }
+          ]
+        },
+        "handles": [
+          {"hid": "IN", "functions": ["suppl_in"], "x": 0, "y": 0},
+          {"hid": "GND1", "functions": ["gnd"], "x": 0, "y": 20},
+          {"hid": "OUT", "functions": ["suppl_out"], "x": 40, "y": 0},
+          {"hid": "GND2", "functions": ["gnd"], "x": 40, "y": 20}
+        ]
+      }
+    },
+    {
+      "id": "load_a",
+      "type": "general-component-type",
+      "position": {"x": 440, "y": 0},
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "selectFields": [
+          {
+            "technicalID": "NominalValue",
+            "selectedValue": 10,
+            "options": [
+              {"value": 10, "label": "10 Ohm"}
+            ]
+          }
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "resistor",
+              "type": "resistor",
+              "terminals": {"a": "1", "b": "2"},
+              "parameters": {"resistanceOhm": {"select": "NominalValue"}}
+            }
+          ]
+        },
+        "handles": [
+          {"hid": "1", "functions": ["dig_in"], "x": 0, "y": 0},
+          {"hid": "2", "functions": ["dig_in"], "x": 40, "y": 0}
+        ]
+      }
+    },
+    {
+      "id": "load_b",
+      "type": "general-component-type",
+      "position": {"x": 440, "y": 130},
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "selectFields": [
+          {
+            "technicalID": "NominalValue",
+            "selectedValue": 10,
+            "options": [
+              {"value": 10, "label": "10 Ohm"}
+            ]
+          }
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "resistor",
+              "type": "resistor",
+              "terminals": {"a": "1", "b": "2"},
+              "parameters": {"resistanceOhm": {"select": "NominalValue"}}
+            }
+          ]
+        },
+        "handles": [
+          {"hid": "1", "functions": ["dig_in"], "x": 0, "y": 0},
+          {"hid": "2", "functions": ["dig_in"], "x": 40, "y": 0}
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "psu_to_dcdc_a_in",
+      "source": "psu",
+      "sourceHandle": "Vout1",
+      "target": "dcdc_a",
+      "targetHandle": "IN",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "psu_to_dcdc_a_in",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "psu_to_dcdc_a_gnd",
+      "source": "psu",
+      "sourceHandle": "GND1",
+      "target": "dcdc_a",
+      "targetHandle": "GND1",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "psu_to_dcdc_a_gnd",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "psu_to_dcdc_b_in",
+      "source": "psu",
+      "sourceHandle": "Vout1",
+      "target": "dcdc_b",
+      "targetHandle": "IN",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "psu_to_dcdc_b_in",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "psu_to_dcdc_b_gnd",
+      "source": "psu",
+      "sourceHandle": "GND1",
+      "target": "dcdc_b",
+      "targetHandle": "GND1",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "psu_to_dcdc_b_gnd",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "dcdc_a_to_resistor_plus",
+      "source": "dcdc_a",
+      "sourceHandle": "OUT",
+      "target": "load_a",
+      "targetHandle": "1",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "dcdc_a_to_resistor_plus",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "resistor_a_to_dcdc_gnd",
+      "source": "load_a",
+      "sourceHandle": "2",
+      "target": "dcdc_a",
+      "targetHandle": "GND2",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "resistor_a_to_dcdc_gnd",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "dcdc_b_to_resistor_plus",
+      "source": "dcdc_b",
+      "sourceHandle": "OUT",
+      "target": "load_b",
+      "targetHandle": "1",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "dcdc_b_to_resistor_plus",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    },
+    {
+      "id": "resistor_b_to_dcdc_gnd",
+      "source": "load_b",
+      "sourceHandle": "2",
+      "target": "dcdc_b",
+      "targetHandle": "GND2",
+      "type": "editable-wire-type",
+      "data": {
+        "testLabel": "resistor_b_to_dcdc_gnd",
+        "physLength": 0.001,
+        "physCrosssection": 10,
+        "physCrosssectionUnit": "mm2",
+        "physType": "single"
+      }
+    }
+  ]
+}

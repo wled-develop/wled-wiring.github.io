@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import i18next from "../i18n";
 import type { ComponentDataType, EdgeDataType } from "../types";
 import { buildSimulationModel } from "./buildSimulationModel";
 import { createSimulationFingerprint } from "./simulationFingerprint";
@@ -93,6 +94,10 @@ const issue = (
   description,
   targets,
 });
+
+const simulationIssueText = (key: string) => (
+  String(i18next.t(`sidebar.simulation.issues.${key}`, { ns: "main" }))
+);
 
 const addEntry = (
   entries: LinearSystem["entries"],
@@ -764,8 +769,8 @@ const createSolvedCheckIssues = (
 
     issues.push(issue(
       `simulation-dcdc-input-power-ambiguous:${element.id}`,
-      "DCDC input power limit is ambiguous",
-      "Multiple input voltage sources are passively reachable from this DCDC input. The dynamic input-power limit was not calculated because source sharing is not modeled.",
+      simulationIssueText("dcdcInputPowerAmbiguous.title"),
+      simulationIssueText("dcdcInputPowerAmbiguous.description"),
       [{type: "element", elementId: element.id}],
     ));
   });

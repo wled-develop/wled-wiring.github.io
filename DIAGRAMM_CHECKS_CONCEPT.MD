@@ -333,6 +333,8 @@ Die verbleibenden Quellen werden nach einem Source-Key gruppiert:
 
 Wenn mehr als ein unabhaengiger Source-Key vorhanden ist, wird ein Fehler erzeugt.
 
+Das gilt auch fuer DCDC-Eingaenge: Ein DCDC-`suppl_in` darf in einem Supply-Netz nicht gleichzeitig mehrere unabhaengige PSU-/Spannungsquellen erreichen. Der Simulationssolver modelliert keine Stromteilung zwischen mehreren Eingangsquellen; der Diagramm-Check soll solche Aufbauten deshalb vor der Simulation als `multipleSupplySources` melden. Mehrere DCDC-Wandler an derselben einzelnen PSU sind dagegen erlaubt, weil sie keine mehreren Quellen in dasselbe Eingangsnetz bringen.
+
 ### `signalSinkWithoutSource`
 
 Fehler, wenn ein Signal-Eingang verdrahtet ist, aber das Netz nicht als passendes Signalnetz klassifiziert ist.
@@ -499,7 +501,7 @@ Empfohlene Bedeutung:
 | `peActiveMixed` | `error` | 90 | 6 | `net` | Sicherheitskritisch. Muss `mixedClassifications` fuer dasselbe Netz unterdruecken. |
 | `rs485Mixed` | `error` | 80 | 25 | `net` | Spezifischer als `mixedClassifications`; soll diese fuer dasselbe Netz unterdruecken. |
 | `mixedClassifications` | `error` | 20 | 80 | `net` | Fallback-Regel. Nur anzeigen, wenn kein spezifischer Mischfehler fuer dasselbe Netz existiert. |
-| `multipleSupplySources` | `error` | 70 | 35 | `net` | Konkreter Supply-Fehler. Sollte vor `supplyVoltageMismatch` stehen, weil bei mehreren Quellen die eindeutige Spannung nicht bestimmbar ist. |
+| `multipleSupplySources` | `error` | 70 | 35 | `net` | Konkreter Supply-Fehler. Sollte vor `supplyVoltageMismatch` stehen, weil bei mehreren Quellen die eindeutige Spannung nicht bestimmbar ist. Deckt auch mehrere unabhaengige PSU-/Spannungsquellen am selben DCDC-Eingang ab. |
 | `signalSinkWithoutSource` | `error` | 60 | 50 | `net`/`handle` | Sollte pro betroffenem Signaltyp und Netz erscheinen. Kann durch spezifischere Signalfehler wie `mixedDigitalSignalTypes` oder `dataDirectionWrong` unterdrueckt werden. |
 | `digitalSignalVoltageMismatch` | `error` | 75 | 45 | `handle` | Konkreter als allgemeine Signalquellen-Regeln. Sollte nicht durch `signalSinkWithoutSource` verdeckt werden. |
 | `multipleSignalSources` | `error` | 65 | 55 | `net` | Wichtig, aber nach sicherheits- und versorgungsbezogenen Fehlern. Kann durch spezifischere Direction-/Subtype-Regeln unterdrueckt werden. |

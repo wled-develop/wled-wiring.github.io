@@ -1,0 +1,65 @@
+{
+  "source": "Analytical",
+  "case": "dcdc_two_converters_one_psu",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.0001,
+    "currentA": 0.0001,
+    "voltageDropV": 0.0001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "PSU_HP",
+        "handleId": "Vout1",
+        "voltageV": 12
+      },
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "IN",
+        "voltageV": 12
+      },
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "OUT",
+        "voltageV": 5
+      },
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "IN",
+        "voltageV": 12
+      },
+      {
+        "nodeTechnicalID": "DCDC_mini",
+        "handleId": "OUT",
+        "voltageV": 5
+      }
+    ],
+    "wires": [
+      {
+        "label": "psu_to_dcdc_a_in",
+        "currentA": 0.2314815,
+        "voltageDropV": 0.0000004
+      },
+      {
+        "label": "psu_to_dcdc_b_in",
+        "currentA": 0.2314815,
+        "voltageDropV": 0.0000004
+      },
+      {
+        "label": "dcdc_a_to_resistor_plus",
+        "currentA": 0.5,
+        "voltageDropV": 0.0000009
+      },
+      {
+        "label": "dcdc_b_to_resistor_plus",
+        "currentA": 0.5,
+        "voltageDropV": 0.0000009
+      }
+    ],
+    "checkIssues": []
+  }
+}

@@ -305,3 +305,7 @@ Der DCDC-Grundfall `dcdc_psu_resistor` enthaelt zusaetzlich eine LTspice-Netlist
 Der DCDC-Ueberlastfall `dcdc_overload_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_overload_resistor.cir`. Sie beschreibt denselben Grundaufbau mit festem 0,4-A-Ausgangslimit. Das Fixture erwartet die degradierte Ausgangsspannung und genau ein Simulation-Check-Issue fuer das ueberschrittene DCDC-Stromlimit.
 
 Der DCDC-Eingangsleistungsfall `dcdc_input_limited_resistor` enthaelt zusaetzlich eine LTspice-Netlist `dcdc_input_limited_resistor.cir`. Sie beschreibt eine 12-V-Eingangsquelle mit 0,1-A-Stromlimit, einen 5-V-DCDC-Ausgang mit 90 % Wirkungsgrad und eine 10-Ohm-Last. Das Fixture erwartet die degradierte Ausgangsspannung und genau ein `DCDC input power limited`-Issue; transiente PSU-Ueberlasten aus fruehen Iterationen werden nicht als finale Nutzer-Issues ausgegeben.
+
+Der analytische DCDC-Mehrquellenfall `dcdc_input_multi_source_ambiguous` beschreibt zwei passiv erreichbare 12-V-PSUs am selben DCDC-Eingang. Das Fixture erwartet keine Aufsummierung der Quellenlimits, sondern genau ein `DCDC input power limit is ambiguous`-Issue.
+
+Der analytische Mehr-DCDC-Fall `dcdc_two_converters_one_psu` beschreibt eine 12-V-PSU mit zwei nachgeschalteten 5-V-DCDC-Wandlern und je einer 10-Ohm-Last. Das Fixture erwartet zwei geregelte DCDC-Ausgaenge ohne Simulation-Issue; die gemeinsame PSU-Last entsteht aus der Summe der beiden DCDC-Eingangsstromsenken.

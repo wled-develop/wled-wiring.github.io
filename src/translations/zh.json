@@ -533,6 +533,12 @@
       "noIssues": "没有模拟消息。",
       "issueCount": "{{count}} 条模拟消息",
       "affectedElements": "受影响的元素",
+      "issues": {
+        "dcdcInputPowerAmbiguous": {
+          "title": "DCDC 输入功率限制不明确",
+          "description": "该 DCDC 输入可以被动到达多个输入电压源。由于未建模多电源之间的电流分配，因此未计算动态输入功率限制。"
+        }
+      },
       "severity": {
         "error": "错误",
         "warning": "警告",

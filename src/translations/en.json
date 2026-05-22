@@ -533,6 +533,12 @@
       "noIssues": "No simulation messages.",
       "issueCount": "{{count}} simulation message(s)",
       "affectedElements": "Affected elements",
+      "issues": {
+        "dcdcInputPowerAmbiguous": {
+          "title": "DCDC input power limit is ambiguous",
+          "description": "Multiple input voltage sources are passively reachable from this DCDC input. The dynamic input-power limit was not calculated because source sharing is not modeled."
+        }
+      },
       "severity": {
         "error": "Error",
         "warning": "Warning",
