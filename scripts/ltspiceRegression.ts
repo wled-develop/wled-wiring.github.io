@@ -4,6 +4,7 @@ import path from "node:path";
 import { runSimulation } from "../src/simulation/runSimulation";
 import type {
   LedSimulationColorMode,
+  SimulationCheckIssue,
   SimulationResult,
   SimulationSettings,
 } from "../src/simulation/simulationTypes";
@@ -56,6 +57,13 @@ type ExpectedLedStrip = {
   totalCurrentA?: number;
 };
 
+type ExpectedCheckIssue = {
+  id?: string;
+  severity?: SimulationCheckIssue["severity"];
+  title?: string;
+  descriptionIncludes?: string;
+};
+
 type LtspiceExpected = {
   case: string;
   settings?: Partial<SimulationSettings>;
@@ -68,6 +76,7 @@ type LtspiceExpected = {
     pins?: ExpectedPin[];
     wires?: ExpectedWire[];
     ledStrips?: ExpectedLedStrip[];
+    checkIssues?: ExpectedCheckIssue[];
   };
 };
 
@@ -380,6 +389,64 @@ const compareLedStrips = (
   });
 };
 
+const issueMatchesExpectation = (
+  issue: SimulationCheckIssue,
+  expectedIssue: ExpectedCheckIssue,
+) => (
+  (expectedIssue.id === undefined || issue.id === expectedIssue.id) &&
+  (expectedIssue.severity === undefined || issue.severity === expectedIssue.severity) &&
+  (expectedIssue.title === undefined || issue.title === expectedIssue.title) &&
+  (
+    expectedIssue.descriptionIncludes === undefined ||
+    issue.description.includes(expectedIssue.descriptionIncludes)
+  )
+);
+
+const issueLabel = (issue: SimulationCheckIssue) => (
+  `${issue.severity}:${issue.id}:${issue.title}`
+);
+
+const compareCheckIssues = (
+  failures: Failure[],
+  caseName: string,
+  result: SimulationResult,
+  expectedCheckIssues: ExpectedCheckIssue[] | undefined,
+) => {
+  if(expectedCheckIssues === undefined) return;
+
+  const usedIssueIndexes = new Set<number>();
+
+  expectedCheckIssues.forEach((expectedIssue, index) => {
+    const issueIndex = result.checkIssues.findIndex((candidate, candidateIndex) => (
+      !usedIssueIndexes.has(candidateIndex) &&
+      issueMatchesExpectation(candidate, expectedIssue)
+    ));
+
+    if(issueIndex < 0) {
+      failures.push(fail(
+        caseName,
+        `checkIssues[${index}]`,
+        `matching issue was not found; actual issues: ${result.checkIssues.map(issueLabel).join(" | ") || "(none)"}`,
+      ));
+      return;
+    }
+
+    usedIssueIndexes.add(issueIndex);
+  });
+
+  if(result.checkIssues.length !== expectedCheckIssues.length) {
+    const unexpectedIssues = result.checkIssues
+      .filter((_, index) => !usedIssueIndexes.has(index))
+      .map(issueLabel);
+
+    failures.push(fail(
+      caseName,
+      "checkIssues",
+      `expected ${expectedCheckIssues.length} issue(s), got ${result.checkIssues.length}; unexpected: ${unexpectedIssues.join(" | ") || "(none)"}`,
+    ));
+  }
+};
+
 const compareCase = (casePath: string) => {
   const caseName = path.basename(casePath);
   const diagram = readJson<DiagramExport>(path.join(casePath, "diagram.json"));
@@ -426,6 +493,12 @@ const compareCase = (casePath: string) => {
     expected.expected?.ledStrips ?? [],
     voltageTolerance,
     currentTolerance,
+  );
+  compareCheckIssues(
+    failures,
+    caseName,
+    simulation.result,
+    expected.expected?.checkIssues,
   );
 
   return failures;

@@ -1089,12 +1089,13 @@ Aktuell vorhandene Referenzfaelle:
 
 - `PSU_Resistor`: einfache PSU-Last mit Widerstand. Dieser Fall prueft Grundgleichungen fuer Spannungsquelle, Leitungswiderstaende, Strom und Spannungsabfall ohne LED-Nichtlinearitaet.
 - `dcdc_psu_resistor`: 12-V-PSU, DCDC-Wandler auf 5 V und 10-Ohm-Last. Dieser Fall prueft geregelte DCDC-Ausgangsspannung, Ausgangslaststrom und den iterativen Eingangsstrom aus Ausgangsleistung und Wirkungsgrad. Die zugehoerige LTspice-Datei liegt als `dcdc_psu_resistor.cir` im Fixture-Verzeichnis.
+- `dcdc_overload_resistor`: 12-V-PSU, DCDC-Wandler auf 5 V mit 0,4-A-Ausgangslimit und 10-Ohm-Last. Dieser Fall prueft DCDC-Ausgangsspannungsdegradation und den erwarteten Simulation-Check bei ueberschrittenem Ausgangsstromlimit. Die zugehoerige LTspice-Datei liegt als `dcdc_overload_resistor.cir` im Fixture-Verzeichnis.
 - `ws2814_single_feed_1m`: 1 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall ist klein und eignet sich als Kalibrierung fuer LED-Kennlinie, LED-Serienwiderstaende und Wire-Ergebnisableitung.
 - `ws2814_single_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall prueft sichtbaren Spannungsabfall ueber den Streifen und die iterative LED-Stromberechnung.
 - `ws2814_double_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung an Anfang und Ende. Dieser Fall prueft Stromaufteilung ueber mehrere Einspeisepfade und Start-/End-Spannungen am LED-Streifen.
 - `ws2814_double_feed_10m_PSU_3A_Limit`: 10 m WS2814-24-V-Streifen mit Doppeleinspeisung und 3-A-PSU-Limit. Dieser Fall ist die Referenz fuer PSU-Ueberlast und Spannungsdegradation bei ueberschrittenem Stromlimit.
 
-Diese LTspice-Faelle sollen fuer jede fachliche Aenderung am Modellaufbau, Solver, LED-Strommodell, Wire-Widerstand oder PSU-/DCDC-Ueberlastmodell verwendet werden. Ziel ist ein automatisierter Regressionstest, der `diagram.json` laedt, die Simulation mit den in `expected.json` definierten Einstellungen ausfuehrt und Pin-, Wire- und LED-Streifen-Sollwerte innerhalb der angegebenen Toleranzen vergleicht.
+Diese LTspice-Faelle sollen fuer jede fachliche Aenderung am Modellaufbau, Solver, LED-Strommodell, Wire-Widerstand oder PSU-/DCDC-Ueberlastmodell verwendet werden. Ziel ist ein automatisierter Regressionstest, der `diagram.json` laedt, die Simulation mit den in `expected.json` definierten Einstellungen ausfuehrt und Pin-, Wire-, LED-Streifen- und optional Simulation-Check-Sollwerte innerhalb der angegebenen Toleranzen vergleicht.
 
 Wichtig fuer automatische Tests: `expected.json` muss gueltiges JSON bleiben, Dezimalwerte muessen also mit Punkt geschrieben werden. Wenn einzelne Referenzen voruebergehend fachlich erwartete Abweichungen enthalten, sollen diese nicht geloescht, sondern mit Kommentar in einer separaten `notes.md` oder im Test-Report erklaert werden.
 
@@ -1104,7 +1105,7 @@ Automatische Ausfuehrung:
 npm run test:ltspice
 ```
 
-Der Test-Harness liegt in `scripts/ltspiceRegression.ts` und wird ueber `scripts/runLtspiceRegression.mjs` mit esbuild fuer Node gebuendelt. Er verwendet den echten `runSimulation()`-Pfad, keine nachgebauten Testmodelle. Pin-Sollwerte werden ueber `nodeTechnicalID` und `handleId` zugeordnet. Wire-Sollwerte koennen direkt ueber `edgeId` oder ein Edge-Testlabel zugeordnet werden; solange die bestehenden Fixtures nur freie `label`-Texte in `expected.json` enthalten, werden die erwarteten Wires in Reihenfolge gegen die simulierten DC-Wires verglichen. Fuer neue Fixtures ist `edgeId` oder ein explizites Testlabel vorzuziehen.
+Der Test-Harness liegt in `scripts/ltspiceRegression.ts` und wird ueber `scripts/runLtspiceRegression.mjs` mit esbuild fuer Node gebuendelt. Er verwendet den echten `runSimulation()`-Pfad, keine nachgebauten Testmodelle. Pin-Sollwerte werden ueber `nodeTechnicalID` und `handleId` zugeordnet. Wire-Sollwerte koennen direkt ueber `edgeId` oder ein Edge-Testlabel zugeordnet werden; solange die bestehenden Fixtures nur freie `label`-Texte in `expected.json` enthalten, werden die erwarteten Wires in Reihenfolge gegen die simulierten DC-Wires verglichen. Fuer neue Fixtures ist `edgeId` oder ein explizites Testlabel vorzuziehen. Erwartete Simulation-Checks koennen unter `expected.checkIssues` per `id`, `severity`, `title` und `descriptionIncludes` angegeben werden; sobald dieses Feld gesetzt ist, muss die Anzahl der tatsaechlichen Checks exakt passen.
 
 Der Test darf waehrend der Solver-Entwicklung fehlschlagen. Ein Fehlschlag bedeutet dann: Die Testinfrastruktur funktioniert und zeigt, welche LTspice-Sollwerte noch nicht erreicht werden. Vor Solver-Aenderungen sollte der aktuelle Stand notiert werden; nach der Aenderung duerfen nur fachlich erklaerte Differenzen bleiben.
 
