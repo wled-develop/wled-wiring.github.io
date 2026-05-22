@@ -46,12 +46,6 @@
         "severity": "error",
         "title": "DCDC input power limited",
         "descriptionIncludes": "dynamic input-power limit"
-      },
-      {
-        "id": "simulation-current-limit:component:psu:source",
-        "severity": "error",
-        "title": "Current limit exceeded",
-        "descriptionIncludes": "exceeded limit 0.100 A during solver iteration"
       }
     ]
   }
