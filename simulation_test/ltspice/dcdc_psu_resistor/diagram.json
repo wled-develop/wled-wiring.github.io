@@ -83,7 +83,13 @@
         "technicalID": "Resistor",
         "technicalVersion": 1,
         "selectFields": [
-          {"technicalID": "NominalValue", "selectedValue": 10}
+          {
+            "technicalID": "NominalValue",
+            "selectedValue": 10,
+            "options": [
+              {"value": 10, "label": "10 Ohm"}
+            ]
+          }
         ],
         "simdata": {
           "version": 1,
