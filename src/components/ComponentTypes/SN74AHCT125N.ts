@@ -20,6 +20,20 @@ export const SN74AHCT125N: Node = {
         borderWidth: 2,
         resizableX: false,
         rotatable: true,
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "idle-load",
+                    type: "constantPowerSink",
+                    terminals: {positive: "VCC", negative: "GND"},
+                    parameters: {
+                        powerW: 0.05,
+                        minVoltageV: 3,
+                    },
+                },
+            ]
+        },
         handles: [
         {
             borderColor: "green",

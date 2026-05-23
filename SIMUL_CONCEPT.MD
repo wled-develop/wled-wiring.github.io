@@ -324,7 +324,7 @@ I = powerW / max(V(positive) - V(negative), minVoltageV)
 
 Wenn `minVoltageV` nicht gesetzt ist, wird ein kleiner interner Mindestwert verwendet, damit bei sehr niedriger Spannung kein unendlicher Strom entsteht. Faellt die Spannung unter `minVoltageV`, begrenzt der Solver den Strom auf `powerW / minVoltageV` und erzeugt optional einen Simulationshinweis wegen Unterspannung.
 
-Implementierungsstand: `constantPowerSink` wird im nichtlinearen Solver iterativ als Stromsenke gestempelt. Nach jeder linearen Loesung wird die aktuelle Klemmenspannung ausgewertet und der Strom fuer die naechste Iteration mit `powerW / max(V, minVoltageV)` aktualisiert. Dadurch wird die Last bei normaler Versorgung nicht auf den Worst-Case-Strom `powerW / minVoltageV` festgenagelt.
+Implementierungsstand: `constantPowerSink` wird im nichtlinearen Solver iterativ als Stromsenke gestempelt. Nach jeder linearen Loesung wird die aktuelle Klemmenspannung ausgewertet und der Strom fuer die naechste Iteration mit `powerW / max(V, minVoltageV)` aktualisiert. Dadurch wird die Last bei normaler Versorgung nicht auf den Worst-Case-Strom `powerW / minVoltageV` festgenagelt. Stromquellen und Konstantleistungssenken aktivieren keine ansonsten freien Knoten, weil sie keine Leitfaehigkeit definieren; sie werden nur gestempelt, wenn beide Terminals bereits Teil des aktiven Simulationsnetzes sind. Ein unbeschalteter Controller-Pin mit Nebenverbrauch, z. B. der `3V3`-Pin eines ESP32, macht das lineare System dadurch nicht singulaer.
 
 Beispiel:
 

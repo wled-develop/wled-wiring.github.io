@@ -95,6 +95,7 @@ export const Elko: Node = {
             ],
             },
         ],
+        simdata: {},
         handles: [
         {
             borderColor: "red",

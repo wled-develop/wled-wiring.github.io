@@ -221,6 +221,7 @@ Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
 - Digitale LED-Streifen werden anhand von `physLengths`, `ledsPerMeter` und `physLedsPerLogicLed` in interne LED-Elemente expandiert.
 - Start-/End-/Middle-Grenzen der LED-Streifen werden als `SimulationVirtualPin` ausgegeben.
 - MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
+- Stromquellen, Konstantleistungssenken und iterative DCDC-Eingangsstromsenken aktivieren keine Knoten selbst, weil sie keine Leitfaehigkeit bereitstellen. Sie werden nur gestempelt, wenn beide Terminals bereits im aktiven Simulationsnetz liegen; ein einseitig freier Pin wird dadurch ignoriert statt als singulaere Matrixspalte im linearen System zu landen.
 - PSU-Spannungsquellen werden bei Stromlimit-Ueberschreitung iterativ ueber `voltageDropPctAt150Current` degradert. Der Solver konvergiert erst, wenn LED-Stroeme und PSU-Zielspannungen stabil sind.
 - DCDC-Wandler stempeln ihren Ausgang als geregelte Spannungsquelle und ihre Eingangsseite iterativ als Stromsenke aus Ausgangsleistung und Wirkungsgrad. Optionale Ausgangsstromlimits degradieren die Ausgangsspannung wie bei PSU-Quellen.
 - Das lineare MNA-System wird mit `sparseLinearSystemSolver` geloest. Das System bleibt als Entry-Liste aufgebaut; der Solver assembliert Sparse-Rows und verwendet partielle Pivot-Suche.

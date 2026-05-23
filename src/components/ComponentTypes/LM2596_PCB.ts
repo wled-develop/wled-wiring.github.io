@@ -44,6 +44,31 @@ export const LM2596_PCB: Node = {
                         color: "black"
                     } as CompInputFieldDataType,
                 ],
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "dcdc",
+                    type: "dcdcConverter",
+                    terminals: {
+                        inPositive: "IN",
+                        inNegative: "GND1",
+                        outPositive: "OUT",
+                        outNegative: "GND2",
+                    },
+                    parameters: {
+                        outputVoltageV: {field: "source_voltage"},
+                        efficiency: 0.9,
+                        voltageDropPctAt150Current: 50,
+                    },
+                },
+                {
+                    id: "gnd-bridge",
+                    type: "shortBridge",
+                    terminals: {a: "GND1", b: "GND2"},
+                },
+            ],
+        },
         handles: [
             {
                 borderColor: "red",

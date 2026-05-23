@@ -636,15 +636,10 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
     if(element.type === "dcdcConverter") {
       addActive(element.terminals.outPositive);
       addActive(element.terminals.outNegative);
-      addPassiveConnection(element.terminals.inPositive, element.terminals.inNegative);
     }
 
     if(element.type === "resistor" || element.type === "fuse") {
       addPassiveConnection(element.terminals.a, element.terminals.b);
-    }
-
-    if(element.type === "currentSource" || element.type === "constantPowerSink") {
-      addPassiveConnection(element.terminals.positive, element.terminals.negative);
     }
 
     if(element.type === "digitalLed") {
@@ -671,6 +666,17 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
 
   return activeCircuitNodeIds;
 };
+
+const terminalsAreActive = (
+  activeCircuitNodeIds: Set<string>,
+  aCircuitNodeId: string | undefined,
+  bCircuitNodeId: string | undefined,
+) => (
+  aCircuitNodeId !== undefined &&
+  bCircuitNodeId !== undefined &&
+  activeCircuitNodeIds.has(aCircuitNodeId) &&
+  activeCircuitNodeIds.has(bCircuitNodeId)
+);
 
 const buildLinearDcModel = (
   model: SimulationModel,
@@ -721,33 +727,39 @@ const buildLinearDcModel = (
     }
 
     if(element.type === "currentSource") {
-      stampCurrentSource(
-        rhs,
-        circuitNodeIndexById,
-        element.terminals.positive,
-        element.terminals.negative,
-        numberParameter(element.parameters, "currentA"),
-      );
+      if(terminalsAreActive(activeCircuitNodeIds, element.terminals.positive, element.terminals.negative)) {
+        stampCurrentSource(
+          rhs,
+          circuitNodeIndexById,
+          element.terminals.positive,
+          element.terminals.negative,
+          numberParameter(element.parameters, "currentA"),
+        );
+      }
     }
 
     if(element.type === "constantPowerSink") {
-      stampCurrentSource(
-        rhs,
-        circuitNodeIndexById,
-        element.terminals.positive,
-        element.terminals.negative,
-        constantPowerCurrentByElementId.get(element.id) ?? 0,
-      );
+      if(terminalsAreActive(activeCircuitNodeIds, element.terminals.positive, element.terminals.negative)) {
+        stampCurrentSource(
+          rhs,
+          circuitNodeIndexById,
+          element.terminals.positive,
+          element.terminals.negative,
+          constantPowerCurrentByElementId.get(element.id) ?? 0,
+        );
+      }
     }
 
     if(element.type === "dcdcConverter") {
-      stampCurrentSource(
-        rhs,
-        circuitNodeIndexById,
-        element.terminals.inPositive,
-        element.terminals.inNegative,
-        dcdcInputStates.get(element.id)?.currentA ?? 0,
-      );
+      if(terminalsAreActive(activeCircuitNodeIds, element.terminals.inPositive, element.terminals.inNegative)) {
+        stampCurrentSource(
+          rhs,
+          circuitNodeIndexById,
+          element.terminals.inPositive,
+          element.terminals.inNegative,
+          dcdcInputStates.get(element.id)?.currentA ?? 0,
+        );
+      }
     }
 
     if(element.type === "digitalLed") {
