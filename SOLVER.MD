@@ -22,6 +22,7 @@ Spezialelemente werden iterativ aktualisiert:
 - PSU mit Stromlimit und aus `voltageDropPctAt150Current` abgeleiteter Spannungsdegradation
 - DCDC-Wandler mit dynamischem Ausgangsstromlimit
 - digitale LED-Stromsenken, spannungsabhaengig
+- Konstantleistungssenken mit `I = powerW / max(V, minVoltageV)`
 - PWM-DC-Lasten
 
 ## Knotenmodell

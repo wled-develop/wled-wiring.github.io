@@ -38,6 +38,7 @@ export type RunSimulationResult =
 const MIN_RESISTANCE_OHM = 1e-9;
 const MAX_NONLINEAR_ITERATIONS = 100;
 const LED_CURRENT_CONVERGENCE_A = 0.000005;
+const CONSTANT_POWER_CURRENT_CONVERGENCE_A = 0.000005;
 const SOURCE_VOLTAGE_CONVERGENCE_V = 0.00005;
 const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
 const VOLTAGE_TOLERANCE_V = 0.0005;
@@ -60,6 +61,7 @@ type LinearDcModel = {
 };
 
 type LedCurrentByElementId = Map<string, number>;
+type ConstantPowerCurrentByElementId = Map<string, number>;
 
 type VoltageSourceState = {
   voltageV: number;
@@ -275,6 +277,87 @@ const relaxedLedCurrents = (
   });
 
   return relaxed;
+};
+
+const constantPowerCurrentForElement = (
+  element: SimulationElement,
+  voltageV: number,
+) => {
+  const powerW = numberParameter(element.parameters, "powerW");
+  const minVoltageV = numberParameter(element.parameters, "minVoltageV") ?? 1;
+  if(powerW === undefined || minVoltageV <= 0) return undefined;
+
+  return powerW / Math.max(voltageV, minVoltageV);
+};
+
+const createInitialConstantPowerCurrents = (model: SimulationModel): ConstantPowerCurrentByElementId => {
+  const currents = new Map<string, number>();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "constantPowerSink") return;
+
+    const minVoltageV = numberParameter(element.parameters, "minVoltageV") ?? 1;
+    const currentA = constantPowerCurrentForElement(element, minVoltageV);
+    if(currentA !== undefined) {
+      currents.set(element.id, currentA);
+    }
+  });
+
+  return currents;
+};
+
+const createConstantPowerCurrentsFromVoltages = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+): ConstantPowerCurrentByElementId => {
+  const currents = new Map<string, number>();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "constantPowerSink") return;
+
+    const positiveVoltage = circuitVoltages.get(element.terminals.positive);
+    const negativeVoltage = circuitVoltages.get(element.terminals.negative);
+    const voltageV = positiveVoltage !== undefined && negativeVoltage !== undefined
+      ? positiveVoltage - negativeVoltage
+      : numberParameter(element.parameters, "minVoltageV") ?? 1;
+    const currentA = constantPowerCurrentForElement(element, voltageV);
+
+    if(currentA !== undefined) {
+      currents.set(element.id, currentA);
+    }
+  });
+
+  return currents;
+};
+
+const maxCurrentDeltaA = (
+  current: Map<string, number>,
+  next: Map<string, number>,
+) => {
+  const elementIds = new Set([...current.keys(), ...next.keys()]);
+  let maxDeltaA = 0;
+
+  elementIds.forEach((elementId) => {
+    maxDeltaA = Math.max(maxDeltaA, Math.abs((current.get(elementId) ?? 0) - (next.get(elementId) ?? 0)));
+  });
+
+  return maxDeltaA;
+};
+
+const relaxedCurrents = <CurrentMap extends Map<string, number>>(
+  current: CurrentMap,
+  next: CurrentMap,
+): CurrentMap => {
+  const elementIds = new Set([...current.keys(), ...next.keys()]);
+  const relaxed = new Map<string, number>();
+
+  elementIds.forEach((elementId) => {
+    const currentA = current.get(elementId) ?? 0;
+    const nextA = next.get(elementId) ?? 0;
+    relaxed.set(elementId, currentA + (nextA - currentA) * NONLINEAR_RELAXATION);
+  });
+
+  return relaxed as CurrentMap;
 };
 
 const voltageSourceNominalVoltage = (element: SimulationElement) => {
@@ -592,6 +675,7 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
 const buildLinearDcModel = (
   model: SimulationModel,
   ledCurrentByElementId: LedCurrentByElementId = new Map(),
+  constantPowerCurrentByElementId: ConstantPowerCurrentByElementId = new Map(),
   voltageSourceStates: VoltageSourceStateByElementId = new Map(),
   dcdcInputStates: DcdcInputStateByElementId = new Map(),
 ): LinearDcModel => {
@@ -647,17 +731,13 @@ const buildLinearDcModel = (
     }
 
     if(element.type === "constantPowerSink") {
-      const powerW = numberParameter(element.parameters, "powerW");
-      const minVoltageV = numberParameter(element.parameters, "minVoltageV") ?? 1;
-      if(powerW !== undefined && minVoltageV > 0) {
-        stampCurrentSource(
-          rhs,
-          circuitNodeIndexById,
-          element.terminals.positive,
-          element.terminals.negative,
-          powerW / minVoltageV,
-        );
-      }
+      stampCurrentSource(
+        rhs,
+        circuitNodeIndexById,
+        element.terminals.positive,
+        element.terminals.negative,
+        constantPowerCurrentByElementId.get(element.id) ?? 0,
+      );
     }
 
     if(element.type === "dcdcConverter") {
@@ -1237,11 +1317,13 @@ export const runSimulation = (
   }
 
   let ledCurrentByElementId = createInitialLedCurrents(modelResult.model);
+  let constantPowerCurrentByElementId = createInitialConstantPowerCurrents(modelResult.model);
   let voltageSourceStates = createInitialVoltageSourceStates(modelResult.model);
   let dcdcInputStates = createInitialDcdcInputStates(modelResult.model);
   let linearModel = buildLinearDcModel(
     modelResult.model,
     ledCurrentByElementId,
+    constantPowerCurrentByElementId,
     voltageSourceStates,
     dcdcInputStates,
   );
@@ -1269,6 +1351,11 @@ export const runSimulation = (
     const circuitVoltages = createCircuitVoltages(modelResult.model, linearModel, solverResult.values);
     const rawNextLedCurrentByElementId = createLedCurrentsFromVoltages(modelResult.model, circuitVoltages);
     const nextLedCurrentByElementId = relaxedLedCurrents(ledCurrentByElementId, rawNextLedCurrentByElementId);
+    const rawNextConstantPowerCurrentByElementId = createConstantPowerCurrentsFromVoltages(modelResult.model, circuitVoltages);
+    const nextConstantPowerCurrentByElementId = relaxedCurrents(
+      constantPowerCurrentByElementId,
+      rawNextConstantPowerCurrentByElementId,
+    );
     const dcdcInputUpdate = updateDcdcInputStates(
       modelResult.model,
       linearModel.voltageSources,
@@ -1291,10 +1378,15 @@ export const runSimulation = (
 
     if(
       maxLedCurrentDeltaA(ledCurrentByElementId, rawNextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
+      maxCurrentDeltaA(
+        constantPowerCurrentByElementId,
+        rawNextConstantPowerCurrentByElementId,
+      ) <= CONSTANT_POWER_CURRENT_CONVERGENCE_A &&
       sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V &&
       dcdcInputUpdate.maxCurrentDeltaA <= DCDC_INPUT_CURRENT_CONVERGENCE_A
     ) {
       ledCurrentByElementId = rawNextLedCurrentByElementId;
+      constantPowerCurrentByElementId = rawNextConstantPowerCurrentByElementId;
       voltageSourceStates = sourceUpdate.nextStates;
       dcdcInputStates = dcdcInputUpdate.nextStates;
       converged = true;
@@ -1302,11 +1394,13 @@ export const runSimulation = (
     }
 
     ledCurrentByElementId = nextLedCurrentByElementId;
+    constantPowerCurrentByElementId = nextConstantPowerCurrentByElementId;
     voltageSourceStates = sourceUpdate.nextStates;
     dcdcInputStates = dcdcInputUpdate.nextStates;
     linearModel = buildLinearDcModel(
       modelResult.model,
       ledCurrentByElementId,
+      constantPowerCurrentByElementId,
       voltageSourceStates,
       dcdcInputStates,
     );

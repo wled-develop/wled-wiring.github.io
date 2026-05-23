@@ -323,6 +323,8 @@ I = powerW / max(V(positive) - V(negative), minVoltageV)
 
 Wenn `minVoltageV` nicht gesetzt ist, wird ein kleiner interner Mindestwert verwendet, damit bei sehr niedriger Spannung kein unendlicher Strom entsteht. Faellt die Spannung unter `minVoltageV`, begrenzt der Solver den Strom auf `powerW / minVoltageV` und erzeugt optional einen Simulationshinweis wegen Unterspannung.
 
+Implementierungsstand: `constantPowerSink` wird im nichtlinearen Solver iterativ als Stromsenke gestempelt. Nach jeder linearen Loesung wird die aktuelle Klemmenspannung ausgewertet und der Strom fuer die naechste Iteration mit `powerW / max(V, minVoltageV)` aktualisiert. Dadurch wird die Last bei normaler Versorgung nicht auf den Worst-Case-Strom `powerW / minVoltageV` festgenagelt.
+
 Beispiel:
 
 - `MHC_V43`: Konstantleistungssenke zwischen `VIN` und `GND1` mit `powerW = 0.5`, um einen kleinen Nebenverbrauch des Controllers zu simulieren.
