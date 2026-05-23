@@ -48,6 +48,20 @@ export const MHC_V43: Node = {
             showNameIfSelected:true,
             options: [
                 {
+                    value: 2,
+                    label: "2 A",
+                    img: {url:"./miniOTO_2A_top.jpg", width: 60, height: 20} as ImageDataType,
+                    x: 133,
+                    y:9,
+                },
+				{
+                    value: 3,
+                    label: "3 A",
+                    img: {url:"./miniOTO_3A_top.jpg", width: 60, height: 20} as ImageDataType,
+                    x: 133,
+                    y: 9,
+                },
+                {
                     value: 4,
                     label: "4 A",
                     img: {url:"./miniOTO_4A_top.jpg", width: 60, height: 20} as ImageDataType,
@@ -203,14 +217,16 @@ export const MHC_V43: Node = {
                     parameters: {
                         resistanceOhm: {
                             table: {
-                                "4": 0.011,
-                                "5": 0.009,
-                                "7.5": 0.006,
-                                "10": 0.0045,
-                                "15": 0.003,
+                                "2": 0.095,
+                                "3": 0.061,
+                                "4": 0.040,
+                                "5": 0.035,
+                                "7.5": 0.028,
+                                "10": 0.0208,
+                                "15": 0.0165,
                             },
                             by: {select: "Fuse"},
-                            default: 0.006,
+                            default: 0.0065,
                         },
                         nominalCurrentA: {select: "Fuse"},
                     },

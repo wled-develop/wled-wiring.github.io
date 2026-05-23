@@ -20,6 +20,7 @@ export const PLUG_LNPE: Node = {
         borderWidth: 2,
         resizableX: false,
         rotatable: true,
+        simdata: {},
         handles: [
         {
             hid: "L",

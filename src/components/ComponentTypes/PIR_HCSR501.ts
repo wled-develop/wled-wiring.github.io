@@ -20,6 +20,20 @@ export const PIR_HCSR501: Node = {
         borderWidth: 2,
         resizableX: false,
         rotatable: true,
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "idle-load-3V3",
+                    type: "constantPowerSink",
+                    terminals: {positive: "V", negative: "GND"},
+                    parameters: {
+                        powerW: 0.01,
+                        minVoltageV: 3,
+                    },
+                },
+            ]
+        },
         handles: [
             {
                 borderColor: "black",

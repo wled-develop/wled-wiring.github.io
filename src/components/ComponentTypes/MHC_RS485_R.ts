@@ -20,6 +20,25 @@ export const MHC_RS485_R: Node = {
         resizableX: false,
         rotatable: true,
         borderWidth: 2,
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "idle-load",
+                    type: "constantPowerSink",
+                    terminals: {positive: "VIN", negative: "GND1"},
+                    parameters: {
+                        powerW: 0.5,
+                        minVoltageV: 3,
+                    },
+                },
+                {
+                    id: "gnd-bridge-1-2",
+                    type: "shortBridge",
+                    terminals: {a: "GND1", b: "RS485GND"}
+                },
+            ]
+        },
         handles: [
             {
                 "borderColor": "green",
