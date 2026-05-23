@@ -526,10 +526,28 @@
       "notRun": "尚未运行模拟。",
       "running": "正在运行模拟...",
       "invalidated": "图纸已更改，模拟结果已移除。",
+      "blockedTitle": "Simulation not started",
+      "blockedDescription": "Run a current diagram check without errors before starting the simulation.",
+      "diagramCheckDebugBypass": "Debug mode: simulation starts without diagram-check gating.",
+      "diagramCheckGate": {
+        "not-checked": {
+          "title": "Diagram check required",
+          "description": "Run the diagram check before starting the simulation."
+        },
+        "stale": {
+          "title": "Diagram check is outdated",
+          "description": "The diagram changed after the last check. Run the diagram check again."
+        },
+        "has-errors": {
+          "title": "Diagram check has {{count}} error(s)",
+          "description": "Fix the diagram-check errors before starting the simulation. Warnings do not block simulation."
+        }
+      },
       "modelReadyTitle": "模拟模型已创建",
       "modelReadyDescription": "{{components}} 个已模拟组件，{{wires}} 条已模拟导线。",
       "failedTitle": "模拟失败",
       "failedDescription": "无法创建模拟模型。请检查下面的消息。",
+      "workerFailedTitle": "Simulation worker failed",
       "noIssues": "没有模拟消息。",
       "issueCount": "{{count}} 条模拟消息",
       "affectedElements": "受影响的元素",

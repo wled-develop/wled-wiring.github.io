@@ -1040,11 +1040,13 @@ Elemente:
    - Helligkeit als Slider + Prozentanzeige
 2. Button `Simulate`
    - prueft vorhandenen Diagramm-Check-Status und Fingerprint
-   - baut Modell
-   - fuehrt Simulation aus
+   - startet die Berechnung in einem Web Worker, damit die Sidebar den `running`-Zustand rendern kann und lange LED-Streifen die UI nicht blockieren
+   - baut Modell im Worker
+   - fuehrt Simulation im Worker aus
    - startet Checks
    - setzt `simulationResult`
    - setzt waehrenddessen `simulationStatus = 'running'`
+   - verwirft Worker-Ergebnisse, wenn sich der Diagramm-Fingerprint waehrend der Berechnung geaendert hat
 3. Button `Delete simulation results`
    - setzt `simulationResult = null`
    - setzt `simulationStatus = 'idle'`
@@ -1079,6 +1081,8 @@ src/simulation/
   runSimulation.ts
   simulationDebug.ts
   simulationChecks.ts
+  simulationWorker.ts
+  runSimulationInWorker.ts
   simulationFingerprint.ts
   denseLinearSystemSolver.ts
   wireResistance.ts

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DeleteOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/react";
@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { createSimulationFingerprint } from "./simulationFingerprint";
 import { logSimulationDebug } from "./simulationDebug";
-import { runSimulation as runDeterministicSimulation } from "./runSimulation";
+import { runSimulationInWorker, type SimulationWorkerRun } from "./runSimulationInWorker";
 import { useSimulationResultStore } from "./simulationResultStore";
 import { DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK } from "./simulationFeatureFlags";
 import type {
@@ -70,7 +70,7 @@ const findNodeForSimulationElement = (
 };
 
 export const SimulationPage = () => {
-  const { t } = useTranslation(["main"]);
+  const { t, i18n } = useTranslation(["main"]);
   const reactFlow = useReactFlow<Node<ComponentDataType>, Edge<EdgeDataType>>();
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
@@ -88,10 +88,17 @@ export const SimulationPage = () => {
   } | null>(null);
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
+  const simulationRequestIdRef = useRef(0);
+  const simulationWorkerRunRef = useRef<SimulationWorkerRun | null>(null);
+  const currentFingerprintRef = useRef<string | null>(null);
 
   const currentFingerprint = useMemo(() => (
     createSimulationFingerprint(nodes, edges)
   ), [edges, nodes]);
+
+  useEffect(() => {
+    currentFingerprintRef.current = currentFingerprint;
+  }, [currentFingerprint]);
 
   const simulationGate = useMemo((): {state: SimulationGateState; errorCount: number} => {
     if(DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK) {
@@ -178,27 +185,20 @@ export const SimulationPage = () => {
     return target.elementId;
   };
 
-  const runSimulation = () => {
-    if(simulationBlocked) {
-      setStatus("blocked");
+  const applySimulationResult = (simulation: Awaited<SimulationWorkerRun["promise"]>) => {
+    const simulationFingerprint = simulation.ok
+      ? simulation.result.diagramFingerprint
+      : simulation.diagramFingerprint;
+
+    if(currentFingerprintRef.current !== simulationFingerprint) {
+      setStatus("idle");
       setIssues(null);
       setModelStats(null);
-      setWasInvalidated(false);
+      setResultFingerprint(null);
+      setWasInvalidated(true);
       setSimulationOverlayResult(null);
       return;
     }
-
-    setStatus("running");
-    setIssues(null);
-    setModelStats(null);
-    setWasInvalidated(false);
-    setSimulationOverlayResult(null);
-
-    const simulation = runDeterministicSimulation(
-      reactFlow.getNodes(),
-      reactFlow.getEdges(),
-      settings,
-    );
 
     logSimulationDebug(simulation);
     setIssues(simulation.issues);
@@ -216,7 +216,59 @@ export const SimulationPage = () => {
     setStatus("failed");
   };
 
+  const runSimulation = () => {
+    if(simulationBlocked) {
+      setStatus("blocked");
+      setIssues(null);
+      setModelStats(null);
+      setWasInvalidated(false);
+      setSimulationOverlayResult(null);
+      return;
+    }
+
+    setStatus("running");
+    setIssues(null);
+    setModelStats(null);
+    setWasInvalidated(false);
+    setSimulationOverlayResult(null);
+
+    simulationWorkerRunRef.current?.terminate();
+    const requestId = simulationRequestIdRef.current + 1;
+    simulationRequestIdRef.current = requestId;
+    const workerRun = runSimulationInWorker({
+      requestId,
+      nodes: reactFlow.getNodes(),
+      edges: reactFlow.getEdges(),
+      settings,
+      language: i18n.resolvedLanguage,
+    });
+    simulationWorkerRunRef.current = workerRun;
+
+    workerRun.promise
+      .then((simulation) => {
+        if(simulationRequestIdRef.current !== requestId) return;
+        simulationWorkerRunRef.current = null;
+        applySimulationResult(simulation);
+      })
+      .catch((error) => {
+        if(simulationRequestIdRef.current !== requestId) return;
+        simulationWorkerRunRef.current = null;
+        setIssues([{
+          id: "simulation-worker:failed",
+          severity: "error",
+          title: t("sidebar.simulation.workerFailedTitle"),
+          description: error instanceof Error ? error.message : String(error),
+        }]);
+        setResultFingerprint(currentFingerprint);
+        setSimulationOverlayResult(null);
+        setStatus("failed");
+      });
+  };
+
   const deleteResults = () => {
+    simulationRequestIdRef.current += 1;
+    simulationWorkerRunRef.current?.terminate();
+    simulationWorkerRunRef.current = null;
     setStatus("idle");
     setIssues(null);
     setModelStats(null);
@@ -236,6 +288,11 @@ export const SimulationPage = () => {
     setWasInvalidated(true);
     setSimulationOverlayResult(null);
   }, [currentFingerprint, resultFingerprint, setSimulationOverlayResult, status]);
+
+  useEffect(() => () => {
+    simulationRequestIdRef.current += 1;
+    simulationWorkerRunRef.current?.terminate();
+  }, []);
 
   return (
     <Flex gap="small" vertical>

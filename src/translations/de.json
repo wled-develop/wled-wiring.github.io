@@ -547,6 +547,7 @@
       "modelReadyDescription": "{{components}} simulierte Komponente(n), {{wires}} simulierte Wire(s).",
       "failedTitle": "Simulation fehlgeschlagen",
       "failedDescription": "Das Simulationsmodell konnte nicht erstellt werden. Bitte prüfe die Meldungen unten.",
+      "workerFailedTitle": "Simulations-Worker fehlgeschlagen",
       "noIssues": "Keine Simulationsmeldungen.",
       "issueCount": "{{count}} Simulationsmeldung(en)",
       "affectedElements": "Betroffene Elemente",
