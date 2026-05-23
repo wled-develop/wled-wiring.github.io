@@ -6,13 +6,15 @@
 
 ## Project scope
 - web application that allow users create wiring diagrams
-- user can check the diagram using Diagram Checks (Concept description:DIAGRAMM_CHECKS_CONCEPT.MD)
-- user can simulate diagramm electrically (Concept description: SIMUL_CONCEPT.MD, Solver in particular: SOLVER.MD)
+- user can check the diagram using Diagram Checks (Concept description: Docs/DIAGRAMM_CHECKS_CONCEPT.MD)
+- user can simulate diagramm electrically (Concept description: Docs/SIMUL_CONCEPT.MD, Solver in particular: Docs/SOLVER.MD)
 
 ## Documentation practices
-- When working on diagram checks, keep DIAGRAMM_CHECKS_CONCEPT.MD up to date
-- When working on simulation, keep SIMUL_CONCEPT.MD up to date
-- When working on solver for simulation, keep SOLVER.MD up to date
+- When working on diagram checks, keep Docs/DIAGRAMM_CHECKS_CONCEPT.MD up to date
+- When working on simulation, keep Docs/SIMUL_CONCEPT.MD up to date
+- When working on solver for simulation, keep Docs/SOLVER.MD up to date
+- When working on concept and possible improvements of the concept, keep Docs/SUGGESTIONS.MD up to date
+- When bug, issues or urgent improvements are found, use Docs/TODO.MD as todo list
 
 ## Boundaries
 - **Never do:** Implement heuristic techniques if not explecitely asked

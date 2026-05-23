@@ -102,7 +102,7 @@ Dabei gilt:
 
 - `type` ist der elementare Elementtyp.
 - `terminals` mappt Elementterminals auf `hid`s der Komponente.
-- `parameters` enthaelt Parameter, feste Werte, Field-Referenzen oder Lookup-Definitionen.
+- `parameters` enthaelt Parameter, feste Werte, Field-Referenzen, Select-Referenzen oder lokale Tabellen.
 
 Beispiele:
 
@@ -162,7 +162,6 @@ type SimulationParameterRef =
   | {const: number | string | boolean}
   | {field: string; default?: number | string | boolean}
   | {select: string; default?: number | string | boolean}
-  | {lookup: string; by: SimulationParameterRef; default?: number}
   | {table: Record<string, number>; by: SimulationParameterRef; default?: number}
   | {ledCurve: string; colorMode: 'settings.ledColorMode'}
   | {ledSimulationOption: 'supplyResistance' | 'gndResistance' | 'currentCurve'};
@@ -172,11 +171,10 @@ Dabei gilt:
 
 - `{field: "source_voltage"}` verweist auf die `technicalID`/HID eines Eingabefelds der Komponente und uebernimmt dessen aktuellen Wert.
 - `{select: "Fuse"}` verweist auf die `technicalID`/HID eines Auswahlfelds der Komponente.
-- `{lookup: "miniOtoResistanceByCurrent", by: {select: "Fuse"}}` verweist auf eine in `simdata` definierte Lookup-Tabelle.
 - `{table: {"5": 0.01, "10": 0.006}, by: {select: "Fuse"}, default: 0.01}` erlaubt kleine lokale Tabellen direkt im Element.
 - `{ledCurve: "WS2814_24V", colorMode: "settings.ledColorMode"}` ist die alte direkte Kennlinienreferenz. Fuer neue digitale LED-Streifen soll stattdessen `{ledSimulationOption: "currentCurve"}` verwendet werden.
 - `{ledSimulationOption: "supplyResistance" | "gndResistance" | "currentCurve"}` verweist auf die in der LED-Komponenteninstanz gespeicherte Auswahl aus `ledSimulationOptionValues`.
-- `default` wird verwendet, wenn ein Feld fehlt oder eine Lookup-Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
+- `default` wird verwendet, wenn ein Feld fehlt oder eine lokale Tabelle keinen passenden Eintrag hat. Fehlt auch `default`, erzeugt der Modellaufbau einen Simulationsfehler.
 
 Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID` darf zur Auswahl eines Modelladapters oder fuer Defaults dienen, aber die explizite `simdata`-Struktur ist die Freigabe, dass eine Komponente simuliert wird.
 
@@ -204,12 +202,12 @@ Der Widerstandswert kann definiert werden als:
 - fester Zahlenwert
 - Verweis auf ein Eingabefeld der Komponente
 - Verweis auf ein Auswahlfeld der Komponente
-- Lookup-Funktion in Abhaengigkeit von einem Eingabe- oder Auswahlfeld
+- lokale Tabelle in Abhaengigkeit von einem Eingabe- oder Auswahlfeld
 
 Beispiele:
 
 - `Resistor`: ein elementarer Widerstand zwischen den beiden Pins.
-- `miniOTOFuse`: ein elementarer Widerstand, dessen Wert aus einer Lookup-Tabelle anhand des Sicherungs-Nominalwerts bestimmt wird.
+- `miniOTOFuse`: ein elementarer Widerstand, dessen Wert aus einer lokalen Tabelle anhand des Sicherungs-Nominalwerts bestimmt wird.
 - `MHC_V43`: ein Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren.
 
 ### Konstante Spannungsquelle mit Stromlimit und Spannungsdegradation
@@ -371,7 +369,7 @@ Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurre
 I = I0 + Ilim / (1 + exp(-k * (V - V0))) + kUI * V
 ```
 
-Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden Lookup-Tabellen vorerst direkt in `simdata` gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
+Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werden kleine lokale Tabellen direkt in den jeweiligen `simdata`-Elementparametern gepflegt; das betrifft anfangs `miniOTOFuse` und `MHC_V43`.
 
 ### Auswaehlbare LED-Streifen-Simulationsoptionen
 
@@ -417,8 +415,8 @@ Die konkrete Zuordnung eines PWM-Netzes zu einem LED-Streifen-Kanal kommt aus `s
 `miniOTOFuse`:
 
 - ein elementarer Widerstand
-- Widerstandswert per Lookup aus Sicherungs-Nominalwert
-- Lookup direkt in `simdata`
+- Widerstandswert per lokaler Tabelle aus Sicherungs-Nominalwert
+- Tabelle direkt im `simdata`-Elementparameter
 - Simulations-Check bei Strom ueber Nominalwert
 
 `PSU`:
@@ -446,7 +444,7 @@ Digitale LED-Streifen:
 `MHC_V43` Controller:
 
 - Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren
-- Widerstandswert und Sicherungsgrenzwert per Lookup direkt in `simdata`
+- Widerstandswert und Sicherungsgrenzwert per lokaler Tabelle direkt in `simdata`
 - Kurzschlussbruecken zwischen den GND-Pins
 - Konstantleistungssenke zwischen `VIN` und `GND1` mit `0.5 W` fuer kleinen Controller-Nebenverbrauch
 
@@ -1177,7 +1175,7 @@ Optional:
 2. Erste Komponenten: `Resistor`, `miniOTOFuse`, PSU, digitaler LED-Streifen, `WAGO_2x`, `WAGO_3x`, `MHC_V43`, `DCDC`.
 3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
 4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
-5. Sicherungs-Lookups zuerst direkt in `simdata`.
+5. Sicherungswerte werden zuerst ueber lokale Tabellen direkt in `simdata` gepflegt.
 6. LED-Stromkennlinien und LED-Streifen-Widerstandsvarianten in `src/simulation/ledStripSimulationOptions.ts`; `src/simulation/ledCurrentLookups.ts` stellt daraus die Solver-Kennlinien bereit.
 7. `physLengths[i].length` ist Meter.
 8. `_middle_N` entspricht `repeatIndex === N`; `physLengths.startIndex === N` markiert eine Abschnittsgrenze.
@@ -1202,7 +1200,7 @@ Optional:
 27. `Simulate` verwendet ein vorhandenes Diagramm-Check-Ergebnis, wenn dessen Diagramm-Fingerprint unveraendert ist.
 28. Diagramm-Check-Warnungen blockieren die Simulation erstmal nicht; nur `error` blockiert.
 29. Waehrend einer laufenden Simulation wird `simulationStatus = 'running'` angezeigt; der Nutzer sieht den Zustand im Sidebar-Statusbereich und optional als dezenten Busy-Indikator im Diagramm.
-30. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und Lookup-Tabellen.
+30. `SimulationParameterRef` verwendet kompakte Referenzen auf konstante Werte, Eingabefelder, Auswahlfelder und lokale Tabellen.
 31. Field-Referenzen verweisen auf die `technicalID`/HID des Eingabefelds und uebernehmen dessen aktuellen Wert.
 32. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
 33. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.

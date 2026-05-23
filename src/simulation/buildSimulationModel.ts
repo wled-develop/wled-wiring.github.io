@@ -237,10 +237,6 @@ const resolveParameter = (
     return {ok: false, message: `No table value for selector ${String(selector.value)}.`};
   }
 
-  if("lookup" in ref) {
-    return {ok: false, message: `Lookup references are not implemented yet: ${ref.lookup}.`};
-  }
-
   if("ledCurve" in ref) {
     return {
       ok: true,
