@@ -179,6 +179,7 @@ export type HandleDataType = {
     wireInfo_crosssectionUnit?: string;
     wireInfo_color?: string;
     checkHighlighted?: boolean;
+    simulationHighlighted?: boolean;
     // --------------
     // for popover
     popover?: {
@@ -204,6 +205,7 @@ export type HandleDataType = {
     color_selected: string;
     correspondingInfoNodeSelected?: boolean;
     checkHighlighted?: boolean;
+    simulationHighlighted?: boolean;
   }
 
   export type edgePoint = {

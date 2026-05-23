@@ -80,6 +80,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
     const rotatable=compData.rotatable;
     const rotation=rotatable?compData.rotation:0;
     const checkHighlighted=Boolean(compData.checkHighlighted);
+    const simulationHighlighted=Boolean(compData.simulationHighlighted);
     const isInfoNode=compData.technicalID=="InfoNode";
 
     const nodeLength=(compData?.nodeLength || 1);
@@ -1256,7 +1257,11 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         style={{
             border: (selected && !compData.applyNodeResizer)?`${borderWidth}px solid #333333`:(compData.changableColor?`${borderWidth}px solid ${compData.color}`:`${borderWidth}px solid transparent`),
             boxSizing: compData.applyNodeResizer?"border-box":"content-box",
-            boxShadow: checkHighlighted?"0 0 0 3px #faad14, 0 0 10px #faad14":undefined,
+            boxShadow: simulationHighlighted
+                ? "0 0 0 3px #1677ff, 0 0 10px #1677ff"
+                : checkHighlighted
+                    ? "0 0 0 3px #faad14, 0 0 10px #faad14"
+                    : undefined,
             height: isInfoNode?(flowNodeHeight!=undefined?"100%":infoNodeHeight):(compData.wireInfoForNodeId?"":(rotationSwapImgWH?(nodeLength*nodeBasicSizeX):nodeBasicSizeY)),
             width: (compData.wireInfoForNodeId)?"":(isInfoNode?(flowNodeWidth!=undefined?"100%":infoNodeWidth):(rotationSwapImgWH?nodeBasicSizeY:(nodeLength*nodeBasicSizeX))),
             //backgroundImage: `url(${backgroundImageURL})`,

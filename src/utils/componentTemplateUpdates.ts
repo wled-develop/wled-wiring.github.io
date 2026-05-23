@@ -8,6 +8,7 @@ const ignoredComponentDataKeys = new Set([
     "rotation",
     "selectedHid",
     "checkHighlighted",
+    "simulationHighlighted",
     "nodeLength",
     "repeatedHandleArray",
     "physLengths",

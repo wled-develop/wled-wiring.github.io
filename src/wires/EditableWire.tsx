@@ -336,6 +336,7 @@ export default function EditableWire ({
   const {t} = useTranslation(['main']);
   const edgeData = data as EdgeDataType;
   const checkHighlighted=Boolean(edgeData.checkHighlighted);
+  const simulationHighlighted=Boolean(edgeData.simulationHighlighted);
 
   const edgePoints = edgeData.edgePoints ?? [];
 
@@ -1765,11 +1766,15 @@ export default function EditableWire ({
             interactionWidth={0}
             style = {{
               stroke: selected ? `${edgeData.color_selected}` : `${edgeData?.color}`,
-              strokeWidth: checkHighlighted ? edgeData.width + 3 : edgeData.width,
+              strokeWidth: (checkHighlighted || simulationHighlighted) ? edgeData.width + 3 : edgeData.width,
               strokeLinecap: "round",
               strokeLinejoin: "round",
               //fill: "none",
-              filter: checkHighlighted?"drop-shadow(0px 0px 4px #faad14)":(edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
+              filter: simulationHighlighted
+                ? "drop-shadow(0px 0px 4px #1677ff)"
+                : checkHighlighted
+                  ? "drop-shadow(0px 0px 4px #faad14)"
+                  : (edgeData.correspondingInfoNodeSelected?"drop-shadow(0px 0px 2px)":""), //url(/filters.svg#double)
             }}
           />
           <path
@@ -1811,15 +1816,17 @@ export default function EditableWire ({
           key={`edge${id}_corner${index}`}
           cx={x}
           cy={y}
-          r={(checkHighlighted ? edgeData.width + 3 : edgeData.width) / 2}
+          r={((checkHighlighted || simulationHighlighted) ? edgeData.width + 3 : edgeData.width) / 2}
           fill={selected ? `${edgeData.color_selected}` : `${edgeData.color}`}
           stroke={selected ? `${edgeData.color_selected}` : `${edgeData.color}`}
           strokeWidth={0}
           pointerEvents="none"
           style={{
-            filter: checkHighlighted
-              ? "drop-shadow(0px 0px 4px #faad14)"
-              : (edgeData.correspondingInfoNodeSelected ? "drop-shadow(0px 0px 2px)" : ""),
+            filter: simulationHighlighted
+              ? "drop-shadow(0px 0px 4px #1677ff)"
+              : checkHighlighted
+                ? "drop-shadow(0px 0px 4px #faad14)"
+                : (edgeData.correspondingInfoNodeSelected ? "drop-shadow(0px 0px 2px)" : ""),
           }}
         />
       ))}

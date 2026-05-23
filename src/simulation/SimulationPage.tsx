@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeleteOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/react";
@@ -88,6 +88,7 @@ export const SimulationPage = () => {
   } | null>(null);
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
+  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const simulationRequestIdRef = useRef(0);
   const simulationWorkerRunRef = useRef<SimulationWorkerRun | null>(null);
   const currentFingerprintRef = useRef<string | null>(null);
@@ -185,6 +186,85 @@ export const SimulationPage = () => {
     return target.elementId;
   };
 
+  const clearSimulationHighlights = useCallback(() => {
+    reactFlow.setNodes((currentNodes) => currentNodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        simulationHighlighted: false,
+      },
+    })));
+
+    reactFlow.setEdges((currentEdges) => currentEdges.map((edge) => ({
+      ...edge,
+      data: {
+        ...(edge.data as EdgeDataType),
+        simulationHighlighted: false,
+      },
+    })));
+  }, [reactFlow]);
+
+  const highlightSimulationTargets = useCallback((targets: SimulationTarget[] = []) => {
+    const highlightedNodeIds = new Set<string>();
+    const highlightedEdgeIds = new Set<string>();
+
+    targets.forEach((target) => {
+      if(target.type === "node" || target.type === "pin") {
+        highlightedNodeIds.add(target.nodeId);
+        return;
+      }
+
+      if(target.type === "wire") {
+        highlightedEdgeIds.add(target.edgeId);
+        return;
+      }
+
+      const node = findNodeForSimulationElement(target.elementId, reactFlow.getNodes());
+      if(node) {
+        highlightedNodeIds.add(node.id);
+      }
+    });
+
+    reactFlow.setNodes((currentNodes) => currentNodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        simulationHighlighted: node.data.technicalID !== "SolderJoint" && highlightedNodeIds.has(node.id),
+      },
+    })));
+
+    reactFlow.setEdges((currentEdges) => currentEdges.map((edge) => ({
+      ...edge,
+      data: {
+        ...(edge.data as EdgeDataType),
+        simulationHighlighted: highlightedEdgeIds.has(edge.id),
+      },
+    })));
+  }, [reactFlow]);
+
+  const restoreActiveIssueHighlight = useCallback(() => {
+    const activeIssue = issues?.find((issue) => issue.id === activeIssueId);
+    if(activeIssue) {
+      highlightSimulationTargets(activeIssue.targets);
+      return;
+    }
+
+    clearSimulationHighlights();
+  }, [activeIssueId, clearSimulationHighlights, highlightSimulationTargets, issues]);
+
+  const activateIssue = (issue: SimulationCheckIssue) => {
+    if(!issue.targets || issue.targets.length === 0) return;
+
+    const nextIssueId = activeIssueId === issue.id ? null : issue.id;
+    setActiveIssueId(nextIssueId);
+    if(nextIssueId) {
+      highlightSimulationTargets(issue.targets);
+      return;
+    }
+
+    clearSimulationHighlights();
+  };
+
   const applySimulationResult = (simulation: Awaited<SimulationWorkerRun["promise"]>) => {
     const simulationFingerprint = simulation.ok
       ? simulation.result.diagramFingerprint
@@ -197,6 +277,8 @@ export const SimulationPage = () => {
       setResultFingerprint(null);
       setWasInvalidated(true);
       setSimulationOverlayResult(null);
+      setActiveIssueId(null);
+      clearSimulationHighlights();
       return;
     }
 
@@ -223,6 +305,8 @@ export const SimulationPage = () => {
       setModelStats(null);
       setWasInvalidated(false);
       setSimulationOverlayResult(null);
+      setActiveIssueId(null);
+      clearSimulationHighlights();
       return;
     }
 
@@ -231,6 +315,8 @@ export const SimulationPage = () => {
     setModelStats(null);
     setWasInvalidated(false);
     setSimulationOverlayResult(null);
+    setActiveIssueId(null);
+    clearSimulationHighlights();
 
     simulationWorkerRunRef.current?.terminate();
     const requestId = simulationRequestIdRef.current + 1;
@@ -261,6 +347,8 @@ export const SimulationPage = () => {
         }]);
         setResultFingerprint(currentFingerprint);
         setSimulationOverlayResult(null);
+        setActiveIssueId(null);
+        clearSimulationHighlights();
         setStatus("failed");
       });
   };
@@ -275,6 +363,8 @@ export const SimulationPage = () => {
     setResultFingerprint(null);
     setWasInvalidated(false);
     setSimulationOverlayResult(null);
+    setActiveIssueId(null);
+    clearSimulationHighlights();
   };
 
   useEffect(() => {
@@ -287,12 +377,15 @@ export const SimulationPage = () => {
     setResultFingerprint(null);
     setWasInvalidated(true);
     setSimulationOverlayResult(null);
-  }, [currentFingerprint, resultFingerprint, setSimulationOverlayResult, status]);
+    setActiveIssueId(null);
+    clearSimulationHighlights();
+  }, [clearSimulationHighlights, currentFingerprint, resultFingerprint, setSimulationOverlayResult, status]);
 
   useEffect(() => () => {
     simulationRequestIdRef.current += 1;
     simulationWorkerRunRef.current?.terminate();
-  }, []);
+    clearSimulationHighlights();
+  }, [clearSimulationHighlights]);
 
   return (
     <Flex gap="small" vertical>
@@ -434,7 +527,31 @@ export const SimulationPage = () => {
           dataSource={issues}
           header={t("sidebar.simulation.issueCount", { count: issues.length })}
           renderItem={(issueItem) => (
-            <List.Item>
+            <List.Item
+              role={issueItem.targets?.length ? "button" : undefined}
+              tabIndex={issueItem.targets?.length ? 0 : undefined}
+              onClick={() => activateIssue(issueItem)}
+              onKeyDown={(event) => {
+                if(!issueItem.targets?.length) return;
+                if(event.key !== "Enter" && event.key !== " ") return;
+
+                event.preventDefault();
+                activateIssue(issueItem);
+              }}
+              onMouseEnter={() => {
+                if(issueItem.targets?.length) {
+                  highlightSimulationTargets(issueItem.targets);
+                }
+              }}
+              onMouseLeave={restoreActiveIssueHighlight}
+              style={{
+                borderRadius: 4,
+                cursor: issueItem.targets?.length ? "pointer" : undefined,
+                outline: activeIssueId === issueItem.id ? "1px solid #1677ff" : undefined,
+                outlineOffset: activeIssueId === issueItem.id ? -1 : undefined,
+                paddingInline: 6,
+              }}
+            >
               <Flex gap={4} vertical>
                 <Space size={6} align="start">
                   <Tag color={severityColor[issueItem.severity]} style={{ marginInlineEnd: 0 }}>

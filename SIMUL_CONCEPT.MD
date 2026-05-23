@@ -1061,6 +1061,8 @@ Elemente:
    - Technische Modellstatistiken wie Circuit-Nodes, Elementanzahl, Pin-Results und Wire-Results nicht in der normalen UI anzeigen.
 5. Check-Ergebnisse
    - Liste analog Diagramm-Checks
+   - Issue-Zeilen sind interaktiv: Hover zeigt die betroffenen Nodes/Wires temporaer im Diagramm, Klick haelt die Markierung bis zum naechsten Klick, zur naechsten Simulation oder zum Loeschen/Invalidieren der Ergebnisse.
+   - Simulation-Issue-Highlights verwenden eigene `simulationHighlighted`-Flags auf Nodes/Edges und ueberschreiben nicht die Diagramm-Check-Highlights.
 
 Debug-Modus:
 
