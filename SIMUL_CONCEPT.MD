@@ -246,6 +246,7 @@ Die Solver-Implementierung berechnet fuer die degradierende Quelle einen stabili
 Beispiel:
 
 - `PSU`: Spannungsquelle zwischen Supply-Ausgang und GND, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
+- `DC_JACK_FEMALE`: PSU-aehnliche Spannungsquelle zwischen `VOUT` und `GND`, Spannung aus `source_voltage`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
 - `PSU_USB_WIRES`: Spannungsquelle zwischen `VOUT` und `GND`, feste Ausgangsspannung `5 V`, Stromlimit aus `source_current`, `voltageDropPctAt150Current` aus `simdata` oder Default `50`.
 
 Die GND-Referenz des Simulationsmodells wird an die negative Seite der Spannungsquelle gesetzt, die das hoechste Stromlimit hat. Bei mehreren gleich grossen Limits wird deterministisch nach Quellen-ID sortiert. Gibt es keine Spannungsquelle mit Stromlimit, wird als Fallback ein GND-Pin verwendet; wenn auch dieser fehlt, bricht der Modellaufbau mit einem Simulationsfehler ab.
@@ -1149,7 +1150,7 @@ Optional:
 5. [x] Erste `simdata`-Daten fuer wenige Komponenten eintragen. Umgesetzt fuer:
    - `Resistor`
    - `miniOTOFuse`
-   - PSU-Komponenten inklusive `PSU_USB_WIRES` mit fester `5 V`-Ausgangsspannung
+   - PSU-Komponenten inklusive `PSU_USB_WIRES` mit fester `5 V`-Ausgangsspannung und `DC_JACK_FEMALE` mit waehlbarer Ausgangsspannung
    - ein digitaler LED-Streifen
    - `WAGO_2x`
    - `WAGO_3x`

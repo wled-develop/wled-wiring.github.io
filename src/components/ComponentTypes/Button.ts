@@ -22,6 +22,9 @@ export const Button: Node = {
             buyLinks: [
             ]
         },
+        simdata: {
+            version: 1,
+        },
         handles: [
         {
             borderColor: "green",
