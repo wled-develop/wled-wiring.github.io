@@ -676,6 +676,9 @@ type SimulationLedElementVoltageResult = {
   elementId: string;
   nodeId: string;
   sourceElementId?: string;
+  distanceM?: number;
+  sectionIndex?: number;
+  logicLedIndex?: number;
   deltaVoltageV?: number;
 };
 
@@ -690,6 +693,8 @@ type SimulationLedStripVoltageSummaryResult = {
 Fuer jedes intern erzeugte LED-Netzelement eines digitalen LED-Streifens wird nach erfolgreicher Simulation die lokale Differenzspannung berechnet:
 
 - `deltaVoltageV = V(supplyOut) - V(gndOut)` des jeweiligen expandierten LED-Netzelements.
+- `distanceM` beschreibt die Position dieses logischen LED-Netzelements entlang des physischen Streifens. Der Wert wird beim Modellaufbau aus `physLengths`, Abschnittslaenge und logischem LED-Index erzeugt und nicht spaeter aus Element-IDs geraten.
+- `sectionIndex` und `logicLedIndex` sind optionale Diagnose-/UI-Metadaten fuer Tooltips und fuer die Zuordnung zu `physLengths`-Abschnitten.
 - Die Werte werden als Simulationsergebnis gespeichert, aber noch nicht dauerhaft einzeln im Diagramm angezeigt.
 - Die spaetere Detailanzeige fuer einzelne LED-Netzelemente wird separat definiert.
 
@@ -698,6 +703,41 @@ Aus allen `deltaVoltageV`-Werten eines LED-Streifens wird zusaetzlich eine Zusam
 - `minDeltaVoltageV = Math.min(...deltaVoltageV)`
 - Anzeigeformat im Diagramm: `V_LED,min=2.22 V`, wobei `LED,min` in der UI tiefgestellt ist.
 - Diese Anzeige wird zusammen mit den anderen Simulationsergebnissen angezeigt.
+
+### LED-Streifen-Spannungsplot
+
+Nach einer erfolgreichen Simulation soll der Nutzer fuer digitale LED-Streifen anzeigen koennen, wie sich die lokale LED-Differenzspannung ueber die physische Streifenlaenge entwickelt. Der Plot verwendet dieselben berechneten `deltaVoltageV`-Werte, aus denen auch `V_LED,min` entsteht; es wird kein separates vereinfachtes oder interpoliertes elektrisches Modell verwendet.
+
+UI-Einstieg:
+
+- Neben der bestehenden `V_LED,min`-Anzeige im Simulation-Result-Overlay erscheint ein kleiner Icon-Button, wenn fuer diesen LED-Streifen mindestens zwei `SimulationLedElementVoltageResult`-Werte mit `distanceM` und `deltaVoltageV` vorliegen.
+- Der Button gehoert visuell zum `V_LED,min`-Label, darf aber dessen Lesbarkeit und Platzierungslogik nicht verschlechtern. Fuer die Label-Groesse muss der Button mitgemessen werden.
+- Der Button oeffnet ein Unterfenster ueber dem Diagramm. Bevorzugt wird ein AntD-Modal oder Drawer, weil der Plot groesser sein darf als ein Overlay-Tooltip und auf Touch-Geraeten bedienbar bleiben muss.
+- Das Unterfenster zeigt den gewaehlten Streifen eindeutig, z.B. ueber Komponentenname oder Node-ID, und kann per Schliessen-Button verlassen werden. Es veraendert das Diagramm nicht und erzeugt keinen Undo-Snapshot.
+
+Plot-Inhalt:
+
+- X-Achse: physische Laenge des LED-Streifens in Metern, beginnend bei `0 m`.
+- Y-Achse: lokale Differenzspannung `V_LED = V(supplyOut) - V(gndOut)` in Volt.
+- Die Kurve wird als Polyline durch die tatsaechlich berechneten logischen LED-Punkte gezeichnet. Zwischenwerte duerfen nur als visuelle Verbindung der Messpunkte erscheinen, nicht als zusaetzliche Simulationsdaten.
+- Der kleinste Punkt wird markiert und entspricht dem Wert aus `V_LED,min`.
+- Optional koennen Abschnittsgrenzen aus `physLengths` als vertikale Markierungen angezeigt werden. Einspeisepunkte an Start, Ende oder Middle-Pins sollen nur markiert werden, wenn sie aus den vorhandenen Pin-/Abschnittsdaten eindeutig bestimmbar sind.
+- Tooltips auf Punkten zeigen mindestens Laenge, `V_LED`, Abschnitt und logischen LED-Index.
+
+Datenmodell-Anforderung:
+
+- Der Modellaufbau muss fuer jedes expandierte `digitalLed`-Element die Reihenfolge und Position entlang des Streifens in das Simulationselement oder in begleitende Metadaten schreiben.
+- `runSimulation()` uebernimmt diese Metadaten in `SimulationLedElementVoltageResult`.
+- Die Plot-Daten werden aus `simulationResult.ledElementVoltageResults` nach `nodeId` und `sourceElementId` gruppiert und nach `distanceM` sortiert.
+- Wenn ein Streifen keine vollstaendigen Laengeninformationen hat, entsteht wie bisher kein erfolgreiches LED-Modell; ein Plot-Button wird dann nicht angezeigt.
+- Wenn nur ein einzelner Punkt existiert, wird kein Kurvenplot angeboten, weil keine Entwicklung ueber die Laenge sichtbar ist.
+
+Nicht-Ziele fuer die erste Umsetzung:
+
+- Kein Export des Plots in das Diagramm-JSON.
+- Keine automatische Optimierung oder Empfehlung fuer Einspeisepunkte.
+- Keine Glattung, Trendlinie oder heuristische Rekonstruktion fehlender Punkte.
+- Keine dauerhafte Anzeige aller Einzelpunkte direkt im Diagramm.
 
 Wire-Strom und Spannungsabfall werden nicht dauerhaft als Label auf jedem Wire angezeigt, um das Diagramm nicht zu ueberladen. Sie sollen aber per Hover oder Select am Wire verfuegbar sein.
 
