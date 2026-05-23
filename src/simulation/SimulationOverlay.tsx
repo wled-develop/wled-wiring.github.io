@@ -1,11 +1,14 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { useEdges, useNodes, useViewport, type Edge, type Node } from "@xyflow/react";
+import { LineChartOutlined } from "@ant-design/icons";
+import { Button, Modal, Tooltip } from "antd";
+import { useTranslation } from "react-i18next";
 
 import type { ComponentDataType, EdgeDataType, XYPoint } from "../types";
 import { getRenderedWireEndpoint } from "../utils/utils_functions";
 import { useSimulationResultStore } from "./simulationResultStore";
-import type { SimulationPinResult } from "./simulationTypes";
+import type { SimulationPinResult, SimulationResult } from "./simulationTypes";
 
 type OverlayValueLine =
   | {kind: "text"; text: string}
@@ -15,6 +18,7 @@ type OverlayLabel = {
   id: string;
   kind: "voltage" | "voltageDelta" | "voltageDeltaMin" | "wireCurrent" | "wireHover";
   valueLines: OverlayValueLine[];
+  ledPlotTarget?: LedVoltagePlotTarget;
   x: number;
   y: number;
   anchorX: number;
@@ -49,6 +53,28 @@ type SegmentPoint = {
 
 type Rect = {left: number; right: number; top: number; bottom: number};
 
+type LedVoltagePlotTarget = {
+  nodeId: string;
+  sourceElementId?: string;
+};
+
+type LedVoltagePlotPoint = {
+  distanceM: number;
+  deltaVoltageV: number;
+  sectionIndex?: number;
+  logicLedIndex?: number;
+  physicalLedCount?: number;
+};
+
+type LedVoltagePlotData = LedVoltagePlotTarget & {
+  title: string;
+  points: LedVoltagePlotPoint[];
+  sectionMarkersM: number[];
+  minPoint: LedVoltagePlotPoint;
+  logicalLedCount: number;
+  physicalLedCount: number;
+};
+
 const LABEL_PADDING_X = 8;
 const LABEL_HEIGHT = 20;
 const LEADER_LINE_THRESHOLD = 28;
@@ -67,6 +93,7 @@ const HOVER_NORMAL_DISPLAY_DISTANCE = 40;
 const HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX = 16;
 const COMPONENT_OBSTACLE_PADDING = 3;
 const WIRE_OBSTACLE_PADDING = 5;
+const LED_PLOT_BUTTON_WIDTH = 22;
 
 const textLine = (text: string): OverlayValueLine => ({kind: "text", text});
 const ledVoltageLine = (value: number, qualifier?: "min"): OverlayValueLine => ({
@@ -140,10 +167,10 @@ const isLedSupplyVoltagePin = (
 
 const overlayScale = (zoom: number) => Math.min(1, Math.max(0.55, zoom));
 
-const estimateLabelSize = (valueLines: OverlayValueLine[], scale: number) => {
+const estimateLabelSize = (valueLines: OverlayValueLine[], scale: number, hasAction = false) => {
   const longest = Math.max(...valueLines.map((value) => overlayValueLineText(value).length), 1);
   return {
-    width: Math.max(42, longest * 6 + LABEL_PADDING_X * 2) * scale,
+    width: (Math.max(42, longest * 6 + LABEL_PADDING_X * 2) + (hasAction ? LED_PLOT_BUTTON_WIDTH : 0)) * scale,
     height: LABEL_HEIGHT * Math.max(valueLines.length, 1) * scale,
   };
 };
@@ -796,13 +823,14 @@ const createLedStripMinDeltaLabel = (
   node: Node<ComponentDataType>,
   sourceElementId: string | undefined,
   minDeltaVoltageV: number,
+  ledPlotTarget: LedVoltagePlotTarget | undefined,
   viewport: {x: number; y: number; zoom: number},
   scale: number,
   existingLabels: OverlayLabel[],
   obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
 ): OverlayLabel => {
   const valueLines = [formatMinDeltaVoltage(minDeltaVoltageV)];
-  const size = estimateLabelSize(valueLines, scale);
+  const size = estimateLabelSize(valueLines, scale, ledPlotTarget !== undefined);
   const bounds = nodeScreenBounds(node, viewport);
   const position = chooseLedStripSummaryPosition(bounds, size, existingLabels, obstacles);
   const anchor = closestPointOnRectBoundary(position, bounds);
@@ -811,6 +839,7 @@ const createLedStripMinDeltaLabel = (
     id: `led-delta-min:${node.id}:${sourceElementId ?? "strip"}`,
     kind: "voltageDeltaMin",
     valueLines,
+    ledPlotTarget,
     x: position.x,
     y: position.y,
     anchorX: anchor.x,
@@ -969,14 +998,265 @@ const leaderLineNeeded = (label: OverlayLabel) => (
   Math.hypot(label.x - label.anchorX, label.y - label.anchorY) > LEADER_LINE_THRESHOLD
 );
 
+const LED_PLOT_KEY_SEPARATOR = "\u001f";
+
+const ledPlotKey = (target: LedVoltagePlotTarget) => `${target.nodeId}${LED_PLOT_KEY_SEPARATOR}${target.sourceElementId ?? ""}`;
+
+const ledStripSectionMarkersM = (node: Node<ComponentDataType> | undefined) => {
+  if(!node?.data.physLengths) return [];
+
+  const sorted = [...node.data.physLengths]
+    .filter((physLength) => (
+      Number.isInteger(physLength.startIndex) &&
+      typeof physLength.length === "number" &&
+      Number.isFinite(physLength.length) &&
+      physLength.length > 0
+    ))
+    .sort((a, b) => a.startIndex - b.startIndex);
+
+  let distanceM = 0;
+  return sorted.flatMap((physLength, index) => {
+    distanceM += physLength.length as number;
+    return index < sorted.length - 1 ? [distanceM] : [];
+  });
+};
+
+const createLedVoltagePlotData = (
+  simulationResult: SimulationResult | null,
+  nodes: Node<ComponentDataType>[],
+) => {
+  if(!simulationResult) return new Map<string, LedVoltagePlotData>();
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const groups = new Map<string, LedVoltagePlotPoint[]>();
+
+  simulationResult.ledElementVoltageResults.forEach((result) => {
+    if(
+      result.distanceM === undefined ||
+      result.deltaVoltageV === undefined ||
+      !Number.isFinite(result.distanceM) ||
+      !Number.isFinite(result.deltaVoltageV)
+    ) {
+      return;
+    }
+
+    const key = ledPlotKey(result);
+    const group = groups.get(key) ?? [];
+    group.push({
+      distanceM: result.distanceM,
+      deltaVoltageV: result.deltaVoltageV,
+      sectionIndex: result.sectionIndex,
+      logicLedIndex: result.logicLedIndex,
+      physicalLedCount: result.physicalLedCount,
+    });
+    groups.set(key, group);
+  });
+
+  const plotData = new Map<string, LedVoltagePlotData>();
+  groups.forEach((rawPoints, key) => {
+    const points = [...rawPoints].sort((a, b) => a.distanceM - b.distanceM);
+    if(points.length < 2) return;
+
+    const [nodeId, sourceElementIdValue] = key.split(LED_PLOT_KEY_SEPARATOR);
+    const node = nodeById.get(nodeId);
+    const minPoint = points.reduce((lowest, point) => (
+      point.deltaVoltageV < lowest.deltaVoltageV ? point : lowest
+    ), points[0]);
+    const physicalLedCount = points.reduce((total, point) => total + (
+      typeof point.physicalLedCount === "number" && Number.isFinite(point.physicalLedCount)
+        ? point.physicalLedCount
+        : 1
+    ), 0);
+
+    plotData.set(key, {
+      nodeId,
+      sourceElementId: sourceElementIdValue || undefined,
+      title: node?.data.technicalID || nodeId,
+      points,
+      sectionMarkersM: ledStripSectionMarkersM(node),
+      minPoint,
+      logicalLedCount: points.length,
+      physicalLedCount,
+    });
+  });
+
+  return plotData;
+};
+
+const niceTicks = (min: number, max: number, count: number) => {
+  if(!Number.isFinite(min) || !Number.isFinite(max) || count <= 1) return [min, max];
+  if(Math.abs(max - min) < 1e-9) {
+    const padding = Math.max(Math.abs(max) * 0.05, 0.1);
+    min -= padding;
+    max += padding;
+  }
+
+  return Array.from({length: count}, (_unused, index) => min + (max - min) * index / (count - 1));
+};
+
+const LedVoltagePlot = ({
+  data,
+  t,
+}: {
+  data: LedVoltagePlotData;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) => {
+  const width = 760;
+  const height = 380;
+  const margin = {top: 22, right: 24, bottom: 52, left: 64};
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const maxDistance = Math.max(...data.points.map((point) => point.distanceM), 0.001);
+  const minVoltage = Math.min(...data.points.map((point) => point.deltaVoltageV));
+  const maxVoltage = Math.max(...data.points.map((point) => point.deltaVoltageV));
+  const voltagePadding = Math.max((maxVoltage - minVoltage) * 0.08, 0.05);
+  const yMin = minVoltage - voltagePadding;
+  const yMax = maxVoltage + voltagePadding;
+  const xTicks = niceTicks(0, maxDistance, 6);
+  const yTicks = niceTicks(yMin, yMax, 6);
+  const xScale = (distanceM: number) => margin.left + (distanceM / maxDistance) * plotWidth;
+  const yScale = (voltageV: number) => margin.top + ((yMax - voltageV) / (yMax - yMin)) * plotHeight;
+  const path = data.points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(point.distanceM).toFixed(2)} ${yScale(point.deltaVoltageV).toFixed(2)}`)
+    .join(" ");
+
+  return (
+    <div style={{width: "100%"}}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={t("sidebar.simulation.ledVoltagePlot.title")}
+        style={{
+          display: "block",
+          maxHeight: 420,
+          width: "100%",
+        }}
+      >
+        <rect x={0} y={0} width={width} height={height} fill="#fff" />
+        {xTicks.map((tick) => {
+          const x = xScale(tick);
+          return (
+            <g key={`x-grid:${tick}`}>
+              <line x1={x} y1={margin.top} x2={x} y2={margin.top + plotHeight} stroke="#e8e8e8" />
+              <text x={x} y={height - 24} textAnchor="middle" fill="#595959" fontSize={11}>
+                {tick.toFixed(maxDistance < 10 ? 2 : 1)}
+              </text>
+            </g>
+          );
+        })}
+        {yTicks.map((tick) => {
+          const y = yScale(tick);
+          return (
+            <g key={`y-grid:${tick}`}>
+              <line x1={margin.left} y1={y} x2={margin.left + plotWidth} y2={y} stroke="#e8e8e8" />
+              <text x={margin.left - 10} y={y + 4} textAnchor="end" fill="#595959" fontSize={11}>
+                {tick.toFixed(2)}
+              </text>
+            </g>
+          );
+        })}
+        {data.sectionMarkersM.map((distanceM) => {
+          if(distanceM <= 0 || distanceM >= maxDistance) return null;
+          const x = xScale(distanceM);
+          return (
+            <g key={`section:${distanceM}`}>
+              <line
+                x1={x}
+                y1={margin.top}
+                x2={x}
+                y2={margin.top + plotHeight}
+                stroke="#fa8c16"
+                strokeDasharray="5 4"
+                strokeWidth={1.5}
+              />
+              <text x={x + 5} y={margin.top + 14} fill="#ad4e00" fontSize={10}>
+                {distanceM.toFixed(2)} m
+              </text>
+            </g>
+          );
+        })}
+        <line x1={margin.left} y1={margin.top + plotHeight} x2={margin.left + plotWidth} y2={margin.top + plotHeight} stroke="#8c8c8c" />
+        <line x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + plotHeight} stroke="#8c8c8c" />
+        <path d={path} fill="none" stroke="#1677ff" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
+        {data.points.map((point) => {
+          const isMin = point === data.minPoint;
+          return (
+            <circle
+              key={`${point.distanceM}:${point.logicLedIndex}`}
+              cx={xScale(point.distanceM)}
+              cy={yScale(point.deltaVoltageV)}
+              r={isMin ? 4.5 : 2.6}
+              fill={isMin ? "#fa541c" : "#1677ff"}
+              stroke="#fff"
+              strokeWidth={1.5}
+            >
+              <title>
+                {t("sidebar.simulation.ledVoltagePlot.pointTooltip", {
+                  distance: point.distanceM.toFixed(3),
+                  voltage: point.deltaVoltageV.toFixed(3),
+                  section: point.sectionIndex !== undefined ? point.sectionIndex + 1 : "-",
+                  index: point.logicLedIndex !== undefined ? point.logicLedIndex + 1 : "-",
+                })}
+              </title>
+            </circle>
+          );
+        })}
+        <text x={margin.left + plotWidth / 2} y={height - 6} textAnchor="middle" fill="#262626" fontSize={12}>
+          {t("sidebar.simulation.ledVoltagePlot.xAxis")}
+        </text>
+        <text
+          x={18}
+          y={margin.top + plotHeight / 2}
+          textAnchor="middle"
+          fill="#262626"
+          fontSize={12}
+          transform={`rotate(-90 18 ${margin.top + plotHeight / 2})`}
+        >
+          <tspan>V</tspan>
+          <tspan baselineShift="sub" fontSize={8}>LED</tspan>
+          <tspan> (V)</tspan>
+        </text>
+      </svg>
+      <div
+        style={{
+          color: "#595959",
+          display: "flex",
+          flexWrap: "wrap",
+          fontSize: 12,
+          gap: 16,
+          marginTop: 8,
+        }}
+      >
+        <span>{t("sidebar.simulation.ledVoltagePlot.ledCounts", {
+          logical: data.logicalLedCount,
+          physical: data.physicalLedCount,
+        })}</span>
+        <span>{t("sidebar.simulation.ledVoltagePlot.minVoltage", {
+          voltage: data.minPoint.deltaVoltageV.toFixed(3),
+          distance: data.minPoint.distanceM.toFixed(3),
+        })}</span>
+      </div>
+    </div>
+  );
+};
+
 export const SimulationOverlay = () => {
+  const {t} = useTranslation(["main"]);
   const simulationResult = useSimulationResultStore((state) => state.result);
   const wireHover = useSimulationResultStore((state) => state.wireHover);
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
   const viewport = useViewport();
+  const [activePlotTarget, setActivePlotTarget] = useState<LedVoltagePlotTarget | null>(null);
 
   const selectedWireActive = edges.some((edge) => edge.selected);
+  const ledPlotDataByKey = useMemo(
+    () => createLedVoltagePlotData(simulationResult, nodes),
+    [nodes, simulationResult],
+  );
+  const activePlotData = activePlotTarget
+    ? ledPlotDataByKey.get(ledPlotKey(activePlotTarget))
+    : undefined;
 
   const overlayData = useMemo(() => {
     if(!simulationResult || selectedWireActive) return {labels: [], arrows: []};
@@ -1134,6 +1414,9 @@ export const SimulationOverlay = () => {
               node,
               summary.sourceElementId,
               summary.minDeltaVoltageV,
+              ledPlotDataByKey.has(ledPlotKey(summary))
+                ? {nodeId: summary.nodeId, sourceElementId: summary.sourceElementId}
+                : undefined,
               viewport,
               scale,
               labels,
@@ -1146,9 +1429,13 @@ export const SimulationOverlay = () => {
       labels: updateTargetBoundaryAnchors(resolveLabelOverlaps(labels)),
       arrows,
     };
-  }, [edges, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
+  }, [edges, ledPlotDataByKey, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
 
-  if(!simulationResult || selectedWireActive || (overlayData.labels.length === 0 && overlayData.arrows.length === 0)) {
+  if(!simulationResult || (selectedWireActive && !activePlotData) || (
+    overlayData.labels.length === 0 &&
+    overlayData.arrows.length === 0 &&
+    !activePlotData
+  )) {
     return null;
   }
 
@@ -1156,136 +1443,186 @@ export const SimulationOverlay = () => {
   const leaderLines = overlayData.labels.filter(leaderLineNeeded);
 
   return (
-    <div
-      style={{
-        inset: 0,
-        overflow: "hidden",
-        pointerEvents: "none",
-        position: "absolute",
-        zIndex: 8,
-      }}
-    >
-      <svg
-        width="100%"
-        height="100%"
-        style={{
-          inset: 0,
-          position: "absolute",
-        }}
-      >
-        <defs>
-          <marker
-            id="simulation-current-arrowhead"
-            markerHeight="6"
-            markerUnits="userSpaceOnUse"
-            markerWidth="8"
-            orient="auto-start-reverse"
-            refX="5"
-            refY="3"
-          >
-            <path d="M0,0 L8,3 L0,6 Z" fill="#1677ff" />
-          </marker>
-          <marker
-            id="simulation-leader-arrowhead"
-            markerHeight="5"
-            markerWidth="7"
-            orient="auto"
-            refX="6"
-            refY="2.5"
-          >
-            <path d="M0,0 L7,2.5 L0,5 Z" fill="rgba(38, 38, 38, 0.56)" />
-          </marker>
-          <marker
-            id="simulation-voltage-arrowhead"
-            markerHeight="6"
-            markerUnits="userSpaceOnUse"
-            markerWidth="8"
-            orient="auto"
-            refX="5"
-            refY="3"
-          >
-            <path d="M0,0 L8,3 L0,6 Z" fill="#fa8c16" />
-          </marker>
-          <marker
-            id="simulation-voltage-leader-arrowhead"
-            markerHeight="5"
-            markerWidth="7"
-            orient="auto"
-            refX="7"
-            refY="2.5"
-          >
-            <path d="M0,0 L7,2.5 L0,5 Z" fill="#fa8c16" opacity="0.72" />
-          </marker>
-        </defs>
-        {overlayData.arrows.map((arrow) => (
-          <line
-            key={arrow.id}
-            x1={arrow.startX}
-            y1={arrow.startY}
-            x2={arrow.endX}
-            y2={arrow.endY}
-            stroke={arrow.kind === "voltageDelta" ? "#fa8c16" : "#1677ff"}
-            strokeLinecap="round"
-            strokeWidth={2}
-            markerStart={arrow.kind === "current" && arrow.bidirectional ? "url(#simulation-current-arrowhead)" : undefined}
-            markerEnd={arrow.kind === "voltageDelta" ? "url(#simulation-voltage-arrowhead)" : "url(#simulation-current-arrowhead)"}
-          />
-        ))}
-        {leaderLines.map((label) => (
-          <line
-            key={`leader:${label.id}`}
-            x1={label.x}
-            y1={label.y}
-            x2={label.anchorX}
-            y2={label.anchorY}
-            stroke={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
-              ? "rgba(250, 140, 22, 0.58)"
-              : "rgba(38, 38, 38, 0.46)"}
-            strokeDasharray="3 3"
-            strokeWidth={1}
-            markerEnd={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
-              ? "url(#simulation-voltage-leader-arrowhead)"
-              : "url(#simulation-leader-arrowhead)"}
-          />
-        ))}
-      </svg>
-      {overlayData.labels.map((label) => (
+    <>
+      {!selectedWireActive && (
         <div
-          key={label.id}
           style={{
-            background: label.kind === "voltage"
-              ? "rgba(255, 255, 255, 0.92)"
-              : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
-                ? "rgba(255, 247, 230, 0.94)"
-              : "rgba(230, 244, 255, 0.94)",
-            border: label.kind === "voltage"
-              ? "1px solid rgba(250, 173, 20, 0.56)"
-              : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
-                ? "1px solid rgba(250, 140, 22, 0.62)"
-              : "1px solid rgba(22, 119, 255, 0.48)",
-            borderRadius: 4,
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.16)",
-            color: "#1f1f1f",
-            fontSize: 10,
-            fontVariantNumeric: "tabular-nums",
-            left: label.x,
-            lineHeight: 1.2,
-            maxWidth: 72,
-            padding: "2px 4px",
+            inset: 0,
+            overflow: "hidden",
+            pointerEvents: "none",
             position: "absolute",
-            textAlign: "center",
-            top: label.y,
-            transform: `translate(-50%, -50%) scale(${scale})`,
-            whiteSpace: "nowrap",
+            zIndex: 8,
           }}
         >
-          {label.valueLines.map((value, index) => (
-            <div key={`${overlayValueLineText(value)}:${index}`}>
-              {renderOverlayValueLine(value)}
+          <svg
+            width="100%"
+            height="100%"
+            style={{
+              inset: 0,
+              position: "absolute",
+            }}
+          >
+            <defs>
+              <marker
+                id="simulation-current-arrowhead"
+                markerHeight="6"
+                markerUnits="userSpaceOnUse"
+                markerWidth="8"
+                orient="auto-start-reverse"
+                refX="5"
+                refY="3"
+              >
+                <path d="M0,0 L8,3 L0,6 Z" fill="#1677ff" />
+              </marker>
+              <marker
+                id="simulation-leader-arrowhead"
+                markerHeight="5"
+                markerWidth="7"
+                orient="auto"
+                refX="6"
+                refY="2.5"
+              >
+                <path d="M0,0 L7,2.5 L0,5 Z" fill="rgba(38, 38, 38, 0.56)" />
+              </marker>
+              <marker
+                id="simulation-voltage-arrowhead"
+                markerHeight="6"
+                markerUnits="userSpaceOnUse"
+                markerWidth="8"
+                orient="auto"
+                refX="5"
+                refY="3"
+              >
+                <path d="M0,0 L8,3 L0,6 Z" fill="#fa8c16" />
+              </marker>
+              <marker
+                id="simulation-voltage-leader-arrowhead"
+                markerHeight="5"
+                markerWidth="7"
+                orient="auto"
+                refX="7"
+                refY="2.5"
+              >
+                <path d="M0,0 L7,2.5 L0,5 Z" fill="#fa8c16" opacity="0.72" />
+              </marker>
+            </defs>
+            {overlayData.arrows.map((arrow) => (
+              <line
+                key={arrow.id}
+                x1={arrow.startX}
+                y1={arrow.startY}
+                x2={arrow.endX}
+                y2={arrow.endY}
+                stroke={arrow.kind === "voltageDelta" ? "#fa8c16" : "#1677ff"}
+                strokeLinecap="round"
+                strokeWidth={2}
+                markerStart={arrow.kind === "current" && arrow.bidirectional ? "url(#simulation-current-arrowhead)" : undefined}
+                markerEnd={arrow.kind === "voltageDelta" ? "url(#simulation-voltage-arrowhead)" : "url(#simulation-current-arrowhead)"}
+              />
+            ))}
+            {leaderLines.map((label) => (
+              <line
+                key={`leader:${label.id}`}
+                x1={label.x}
+                y1={label.y}
+                x2={label.anchorX}
+                y2={label.anchorY}
+                stroke={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
+                  ? "rgba(250, 140, 22, 0.58)"
+                  : "rgba(38, 38, 38, 0.46)"}
+                strokeDasharray="3 3"
+                strokeWidth={1}
+                markerEnd={label.kind === "voltage" || label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
+                  ? "url(#simulation-voltage-leader-arrowhead)"
+                  : "url(#simulation-leader-arrowhead)"}
+              />
+            ))}
+          </svg>
+          {overlayData.labels.map((label) => (
+            <div
+              key={label.id}
+              style={{
+                alignItems: "center",
+                background: label.kind === "voltage"
+                  ? "rgba(255, 255, 255, 0.92)"
+                  : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
+                    ? "rgba(255, 247, 230, 0.94)"
+                  : "rgba(230, 244, 255, 0.94)",
+                border: label.kind === "voltage"
+                  ? "1px solid rgba(250, 173, 20, 0.56)"
+                  : label.kind === "voltageDelta" || label.kind === "voltageDeltaMin"
+                    ? "1px solid rgba(250, 140, 22, 0.62)"
+                  : "1px solid rgba(22, 119, 255, 0.48)",
+                borderRadius: 4,
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.16)",
+                color: "#1f1f1f",
+                display: "flex",
+                fontSize: 10,
+                fontVariantNumeric: "tabular-nums",
+                gap: 4,
+                justifyContent: "center",
+                left: label.x,
+                lineHeight: 1.2,
+                maxWidth: label.ledPlotTarget ? 104 : 72,
+                padding: label.ledPlotTarget ? "2px 3px 2px 5px" : "2px 4px",
+                position: "absolute",
+                textAlign: "center",
+                top: label.y,
+                transform: `translate(-50%, -50%) scale(${scale})`,
+                transformOrigin: "center",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <div>
+                {label.valueLines.map((value, index) => (
+                  <div key={`${overlayValueLineText(value)}:${index}`}>
+                    {renderOverlayValueLine(value)}
+                  </div>
+                ))}
+              </div>
+              {label.ledPlotTarget && (
+                <Tooltip title={t("sidebar.simulation.ledVoltagePlot.openButton")}>
+                  <Button
+                    aria-label={t("sidebar.simulation.ledVoltagePlot.openButton")}
+                    icon={<LineChartOutlined />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActivePlotTarget(label.ledPlotTarget ?? null);
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    size="small"
+                    type="text"
+                    style={{
+                      alignItems: "center",
+                      color: "#ad4e00",
+                      display: "inline-flex",
+                      height: 16,
+                      justifyContent: "center",
+                      minWidth: 16,
+                      padding: 0,
+                      pointerEvents: "auto",
+                      width: 16,
+                    }}
+                  />
+                </Tooltip>
+              )}
             </div>
           ))}
         </div>
-      ))}
-    </div>
+      )}
+      <Modal
+        cancelButtonProps={{style: {display: "none"}}}
+        okText={t("sidebar.simulation.ledVoltagePlot.closeButton")}
+        onCancel={() => setActivePlotTarget(null)}
+        onOk={() => setActivePlotTarget(null)}
+        open={activePlotData !== undefined}
+        title={activePlotData
+          ? t("sidebar.simulation.ledVoltagePlot.modalTitle", {component: activePlotData.title})
+          : t("sidebar.simulation.ledVoltagePlot.title")}
+        width={860}
+      >
+        {activePlotData && <LedVoltagePlot data={activePlotData} t={t} />}
+      </Modal>
+    </>
   );
 };

@@ -554,6 +554,17 @@
       "targetPin": "{{component}} - {{pin}}",
       "targetWire": "导线：{{source}} -> {{target}}",
       "targetComponent": "{{component}}",
+      "ledVoltagePlot": {
+        "title": "LED 灯带电压图",
+        "openButton": "显示 LED 电压图",
+        "closeButton": "关闭",
+        "modalTitle": "LED 电压随长度变化：{{component}}",
+        "xAxis": "沿灯带长度 (m)",
+        "yAxis": "VLED (V)",
+        "ledCounts": "逻辑 LED：{{logical}} · 物理 LED：{{physical}}",
+        "minVoltage": "最小值 {{voltage}} V，位置 {{distance}} m",
+        "pointTooltip": "{{distance}} m：{{voltage}} V，区段 {{section}}，LED {{index}}"
+      },
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC 输入功率限制不明确",

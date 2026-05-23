@@ -202,6 +202,12 @@ export type SimulationElement = {
   type: ComponentSimulationElementType;
   terminals: Record<string, string>;
   parameters?: Record<string, SimulationParameterPrimitive>;
+  ledStripPosition?: {
+    distanceM: number;
+    sectionIndex: number;
+    logicLedIndex: number;
+    physicalLedCount: number;
+  };
 };
 
 export type SimulationPin = {
@@ -270,6 +276,10 @@ export type SimulationLedElementVoltageResult = {
   elementId: string;
   nodeId: string;
   sourceElementId?: string;
+  distanceM?: number;
+  sectionIndex?: number;
+  logicLedIndex?: number;
+  physicalLedCount?: number;
   deltaVoltageV?: number;
 };
 

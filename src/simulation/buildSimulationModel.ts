@@ -99,8 +99,11 @@ const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) =
 });
 
 type DigitalLedSectionPlan = {
+  sectionIndex: number;
   startIndex: number;
   endIndex: number;
+  lengthM: number;
+  distanceStartM: number;
   logicLedCount: number;
   supplyPinIds: string[];
   gndPinIds: string[];
@@ -669,6 +672,7 @@ const collectDigitalLedElementPlans = (
             terminalBaseHandleId(element.terminals.gndIn),
           ]),
         );
+        let distanceStartM = 0;
         const sections = physLengths.flatMap((physLength, index): DigitalLedSectionPlan[] => {
           const endIndex = physLengths[index + 1]?.startIndex ?? nodeLength;
           const lengthM = physLength.length;
@@ -684,7 +688,10 @@ const collectDigitalLedElementPlans = (
           }
 
           const logicLedCount = Math.round(lengthM * ledsPerMeter / physLedsPerLogicLed);
-          if(logicLedCount <= 0) return [];
+          if(logicLedCount <= 0) {
+            distanceStartM += lengthM;
+            return [];
+          }
 
           const supplyPinIds = Array.from({length: logicLedCount + 1}, (_unused, ledIndex) => {
             if(ledIndex === 0) {
@@ -740,13 +747,18 @@ const collectDigitalLedElementPlans = (
             return id;
           });
 
-          return [{
+          const section: DigitalLedSectionPlan = {
+            sectionIndex: index,
             startIndex: physLength.startIndex,
             endIndex,
+            lengthM,
+            distanceStartM,
             logicLedCount,
             supplyPinIds,
             gndPinIds,
-          }];
+          };
+          distanceStartM += lengthM;
+          return [section];
         });
 
         plans.set(`${node.id}:${element.id}`, {
@@ -1069,6 +1081,7 @@ export const buildSimulationModel = (
         digitalLedElementPlan.sections.forEach((section) => {
           for(let ledIndex = 0; ledIndex < section.logicLedCount; ledIndex += 1) {
             const elementId = `component:${node.id}:${element.id}:section-${section.startIndex}:led-${ledIndex + 1}`;
+            const distanceM = section.distanceStartM + section.lengthM * (ledIndex + 1) / section.logicLedCount;
             const terminals = {
               supplyIn: pinToCircuitNodeId.get(section.supplyPinIds[ledIndex]),
               supplyOut: pinToCircuitNodeId.get(section.supplyPinIds[ledIndex + 1]),
@@ -1092,6 +1105,12 @@ export const buildSimulationModel = (
                 gndOut: terminals.gndOut,
               },
               parameters: digitalLedElementPlan.parameters,
+              ledStripPosition: {
+                distanceM,
+                sectionIndex: section.sectionIndex,
+                logicLedIndex: ledIndex,
+                physicalLedCount: Number(digitalLedElementPlan.parameters?.physLedsPerLogicLed) || 1,
+              },
             });
             elementIds.push(elementId);
           }

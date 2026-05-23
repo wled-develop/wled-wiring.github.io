@@ -554,6 +554,17 @@
       "targetPin": "{{component}} - {{pin}}",
       "targetWire": "Wire: {{source}} -> {{target}}",
       "targetComponent": "{{component}}",
+      "ledVoltagePlot": {
+        "title": "LED-Streifen-Spannungsplot",
+        "openButton": "LED-Spannungsplot anzeigen",
+        "closeButton": "Schliessen",
+        "modalTitle": "LED-Spannung ueber Laenge: {{component}}",
+        "xAxis": "Laenge entlang des Streifens (m)",
+        "yAxis": "VLED (V)",
+        "ledCounts": "Logische LEDs: {{logical}}; physikalische LEDs: {{physical}}",
+        "minVoltage": "Minimum {{voltage}} V bei {{distance}} m",
+        "pointTooltip": "{{distance}} m: {{voltage}} V, Abschnitt {{section}}, LED {{index}}"
+      },
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC-Eingangsleistungslimit ist mehrdeutig",

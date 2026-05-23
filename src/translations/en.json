@@ -554,6 +554,17 @@
       "targetPin": "{{component}} - {{pin}}",
       "targetWire": "Wire: {{source}} -> {{target}}",
       "targetComponent": "{{component}}",
+      "ledVoltagePlot": {
+        "title": "LED strip voltage plot",
+        "openButton": "Show LED voltage plot",
+        "closeButton": "Close",
+        "modalTitle": "LED voltage over length: {{component}}",
+        "xAxis": "Length along strip (m)",
+        "yAxis": "VLED (V)",
+        "ledCounts": "Logical LEDs: {{logical}}; physical LEDs: {{physical}}",
+        "minVoltage": "Minimum {{voltage}} V at {{distance}} m",
+        "pointTooltip": "{{distance}} m: {{voltage}} V, section {{section}}, LED {{index}}"
+      },
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC input power limit is ambiguous",

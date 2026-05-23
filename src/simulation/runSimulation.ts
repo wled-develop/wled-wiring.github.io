@@ -846,6 +846,10 @@ const createLedElementVoltageResults = (
       elementId: element.id,
       nodeId: element.componentId,
       sourceElementId: element.sourceElementId,
+      distanceM: element.ledStripPosition?.distanceM,
+      sectionIndex: element.ledStripPosition?.sectionIndex,
+      logicLedIndex: element.ledStripPosition?.logicLedIndex,
+      physicalLedCount: element.ledStripPosition?.physicalLedCount,
       deltaVoltageV: supplyVoltage !== undefined && gndVoltage !== undefined
         ? supplyVoltage - gndVoltage
         : undefined,

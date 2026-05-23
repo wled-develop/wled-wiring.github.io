@@ -679,6 +679,7 @@ type SimulationLedElementVoltageResult = {
   distanceM?: number;
   sectionIndex?: number;
   logicLedIndex?: number;
+  physicalLedCount?: number;
   deltaVoltageV?: number;
 };
 
@@ -694,7 +695,8 @@ Fuer jedes intern erzeugte LED-Netzelement eines digitalen LED-Streifens wird na
 
 - `deltaVoltageV = V(supplyOut) - V(gndOut)` des jeweiligen expandierten LED-Netzelements.
 - `distanceM` beschreibt die Position dieses logischen LED-Netzelements entlang des physischen Streifens. Der Wert wird beim Modellaufbau aus `physLengths`, Abschnittslaenge und logischem LED-Index erzeugt und nicht spaeter aus Element-IDs geraten.
-- `sectionIndex` und `logicLedIndex` sind optionale Diagnose-/UI-Metadaten fuer Tooltips und fuer die Zuordnung zu `physLengths`-Abschnitten.
+- `sectionIndex` und `logicLedIndex` sind optionale Diagnose-/UI-Metadaten fuer Tooltips und fuer die Zuordnung zu `physLengths`-Abschnitten. `sectionIndex` ist die fortlaufende Abschnittsnummer im sortierten `physLengths`-Array, nicht `physLengths.startIndex`.
+- `physicalLedCount` beschreibt, wie viele physikalische LEDs durch dieses logische LED-Netzelement repraesentiert werden.
 - Die Werte werden als Simulationsergebnis gespeichert, aber noch nicht dauerhaft einzeln im Diagramm angezeigt.
 - Die spaetere Detailanzeige fuer einzelne LED-Netzelemente wird separat definiert.
 
@@ -719,9 +721,11 @@ Plot-Inhalt:
 
 - X-Achse: physische Laenge des LED-Streifens in Metern, beginnend bei `0 m`.
 - Y-Achse: lokale Differenzspannung `V_LED = V(supplyOut) - V(gndOut)` in Volt.
+- Der Plot zeigt ein Grid mit vertikalen und horizontalen Hilfslinien.
 - Die Kurve wird als Polyline durch die tatsaechlich berechneten logischen LED-Punkte gezeichnet. Zwischenwerte duerfen nur als visuelle Verbindung der Messpunkte erscheinen, nicht als zusaetzliche Simulationsdaten.
+- Unter dem Plot werden die Anzahl der logischen LEDs und die daraus repraesentierte Anzahl physikalischer LEDs getrennt angezeigt.
 - Der kleinste Punkt wird markiert und entspricht dem Wert aus `V_LED,min`.
-- Optional koennen Abschnittsgrenzen aus `physLengths` als vertikale Markierungen angezeigt werden. Einspeisepunkte an Start, Ende oder Middle-Pins sollen nur markiert werden, wenn sie aus den vorhandenen Pin-/Abschnittsdaten eindeutig bestimmbar sind.
+- Abschnittsgrenzen aus `physLengths` werden als vertikale Markierungen angezeigt. Einspeisepunkte an Start, Ende oder Middle-Pins sollen nur markiert werden, wenn sie aus den vorhandenen Pin-/Abschnittsdaten eindeutig bestimmbar sind.
 - Tooltips auf Punkten zeigen mindestens Laenge, `V_LED`, Abschnitt und logischen LED-Index.
 
 Datenmodell-Anforderung:
@@ -731,6 +735,13 @@ Datenmodell-Anforderung:
 - Die Plot-Daten werden aus `simulationResult.ledElementVoltageResults` nach `nodeId` und `sourceElementId` gruppiert und nach `distanceM` sortiert.
 - Wenn ein Streifen keine vollstaendigen Laengeninformationen hat, entsteht wie bisher kein erfolgreiches LED-Modell; ein Plot-Button wird dann nicht angezeigt.
 - Wenn nur ein einzelner Punkt existiert, wird kein Kurvenplot angeboten, weil keine Entwicklung ueber die Laenge sichtbar ist.
+
+Implementierungsstand:
+
+- Umgesetzt in `src/simulation/buildSimulationModel.ts`, `src/simulation/runSimulation.ts`, `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationTypes.ts`.
+- `SimulationElement.ledStripPosition` speichert `distanceM`, fortlaufenden `sectionIndex`, `logicLedIndex` und `physicalLedCount` fuer expandierte `digitalLed`-Elemente.
+- Das Overlay zeigt am `V_LED,min`-Label einen Plot-Button, wenn Plotdaten fuer den Streifen vorhanden sind.
+- Das Unterfenster wird als AntD-Modal geoeffnet und zeichnet den Plot als SVG mit Grid, tiefgestelltem `LED` in der Y-Achse, Minimum-Markierung und vertikalen `physLengths`-Grenzlinien.
 
 Nicht-Ziele fuer die erste Umsetzung:
 
