@@ -537,6 +537,53 @@
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC-Eingangsleistungslimit ist mehrdeutig",
           "description": "Von diesem DCDC-Eingang sind mehrere Eingangsspannungsquellen passiv erreichbar. Das dynamische Eingangsleistungslimit wurde nicht berechnet, weil Stromteilung zwischen Quellen nicht modelliert ist."
+        },
+        "dcdcInputPowerLimited": {
+          "title": "DCDC-Eingangsleistung begrenzt",
+          "description": "Der DCDC-Ausgangsstrom {{current}} A ueberschreitet das dynamische Eingangsleistungslimit {{limit}} A. Die Ausgangsspannung wurde durch das DCDC-Eingangsleistungsmodell reduziert."
+        },
+        "currentLimit": {
+          "title": "Stromlimit ueberschritten",
+          "description": "Der Quellenstrom {{current}} A ueberschreitet das Limit {{limit}} A. Die Ausgangsspannung wurde durch das Ueberlastmodell der Quelle reduziert."
+        },
+        "currentLimitReduced": {
+          "description": "Die Quellenlast hat das Limit {{limit}} A vor der Spannungsreduktion ueberschritten. Der finale Strom nach der Spannungsreduktion ist {{current}} A."
+        },
+        "currentLimitExtreme": {
+          "title": "Stromlimit zu stark ueberschritten",
+          "description": "Der Quellenstrom {{current}} A liegt ueber 150% des Limits {{limit}} A. Die Simulation wurde gestoppt."
+        },
+        "fuseCurrent": {
+          "title": "Sicherungsstrom ueberschritten",
+          "description": "Der Sicherungsstrom {{current}} A ueberschreitet den Nennstrom {{limit}} A."
+        },
+        "pinVoltageLow": {
+          "title": "Versorgungsspannung zu niedrig",
+          "description": "Die Versorgungsspannung ist {{voltage}} V und liegt unter dem Minimum {{limit}} V."
+        },
+        "pinVoltageHigh": {
+          "title": "Versorgungsspannung zu hoch",
+          "description": "Die Versorgungsspannung ist {{voltage}} V und liegt ueber dem Maximum {{limit}} V."
+        },
+        "ledStripVoltageLow": {
+          "title": "LED-Streifen-Spannung zu niedrig",
+          "description": "Die niedrigste LED-Streifen-Spannung ist {{voltage}} V und liegt unter dem Minimum {{limit}} V."
+        },
+        "ledStripVoltageHigh": {
+          "title": "LED-Streifen-Spannung zu hoch",
+          "description": "Die hoechste LED-Streifen-Spannung ist {{voltage}} V und liegt ueber dem Maximum {{limit}} V."
+        },
+        "unpoweredSubnet": {
+          "title": "Nicht versorgtes Teilnetz ignoriert",
+          "description": "Ein gueltiges Simulationsteilnetz ist von keiner Spannungsquelle erreichbar und wurde ignoriert."
+        },
+        "solverFailed": {
+          "title": "Simulationssolver fehlgeschlagen",
+          "description": "Der Solver hat den Status {{status}} zurueckgegeben."
+        },
+        "solverNotConverged": {
+          "title": "Simulationssolver konvergiert nicht",
+          "description": "Spannungsabhaengige LED-Stroeme sind innerhalb des Iterationslimits nicht konvergiert."
         }
       },
       "severity": {

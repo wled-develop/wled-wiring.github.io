@@ -537,6 +537,53 @@
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC input power limit is ambiguous",
           "description": "Multiple input voltage sources are passively reachable from this DCDC input. The dynamic input-power limit was not calculated because source sharing is not modeled."
+        },
+        "dcdcInputPowerLimited": {
+          "title": "DCDC input power limited",
+          "description": "DCDC output current {{current}} A exceeds the dynamic input-power limit {{limit}} A. The output voltage was reduced by the DCDC input power model."
+        },
+        "currentLimit": {
+          "title": "Current limit exceeded",
+          "description": "Voltage source current {{current}} A exceeds limit {{limit}} A. The output voltage was reduced by the source overload model."
+        },
+        "currentLimitReduced": {
+          "description": "Voltage source load exceeded limit {{limit}} A before output voltage reduction. Final current is {{current}} A after output voltage reduction."
+        },
+        "currentLimitExtreme": {
+          "title": "Current limit exceeded too far",
+          "description": "Voltage source current {{current}} A is above 150% of the limit {{limit}} A. Simulation was stopped."
+        },
+        "fuseCurrent": {
+          "title": "Fuse current exceeded",
+          "description": "Fuse current {{current}} A exceeds nominal current {{limit}} A."
+        },
+        "pinVoltageLow": {
+          "title": "Supply voltage is too low",
+          "description": "Supply voltage is {{voltage}} V, below the minimum {{limit}} V."
+        },
+        "pinVoltageHigh": {
+          "title": "Supply voltage is too high",
+          "description": "Supply voltage is {{voltage}} V, above the maximum {{limit}} V."
+        },
+        "ledStripVoltageLow": {
+          "title": "LED strip voltage is too low",
+          "description": "Lowest LED strip voltage is {{voltage}} V, below the minimum {{limit}} V."
+        },
+        "ledStripVoltageHigh": {
+          "title": "LED strip voltage is too high",
+          "description": "Highest LED strip voltage is {{voltage}} V, above the maximum {{limit}} V."
+        },
+        "unpoweredSubnet": {
+          "title": "Unpowered subcircuit ignored",
+          "description": "A valid simulation subcircuit is not reachable from a voltage source and was ignored."
+        },
+        "solverFailed": {
+          "title": "Simulation solver failed",
+          "description": "Solver returned status {{status}}."
+        },
+        "solverNotConverged": {
+          "title": "Simulation solver did not converge",
+          "description": "Voltage-dependent LED currents did not converge within the iteration limit."
         }
       },
       "severity": {

@@ -1138,13 +1138,14 @@ Optional:
 9. [x] Simple Mock-/Deterministic-Simulation fuer Testdiagramme einbauen. Umgesetzt in `src/simulation/runSimulation.ts`.
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
-12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `denseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert.
-13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits und Sicherungs-Nennstroeme.
+12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `sparseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert.
+13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz, mehrere GND-Inseln, nicht simulierbare Komponenten an relevanten Netzen und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits, Sicherungs-Nennstroeme, Supply/GND-Pin-Spannungen und LED-Streifen-Min-/Max-Spannungen.
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. [x] Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen. Umgesetzt mit LTspice-Referenzen unter `simulation_test/ltspice/`.
 16. [x] PSU-Degradation bei ueberschrittenem Stromlimit implementieren. Umgesetzt in `src/simulation/runSimulation.ts`: Quellenstrom wird iterativ ausgewertet, die Zielspannung wird ueber `voltageDropPctAt150Current` reduziert, und konvergierte Ueberlast erzeugt weiterhin ein Simulations-Issue.
 17. [x] Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen. Umgesetzt mit `npm run test:ltspice`, `scripts/ltspiceRegression.ts` und `scripts/runLtspiceRegression.mjs`.
-18. DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen.
+18. [x] DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen. Umgesetzt in `src/simulation/dcdcSimulation.ts` und `src/simulation/runSimulation.ts`, inklusive LTspice-/Analyse-Fixtures fuer Grundfall, festes Ausgangslimit, begrenzte Eingangsleistung, mehrdeutige Mehrquellen-Eingangsleistung und zwei DCDC-Wandler an einer PSU.
+19. [x] Sparse-Solver fuer groessere LED-Streifen ergaenzen. Umgesetzt in `src/simulation/sparseLinearSystemSolver.ts`; `runSimulation()` nutzt diesen Solver fuer die MNA-Systeme.
 
 ## Geklaerte Entscheidungen
 

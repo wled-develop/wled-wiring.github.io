@@ -184,13 +184,18 @@ const issue = (
   title: string,
   description: string,
   targets?: SimulationCheckIssue["targets"],
+  severity: SimulationCheckIssue["severity"] = "error",
 ): SimulationCheckIssue => ({
   id,
-  severity: "error",
+  severity,
   title,
   description,
   targets,
 });
+
+const isRelevantSimulationNet = (net: CheckNet | undefined) => (
+  Boolean(net && mapNetClassifications(net.classifications).length > 0)
+);
 
 const resolveParameter = (
   ref: SimulationParameterRef,
@@ -933,8 +938,42 @@ export const buildSimulationModel = (
       sourceCheckNetId: checkNetByPinId.get(id)?.id,
       functions: handle.functions,
       role: pinRoleFromFunctions(handle.functions),
+      voltageMin: handle.voltageMin,
+      voltageMax: handle.voltageMax,
       position: handlePosition(handle.node, handle.handle),
     };
+  });
+
+  const gndNetIds = new Set(
+    checkContext.componentLinkedNets
+      .filter((net) => net.classifications.includes("gnd_net_type"))
+      .map((net) => net.id),
+  );
+  if(gndNetIds.size > 1) {
+    issues.push(issue(
+      "simulation-gnd-reference:multiple-islands",
+      "Multiple separate GND nets",
+      `Simulation needs one common GND reference, but ${gndNetIds.size} separate GND nets were found.`,
+    ));
+  }
+
+  nodes.forEach((node) => {
+    if(node.data.simdata !== undefined) return;
+
+    const relevantHandles = visibleHandles(node).filter((handle) => {
+      const handleRef = handleByPinId.get(pinId(node.id, handle.hid));
+      if(!handleRef || handleRef.connectedEdges.length === 0) return false;
+
+      return isRelevantSimulationNet(checkContext.getNetByHandle(handleRef));
+    });
+    if(relevantHandles.length === 0) return;
+
+    issues.push(issue(
+      `simulation-component:${node.id}:missing-simdata`,
+      "Component has no simulation model",
+      "This component is connected to a simulated supply, GND, or PWM net, but it does not define simulation data.",
+      [{type: "node", nodeId: node.id}],
+    ));
   });
 
   const wires = edges.flatMap((edge) => {

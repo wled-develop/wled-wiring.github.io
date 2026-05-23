@@ -222,21 +222,21 @@ Der aktuelle Code enthaelt bereits eine erste lineare DC-Pipeline:
 - MNA-Stempeln fuer Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks und digitale LED-Stromsenken; digitale LED-Stromsenken werden iterativ spannungsabhaengig aktualisiert.
 - PSU-Spannungsquellen werden bei Stromlimit-Ueberschreitung iterativ ueber `voltageDropPctAt150Current` degradert. Der Solver konvergiert erst, wenn LED-Stroeme und PSU-Zielspannungen stabil sind.
 - DCDC-Wandler stempeln ihren Ausgang als geregelte Spannungsquelle und ihre Eingangsseite iterativ als Stromsenke aus Ausgangsleistung und Wirkungsgrad. Optionale Ausgangsstromlimits degradieren die Ausgangsspannung wie bei PSU-Quellen.
+- Das lineare MNA-System wird mit `sparseLinearSystemSolver` geloest. Das System bleibt als Entry-Liste aufgebaut; der Solver assembliert Sparse-Rows und verwendet partielle Pivot-Suche.
 - Ergebnisableitung fuer Pin-Spannungen, Wire-Stroeme, Wire-Spannungsabfaelle, LED-Netzelement-Differenzspannungen und `ΔVmin`.
-- Erste Simulation-Checks fuer fehlende Referenz, widerspruechliche parallele Spannungsquellen, Quellenstromlimit inklusive degradierter PSU-Ueberlast und Sicherungs-Nennstrom.
+- Erste Simulation-Checks fuer fehlende Referenz, mehrere GND-Inseln, nicht simulierbare Komponenten an relevanten Netzen, widerspruechliche parallele Spannungsquellen, Quellenstromlimit inklusive degradierter PSU-/DCDC-Ueberlast, Sicherungs-Nennstrom, Supply/GND-Pin-Spannungen und LED-Streifen-Min-/Max-Spannungen.
 
 Die aktuelle Implementierung ist damit ein brauchbarer DC-Zwischenschritt mit iterativen digitalen LED-Stromsenken und PSU-Degradation, aber noch kein vollstaendiger robuster Solver fuer alle geplanten Faelle.
 
 ## Was noch fuer einen richtigen Solver fehlt
 
-### Sparse Solver statt Dense Solver
+### Sparse Solver
 
-Der aktuelle Solver verwendet noch eine dichte Matrix. Fuer lange LED-Streifen muss das auf einen Sparse-Assembler und einen Sparse-Solver umgestellt werden:
+Der aktuelle Solver verwendet `src/simulation/sparseLinearSystemSolver.ts`. Das Stempeln erzeugt weiterhin eine Entry-Liste, die der Solver in Sparse-Rows zusammenfasst und mit partieller Pivot-Suche loest. Fuer lange LED-Streifen bleibt offen:
 
-- Sparse Row-/Triplet-Struktur fuer das Stempeln beibehalten.
-- Numerisch robuste Loesung mit Pivoting verwenden.
 - Matrixgroesse und Konditionierung in Debug-Ausgaben erfassen.
 - Tests mit langen LED-Streifen aufbauen, damit Performance-Regressionen sichtbar werden.
+- Optional spaeter einen spezialisierten Sparse-/Band-Solver oder eine numerische Bibliothek einsetzen, falls sehr grosse LED-Streifen mit dem einfachen Sparse-Gauss nicht schnell genug sind.
 
 ### Iterativer Nichtlinear-Solver
 

@@ -213,6 +213,8 @@ export type SimulationPin = {
   sourceCheckNetId?: string;
   functions: string[];
   role: SimulationPinRole;
+  voltageMin?: number;
+  voltageMax?: number;
   position: SimulationPoint;
 };
 

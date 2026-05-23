@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = path.join(repoRoot, ".tmp", "ltspice-regression");
-const outFile = path.join(outDir, "runner.mjs");
+const outDir = path.join(repoRoot, "ltspice-regression-tmp");
+const outFile = path.join(outDir, `runner-${process.pid}-${Date.now()}.mjs`);
 
 await mkdir(outDir, { recursive: true });
 

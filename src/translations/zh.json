@@ -537,6 +537,53 @@
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC 输入功率限制不明确",
           "description": "该 DCDC 输入可以被动到达多个输入电压源。由于未建模多电源之间的电流分配，因此未计算动态输入功率限制。"
+        },
+        "dcdcInputPowerLimited": {
+          "title": "DCDC 输入功率受限",
+          "description": "DCDC 输出电流 {{current}} A 超过动态输入功率限制 {{limit}} A。输出电压已由 DCDC 输入功率模型降低。"
+        },
+        "currentLimit": {
+          "title": "电流限制被超过",
+          "description": "电压源电流 {{current}} A 超过限制 {{limit}} A。输出电压已由电源过载模型降低。"
+        },
+        "currentLimitReduced": {
+          "description": "降低输出电压前，电源负载超过限制 {{limit}} A。降压后的最终电流为 {{current}} A。"
+        },
+        "currentLimitExtreme": {
+          "title": "电流限制超过过多",
+          "description": "电压源电流 {{current}} A 超过限制 {{limit}} A 的 150%。模拟已停止。"
+        },
+        "fuseCurrent": {
+          "title": "保险丝电流超标",
+          "description": "保险丝电流 {{current}} A 超过额定电流 {{limit}} A。"
+        },
+        "pinVoltageLow": {
+          "title": "供电电压过低",
+          "description": "供电电压为 {{voltage}} V，低于最小值 {{limit}} V。"
+        },
+        "pinVoltageHigh": {
+          "title": "供电电压过高",
+          "description": "供电电压为 {{voltage}} V，高于最大值 {{limit}} V。"
+        },
+        "ledStripVoltageLow": {
+          "title": "LED 灯带电压过低",
+          "description": "LED 灯带最低电压为 {{voltage}} V，低于最小值 {{limit}} V。"
+        },
+        "ledStripVoltageHigh": {
+          "title": "LED 灯带电压过高",
+          "description": "LED 灯带最高电压为 {{voltage}} V，高于最大值 {{limit}} V。"
+        },
+        "unpoweredSubnet": {
+          "title": "已忽略未供电子电路",
+          "description": "一个有效的模拟子电路无法从任何电压源到达，因此已被忽略。"
+        },
+        "solverFailed": {
+          "title": "模拟求解器失败",
+          "description": "求解器返回状态 {{status}}。"
+        },
+        "solverNotConverged": {
+          "title": "模拟求解器未收敛",
+          "description": "电压相关的 LED 电流在迭代限制内未收敛。"
         }
       },
       "severity": {

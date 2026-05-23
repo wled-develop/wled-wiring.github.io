@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import i18next from "../src/i18n";
 import { runSimulation } from "../src/simulation/runSimulation";
 import type {
   LedSimulationColorMode,
@@ -8,6 +9,8 @@ import type {
   SimulationResult,
   SimulationSettings,
 } from "../src/simulation/simulationTypes";
+
+await i18next.changeLanguage("en");
 
 type DiagramNode = {
   id: string;

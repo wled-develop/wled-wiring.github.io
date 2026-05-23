@@ -4,7 +4,7 @@ import i18next from "../i18n";
 import type { ComponentDataType, EdgeDataType } from "../types";
 import { buildSimulationModel } from "./buildSimulationModel";
 import { createSimulationFingerprint } from "./simulationFingerprint";
-import { denseLinearSystemSolver } from "./denseLinearSystemSolver";
+import { sparseLinearSystemSolver } from "./sparseLinearSystemSolver";
 import {
   DCDC_INPUT_CURRENT_CONVERGENCE_A,
   type DcdcInputStateByElementId,
@@ -40,6 +40,7 @@ const MAX_NONLINEAR_ITERATIONS = 100;
 const LED_CURRENT_CONVERGENCE_A = 0.000005;
 const SOURCE_VOLTAGE_CONVERGENCE_V = 0.00005;
 const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
+const VOLTAGE_TOLERANCE_V = 0.0005;
 const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
 const NONLINEAR_RELAXATION = 0.35;
 
@@ -55,6 +56,7 @@ type LinearDcModel = {
   system: LinearSystem;
   circuitNodeIndexById: Map<string, number>;
   voltageSources: VoltageSourceStamp[];
+  activeCircuitNodeIds: Set<string>;
 };
 
 type LedCurrentByElementId = Map<string, number>;
@@ -87,16 +89,20 @@ const issue = (
   title: string,
   description: string,
   targets?: SimulationCheckIssue["targets"],
+  severity: SimulationCheckIssue["severity"] = "error",
 ): SimulationCheckIssue => ({
   id,
-  severity: "error",
+  severity,
   title,
   description,
   targets,
 });
 
-const simulationIssueText = (key: string) => (
-  String(i18next.t(`sidebar.simulation.issues.${key}`, { ns: "main" }))
+const simulationIssueText = (
+  key: string,
+  options?: Record<string, string | number>,
+) => (
+  String(i18next.t(`sidebar.simulation.issues.${key}`, { ns: "main", ...options }))
 );
 
 const addEntry = (
@@ -467,8 +473,11 @@ const createExtremeVoltageSourceOverloadIssues = (
     if(currentA > currentLimitA * 1.5 + CURRENT_LIMIT_TOLERANCE_A) {
       issues.push(issue(
         `simulation-current-limit-extreme:${source.elementId}`,
-        "Current limit exceeded too far",
-        `Voltage source current ${currentA.toFixed(3)} A is above 150% of the limit ${currentLimitA.toFixed(3)} A. Simulation was stopped.`,
+        simulationIssueText("currentLimitExtreme.title"),
+        simulationIssueText("currentLimitExtreme.description", {
+          current: currentA.toFixed(3),
+          limit: currentLimitA.toFixed(3),
+        }),
         [{type: "element", elementId: source.elementId}],
       ));
     }
@@ -524,31 +533,56 @@ const voltageSourcesFromElements = (
 
 const collectActiveCircuitNodeIds = (model: SimulationModel) => {
   const activeCircuitNodeIds = new Set<string>();
-  activeCircuitNodeIds.add(model.referenceNodeId);
+  const adjacency = new Map<string, string[]>();
+  const addActive = (circuitNodeId: string | undefined) => {
+    if(circuitNodeId) activeCircuitNodeIds.add(circuitNodeId);
+  };
+  const addPassiveConnection = (a: string | undefined, b: string | undefined) => {
+    if(!a || !b) return;
+    adjacency.set(a, [...(adjacency.get(a) ?? []), b]);
+    adjacency.set(b, [...(adjacency.get(b) ?? []), a]);
+  };
 
+  activeCircuitNodeIds.add(model.referenceNodeId);
   model.elements.forEach((element) => {
-    Object.values(element.terminals).forEach((circuitNodeId) => {
-      activeCircuitNodeIds.add(circuitNodeId);
-    });
+    if(element.type === "voltageSource") {
+      addActive(element.terminals.positive);
+      addActive(element.terminals.negative);
+    }
+
+    if(element.type === "dcdcConverter") {
+      addActive(element.terminals.outPositive);
+      addActive(element.terminals.outNegative);
+      addPassiveConnection(element.terminals.inPositive, element.terminals.inNegative);
+    }
+
+    if(element.type === "resistor" || element.type === "fuse") {
+      addPassiveConnection(element.terminals.a, element.terminals.b);
+    }
+
+    if(element.type === "currentSource" || element.type === "constantPowerSink") {
+      addPassiveConnection(element.terminals.positive, element.terminals.negative);
+    }
+
+    if(element.type === "digitalLed") {
+      addPassiveConnection(element.terminals.supplyIn, element.terminals.supplyOut);
+      addPassiveConnection(element.terminals.gndIn, element.terminals.gndOut);
+    }
+  });
+  model.wires.forEach((wire) => {
+    addPassiveConnection(wire.sourceCircuitNodeId, wire.targetCircuitNodeId);
   });
 
   let changed = true;
   while(changed) {
     changed = false;
 
-    model.wires.forEach((wire) => {
-      const sourceActive = activeCircuitNodeIds.has(wire.sourceCircuitNodeId);
-      const targetActive = activeCircuitNodeIds.has(wire.targetCircuitNodeId);
-      if(!sourceActive && !targetActive) return;
-
-      if(!sourceActive) {
-        activeCircuitNodeIds.add(wire.sourceCircuitNodeId);
+    Array.from(activeCircuitNodeIds).forEach((circuitNodeId) => {
+      adjacency.get(circuitNodeId)?.forEach((connectedCircuitNodeId) => {
+        if(activeCircuitNodeIds.has(connectedCircuitNodeId)) return;
+        activeCircuitNodeIds.add(connectedCircuitNodeId);
         changed = true;
-      }
-      if(!targetActive) {
-        activeCircuitNodeIds.add(wire.targetCircuitNodeId);
-        changed = true;
-      }
+      });
     });
   }
 
@@ -674,6 +708,7 @@ const buildLinearDcModel = (
     },
     circuitNodeIndexById,
     voltageSources,
+    activeCircuitNodeIds,
   };
 };
 
@@ -752,6 +787,166 @@ const createLedStripVoltageSummaryResults = (
   });
 };
 
+const pinPairGroupKey = (handleId: string) => {
+  const terminalMatch = /_(start|end)$/.exec(handleId);
+  if(terminalMatch) return terminalMatch[1];
+
+  const middleMatch = /_middle_(\d+)$/.exec(handleId);
+  if(middleMatch) return `middle_${middleMatch[1]}`;
+
+  return "default";
+};
+
+const createPinVoltageRangeIssues = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+) => {
+  const issues: SimulationCheckIssue[] = [];
+  const gndPinByNodeAndGroup = new Map<string, SimulationModel["pins"][number]>();
+
+  model.pins.forEach((pin) => {
+    if(pin.role !== "gnd") return;
+    gndPinByNodeAndGroup.set(`${pin.nodeId}:${pinPairGroupKey(pin.handleId)}`, pin);
+  });
+
+  model.pins.forEach((pin) => {
+    if(pin.role !== "supply") return;
+    if(pin.voltageMin === undefined && pin.voltageMax === undefined) return;
+
+    const supplyVoltage = circuitVoltages.get(pin.circuitNodeId ?? "");
+    const gndPin = gndPinByNodeAndGroup.get(`${pin.nodeId}:${pinPairGroupKey(pin.handleId)}`)
+      ?? gndPinByNodeAndGroup.get(`${pin.nodeId}:default`);
+    const gndVoltage = circuitVoltages.get(gndPin?.circuitNodeId ?? "");
+    if(supplyVoltage === undefined || gndVoltage === undefined) return;
+
+    const deltaVoltageV = supplyVoltage - gndVoltage;
+    if(pin.voltageMin !== undefined && deltaVoltageV < pin.voltageMin - VOLTAGE_TOLERANCE_V) {
+      issues.push(issue(
+        `simulation-pin-voltage-low:${pin.nodeId}:${pin.handleId}`,
+        simulationIssueText("pinVoltageLow.title"),
+        simulationIssueText("pinVoltageLow.description", {
+          voltage: deltaVoltageV.toFixed(3),
+          limit: pin.voltageMin.toFixed(3),
+        }),
+        [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
+      ));
+    }
+
+    if(pin.voltageMax !== undefined && deltaVoltageV > pin.voltageMax + VOLTAGE_TOLERANCE_V) {
+      issues.push(issue(
+        `simulation-pin-voltage-high:${pin.nodeId}:${pin.handleId}`,
+        simulationIssueText("pinVoltageHigh.title"),
+        simulationIssueText("pinVoltageHigh.description", {
+          voltage: deltaVoltageV.toFixed(3),
+          limit: pin.voltageMax.toFixed(3),
+        }),
+        [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
+      ));
+    }
+  });
+
+  return issues;
+};
+
+const createLedStripVoltageRangeIssues = (
+  model: SimulationModel,
+  ledElementVoltageResults: ReturnType<typeof createLedElementVoltageResults>,
+) => {
+  const issues: SimulationCheckIssue[] = [];
+  const supplyPinsByNode = new Map<string, SimulationModel["pins"]>();
+
+  model.pins.forEach((pin) => {
+    if(pin.role !== "supply") return;
+    if(pin.voltageMin === undefined && pin.voltageMax === undefined) return;
+
+    const pins = supplyPinsByNode.get(pin.nodeId) ?? [];
+    pins.push(pin);
+    supplyPinsByNode.set(pin.nodeId, pins);
+  });
+
+  const groupedVoltages = new Map<string, typeof ledElementVoltageResults>();
+  ledElementVoltageResults.forEach((result) => {
+    if(result.deltaVoltageV === undefined) return;
+
+    const key = `${result.nodeId}:${result.sourceElementId ?? ""}`;
+    const group = groupedVoltages.get(key) ?? [];
+    group.push(result);
+    groupedVoltages.set(key, group);
+  });
+
+  groupedVoltages.forEach((group, key) => {
+    const nodeId = group[0]?.nodeId;
+    if(!nodeId) return;
+
+    const supplyPins = supplyPinsByNode.get(nodeId) ?? [];
+    const minLimit = Math.min(
+      ...supplyPins.flatMap((pin) => pin.voltageMin !== undefined ? [pin.voltageMin] : []),
+    );
+    const maxLimit = Math.max(
+      ...supplyPins.flatMap((pin) => pin.voltageMax !== undefined ? [pin.voltageMax] : []),
+    );
+    const voltages = group.flatMap((result) => (
+      result.deltaVoltageV !== undefined ? [result.deltaVoltageV] : []
+    ));
+    if(voltages.length === 0) return;
+
+    const minVoltage = Math.min(...voltages);
+    const maxVoltage = Math.max(...voltages);
+    const target = [{type: "node" as const, nodeId}];
+
+    if(Number.isFinite(minLimit) && minVoltage < minLimit - VOLTAGE_TOLERANCE_V) {
+      issues.push(issue(
+        `simulation-led-strip-voltage-low:${key}`,
+        simulationIssueText("ledStripVoltageLow.title"),
+        simulationIssueText("ledStripVoltageLow.description", {
+          voltage: minVoltage.toFixed(3),
+          limit: minLimit.toFixed(3),
+        }),
+        target,
+      ));
+    }
+
+    if(Number.isFinite(maxLimit) && maxVoltage > maxLimit + VOLTAGE_TOLERANCE_V) {
+      issues.push(issue(
+        `simulation-led-strip-voltage-high:${key}`,
+        simulationIssueText("ledStripVoltageHigh.title"),
+        simulationIssueText("ledStripVoltageHigh.description", {
+          voltage: maxVoltage.toFixed(3),
+          limit: maxLimit.toFixed(3),
+        }),
+        target,
+      ));
+    }
+  });
+
+  return issues;
+};
+
+const createUnpoweredIgnoredIssues = (
+  model: SimulationModel,
+  activeCircuitNodeIds: Set<string>,
+) => (
+  model.components.flatMap((component) => {
+    const ignoredElementIds = component.elementIds.filter((elementId) => {
+      const element = model.elements.find((candidate) => candidate.id === elementId);
+      if(!element) return false;
+
+      return Object.values(element.terminals).every((circuitNodeId) => (
+        !activeCircuitNodeIds.has(circuitNodeId)
+      ));
+    });
+    if(ignoredElementIds.length === 0) return [];
+
+    return [issue(
+      `simulation-unpowered-subnet:${component.nodeId}`,
+      simulationIssueText("unpoweredSubnet.title"),
+      simulationIssueText("unpoweredSubnet.description"),
+      [{type: "node", nodeId: component.nodeId}],
+      "info",
+    )];
+  })
+);
+
 const createSolvedCheckIssues = (
   model: SimulationModel,
   linearModel: LinearDcModel,
@@ -762,6 +957,13 @@ const createSolvedCheckIssues = (
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
+
+  issues.push(...createUnpoweredIgnoredIssues(model, linearModel.activeCircuitNodeIds));
+  issues.push(...createPinVoltageRangeIssues(model, circuitVoltages));
+  issues.push(...createLedStripVoltageRangeIssues(
+    model,
+    createLedElementVoltageResults(model, circuitVoltages),
+  ));
 
   model.elements.forEach((element) => {
     if(element.type !== "dcdcConverter") return;
@@ -787,19 +989,28 @@ const createSolvedCheckIssues = (
       if(element?.type === "dcdcConverter" && dcdcInputStates.get(source.elementId)?.wasInputPowerLimited) {
         issues.push(issue(
           `simulation-dcdc-input-power-limit:${source.elementId}`,
-          "DCDC input power limited",
-          `DCDC output current ${currentA.toFixed(3)} A exceeds the dynamic input-power limit ${currentLimitA.toFixed(3)} A. The output voltage was reduced by the DCDC input power model.`,
+          simulationIssueText("dcdcInputPowerLimited.title"),
+          simulationIssueText("dcdcInputPowerLimited.description", {
+            current: currentA.toFixed(3),
+            limit: currentLimitA.toFixed(3),
+          }),
           [{type: "element", elementId: source.elementId}],
         ));
         return;
       }
 
       const description = currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A
-        ? `Voltage source current ${currentA.toFixed(3)} A exceeds limit ${currentLimitA.toFixed(3)} A. The output voltage was reduced by the source overload model.`
-        : `Voltage source load exceeded limit ${currentLimitA.toFixed(3)} A before output voltage reduction. Final current is ${currentA.toFixed(3)} A after output voltage reduction.`;
+        ? simulationIssueText("currentLimit.description", {
+          current: currentA.toFixed(3),
+          limit: currentLimitA.toFixed(3),
+        })
+        : simulationIssueText("currentLimitReduced.description", {
+          current: currentA.toFixed(3),
+          limit: currentLimitA.toFixed(3),
+        });
       issues.push(issue(
         `simulation-current-limit:${source.elementId}`,
-        "Current limit exceeded",
+        simulationIssueText("currentLimit.title"),
         description,
         [{type: "element", elementId: source.elementId}],
       ));
@@ -828,8 +1039,11 @@ const createSolvedCheckIssues = (
     if(currentA > nominalCurrentA + 0.0005) {
       issues.push(issue(
         `simulation-fuse-current:${element.id}`,
-        "Fuse current exceeded",
-        `Fuse current ${currentA.toFixed(3)} A exceeds nominal current ${nominalCurrentA.toFixed(3)} A.`,
+        simulationIssueText("fuseCurrent.title"),
+        simulationIssueText("fuseCurrent.description", {
+          current: currentA.toFixed(3),
+          limit: nominalCurrentA.toFixed(3),
+        }),
         [{type: "element", elementId: element.id}],
       ));
     }
@@ -945,7 +1159,7 @@ export const runSimulation = (
     voltageSourceStates,
     dcdcInputStates,
   );
-  let solverResult = denseLinearSystemSolver.solve(linearModel.system);
+  let solverResult = sparseLinearSystemSolver.solve(linearModel.system);
   let converged = false;
 
   for(let iteration = 0; iteration < MAX_NONLINEAR_ITERATIONS; iteration += 1) {
@@ -957,8 +1171,10 @@ export const runSimulation = (
           ...modelResult.issues,
           issue(
             "simulation-solver:failed",
-            "Simulation solver failed",
-            solverResult.message ?? `Solver returned status ${solverResult.status}.`,
+            simulationIssueText("solverFailed.title"),
+            solverResult.message ?? simulationIssueText("solverFailed.description", {
+              status: solverResult.status,
+            }),
           ),
         ],
       };
@@ -1008,7 +1224,7 @@ export const runSimulation = (
       voltageSourceStates,
       dcdcInputStates,
     );
-    solverResult = denseLinearSystemSolver.solve(linearModel.system);
+    solverResult = sparseLinearSystemSolver.solve(linearModel.system);
   }
 
   if(!converged) {
@@ -1019,8 +1235,8 @@ export const runSimulation = (
         ...modelResult.issues,
         issue(
           "simulation-solver:led-current-not-converged",
-          "Simulation solver did not converge",
-          "Voltage-dependent LED currents did not converge within the iteration limit.",
+          simulationIssueText("solverNotConverged.title"),
+          simulationIssueText("solverNotConverged.description"),
         ),
       ],
     };
