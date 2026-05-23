@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useReactFlow } from '@xyflow/react';
+import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Alert, Button, Collapse, Empty, Flex, List, Modal, Segmented, Space, Tag, Typography, theme, type CollapseProps } from 'antd';
 import { SafetyCertificateOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -8,8 +8,11 @@ import { useTranslation } from 'react-i18next';
 import type { CheckNet } from '../check/checkContext';
 import { createDiagramCheckContextFromJson, runDiagramCheck } from '../check/runDiagramCheck';
 import type { DiagramCheckDeduplicationMode, DiagramCheckIssue, DiagramCheckSeverity, DiagramCheckTarget } from '../check/diagramCheckTypes';
+import { useDiagramCheckResultStore } from '../check/diagramCheckResultStore';
 import { createDiagramExportJson } from '../utils/exportModel';
+import { createDiagramFingerprint } from '../utils/diagramFingerprint';
 import { getDiagramCheckRuleInfos } from '../check/rules';
+import type { ComponentDataType, EdgeDataType } from '../types';
 
 const severityColor: Record<DiagramCheckSeverity, string> = {
   error: 'red',
@@ -59,6 +62,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   const { t, i18n } = useTranslation(['main']);
   const { token } = theme.useToken();
   const reactFlow = useReactFlow();
+  const setDiagramCheckResult = useDiagramCheckResultStore((state) => state.setResult);
   const [issues, setIssues] = useState<DiagramCheckIssue[] | null>(null);
   const [netDebugNets, setNetDebugNets] = useState<CheckNet[] | null>(null);
   const [activeIssueKeys, setActiveIssueKeys] = useState<string[]>([]);
@@ -115,6 +119,10 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   ) => {
     const jsonData = createDiagramExportJson(reactFlow);
     const nextIssues = runDiagramCheck(jsonData, { deduplicationMode: nextDeduplicationMode });
+    const fingerprint = createDiagramFingerprint(
+      reactFlow.getNodes() as Node<ComponentDataType>[],
+      reactFlow.getEdges() as Edge<EdgeDataType>[],
+    );
     const debugContext = SHOW_NET_DEBUG ? createDiagramCheckContextFromJson(jsonData) : undefined;
     const activeIssueId = activeIssueKeys[activeIssueKeys.length - 1];
     const activeIssue = keepActiveIssue
@@ -122,6 +130,11 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
       : undefined;
 
     setIssues(nextIssues);
+    setDiagramCheckResult({
+      fingerprint,
+      issues: nextIssues,
+      checkedAt: Date.now(),
+    });
     setNetDebugNets(debugContext
       ? [
         ...debugContext.elementaryNets,
@@ -137,7 +150,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     } else {
       clearHighlights();
     }
-  }, [activeIssueKeys, clearHighlights, deduplicationMode, highlightTargets, reactFlow]);
+  }, [activeIssueKeys, clearHighlights, deduplicationMode, highlightTargets, reactFlow, setDiagramCheckResult]);
 
   const runCheck = () => {
     updateIssues(false);

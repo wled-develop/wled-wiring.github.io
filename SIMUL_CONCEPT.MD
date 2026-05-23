@@ -4,7 +4,9 @@
 
 Die Simulation soll aus dem aktuellen Diagramm ein elektrisches Simulationsmodell erzeugen, eine reine DC-Simulation ausfuehren und die Ergebnisse im Diagramm sowie im Sidebar-Bereich `Simulate current flow` anzeigen.
 
-Voraussetzung fuer jede Simulation ist ein fehlerfreier Diagramm-Check. Wenn beim Klick auf `Simulate` noch Diagramm-Check-Meldungen mit Severity `error` existieren, startet die Simulation nicht. Stattdessen wird eine Meldung angezeigt, dass zuerst die Diagramm-Check-Meldungen korrigiert werden muessen.
+Voraussetzung fuer jede normale Simulation ist ein aktueller, fehlerfreier Diagramm-Check. Das Check-Ergebnis wird zusammen mit einem Diagramm-Fingerprint gespeichert. Wenn beim Klick auf `Simulate` kein Check-Ergebnis vorliegt, der Fingerprint nicht mehr zum aktuellen Diagramm passt oder Check-Meldungen mit Severity `error` existieren, startet die Simulation nicht. Stattdessen wird eine Meldung angezeigt, dass zuerst die Diagramm-Check-Meldungen korrigiert bzw. die Pruefung erneut ausgefuehrt werden muessen. Warnungen blockieren die Simulation nicht.
+
+Fuer Entwicklungs- und Regressionstestfaelle gibt es in `src/simulation/simulationFeatureFlags.ts` den Schalter `DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK`. Wenn dieser explizit auf `true` gesetzt wird, wird dieses Diagramm-Check-Gating uebersprungen, damit teilweise modellierte, aber fuer die Simulation ausreichende Testdiagramme simuliert werden koennen.
 
 Der erste Simulationsumfang ist bewusst begrenzt:
 
@@ -15,8 +17,8 @@ Der erste Simulationsumfang ist bewusst begrenzt:
 
 Die grobe Pipeline:
 
-1. Vorhandenes Diagramm-Check-Ergebnis pruefen, solange dessen Diagramm-Fingerprint unveraendert ist.
-2. Bei Check-Fehlern mit Severity `error` abbrechen und Meldung anzeigen; Warnungen blockieren die Simulation erstmal nicht.
+1. Vorhandenes Diagramm-Check-Ergebnis pruefen, solange dessen Diagramm-Fingerprint unveraendert ist; im Debug-Bypass wird dieser Schritt uebersprungen.
+2. Bei fehlendem, veraltetem oder fehlerhaftem Check-Ergebnis abbrechen und Meldung anzeigen; Warnungen blockieren die Simulation erstmal nicht.
 3. Aus dem Diagramm-JSON wird ein Simulationsmodell aufgebaut.
 4. Das Modell wird simuliert.
 5. Ergebnisse werden erzeugt: Pin-Stroeme, Pin-Spannungen und zusaetzliche LED-Streifen-Spannungen.
@@ -1062,6 +1064,7 @@ Debug-Modus:
 - Wenn `SIMULATION_DEBUG === true`, schreibt die Simulation technische Debug-Informationen in die Browser-Console.
 - Sinnvolle Debug-Ausgaben sind: Diagramm-Fingerprint, Einstellungen, Status, Anzahl Diagramm-Komponenten, Anzahl simulierbarer Komponenten, Check-Netze, Circuit-Nodes, simulierte Wires, elementare Simulationselemente, Pins, virtuelle Pins, Pin-/Wire-Ergebnisse und Simulationsmeldungen.
 - Diese Informationen sind nur fuer Entwicklung und Tests gedacht und duerfen normale Nutzer nicht in der UI verwirren.
+- Zusaetzlich gibt es `DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK` in `simulationFeatureFlags.ts`. Dieser Schalter ist standardmaessig `false` und darf nur fuer Entwicklung/Regressionstests aktiviert werden. Bei `true` startet die Simulation auch ohne aktuelles fehlerfreies Diagramm-Check-Ergebnis; die UI zeigt dann einen Warnhinweis zum Debug-Bypass.
 
 ## Empfohlene Modulstruktur
 

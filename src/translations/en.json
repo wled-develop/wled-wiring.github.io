@@ -526,6 +526,23 @@
       "notRun": "No simulation has been run yet.",
       "running": "Simulation is running...",
       "invalidated": "Simulation results were removed because the diagram changed.",
+      "blockedTitle": "Simulation not started",
+      "blockedDescription": "Run a current diagram check without errors before starting the simulation.",
+      "diagramCheckDebugBypass": "Debug mode: simulation starts without diagram-check gating.",
+      "diagramCheckGate": {
+        "not-checked": {
+          "title": "Diagram check required",
+          "description": "Run the diagram check before starting the simulation."
+        },
+        "stale": {
+          "title": "Diagram check is outdated",
+          "description": "The diagram changed after the last check. Run the diagram check again."
+        },
+        "has-errors": {
+          "title": "Diagram check has {{count}} error(s)",
+          "description": "Fix the diagram-check errors before starting the simulation. Warnings do not block simulation."
+        }
+      },
       "modelReadyTitle": "Simulation model created",
       "modelReadyDescription": "{{components}} simulated component(s), {{wires}} simulated wire(s).",
       "failedTitle": "Simulation failed",

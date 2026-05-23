@@ -9,6 +9,7 @@ import { createSimulationFingerprint } from "./simulationFingerprint";
 import { logSimulationDebug } from "./simulationDebug";
 import { runSimulation as runDeterministicSimulation } from "./runSimulation";
 import { useSimulationResultStore } from "./simulationResultStore";
+import { DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK } from "./simulationFeatureFlags";
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
@@ -16,9 +17,11 @@ import type {
   SimulationSettings,
   SimulationTarget,
 } from "./simulationTypes";
+import { useDiagramCheckResultStore } from "../check/diagramCheckResultStore";
 import type { ComponentDataType, EdgeDataType } from "../types";
 
-type SimulationUiStatus = "idle" | "running" | "success" | "failed";
+type SimulationUiStatus = "idle" | "running" | "success" | "failed" | "blocked";
+type SimulationGateState = "ready" | "debug-bypass" | "not-checked" | "stale" | "has-errors";
 
 const severityColor: Record<SimulationCheckIssue["severity"], string> = {
   error: "red",
@@ -72,6 +75,7 @@ export const SimulationPage = () => {
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
   const setSimulationOverlayResult = useSimulationResultStore((state) => state.setResult);
+  const diagramCheckResult = useDiagramCheckResultStore((state) => state.result);
   const [settings, setSettings] = useState<SimulationSettings>({
     ledColorMode: "RGB_WHITE",
     brightnessPercent: 100,
@@ -88,6 +92,29 @@ export const SimulationPage = () => {
   const currentFingerprint = useMemo(() => (
     createSimulationFingerprint(nodes, edges)
   ), [edges, nodes]);
+
+  const simulationGate = useMemo((): {state: SimulationGateState; errorCount: number} => {
+    if(DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK) {
+      return {state: "debug-bypass", errorCount: 0};
+    }
+
+    if(!diagramCheckResult) {
+      return {state: "not-checked", errorCount: 0};
+    }
+
+    if(diagramCheckResult.fingerprint !== currentFingerprint) {
+      return {state: "stale", errorCount: 0};
+    }
+
+    const errorCount = diagramCheckResult.issues.filter((issue) => issue.severity === "error").length;
+    if(errorCount > 0) {
+      return {state: "has-errors", errorCount};
+    }
+
+    return {state: "ready", errorCount: 0};
+  }, [currentFingerprint, diagramCheckResult]);
+
+  const simulationBlocked = simulationGate.state !== "ready" && simulationGate.state !== "debug-bypass";
 
   const colorModeSelectOptions = useMemo(() => (
     colorModeOptions.map((option) => ({
@@ -152,6 +179,15 @@ export const SimulationPage = () => {
   };
 
   const runSimulation = () => {
+    if(simulationBlocked) {
+      setStatus("blocked");
+      setIssues(null);
+      setModelStats(null);
+      setWasInvalidated(false);
+      setSimulationOverlayResult(null);
+      return;
+    }
+
     setStatus("running");
     setIssues(null);
     setModelStats(null);
@@ -253,6 +289,27 @@ export const SimulationPage = () => {
         </Button>
       </Space.Compact>
 
+      {simulationGate.state === "debug-bypass" &&
+        <Alert
+          type="warning"
+          showIcon
+          message={t("sidebar.simulation.diagramCheckDebugBypass")}
+        />
+      }
+
+      {simulationBlocked &&
+        <Alert
+          type="warning"
+          showIcon
+          message={t(`sidebar.simulation.diagramCheckGate.${simulationGate.state}.title`, {
+            count: simulationGate.errorCount,
+          })}
+          description={t(`sidebar.simulation.diagramCheckGate.${simulationGate.state}.description`, {
+            count: simulationGate.errorCount,
+          })}
+        />
+      }
+
       {status === "idle" &&
         <>
           {wasInvalidated &&
@@ -295,6 +352,15 @@ export const SimulationPage = () => {
           showIcon
           message={t("sidebar.simulation.failedTitle")}
           description={t("sidebar.simulation.failedDescription")}
+        />
+      }
+
+      {status === "blocked" &&
+        <Alert
+          type="warning"
+          showIcon
+          message={t("sidebar.simulation.blockedTitle")}
+          description={t("sidebar.simulation.blockedDescription")}
         />
       }
 
