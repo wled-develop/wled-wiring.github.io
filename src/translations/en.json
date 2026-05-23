@@ -533,6 +533,9 @@
       "noIssues": "No simulation messages.",
       "issueCount": "{{count}} simulation message(s)",
       "affectedElements": "Affected elements",
+      "targetPin": "{{component}} - {{pin}}",
+      "targetWire": "Wire: {{source}} -> {{target}}",
+      "targetComponent": "{{component}}",
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC input power limit is ambiguous",
@@ -564,6 +567,14 @@
         "pinVoltageHigh": {
           "title": "Supply voltage is too high",
           "description": "Supply voltage is {{voltage}} V, above the maximum {{limit}} V."
+        },
+        "ledStripSupplyVoltageLow": {
+          "title": "LED strip supply voltage is too low",
+          "description": "VLED at a connected LED strip supply point is {{voltage}} V, below the minimum {{limit}} V. Increase the power supply voltage, or increase the available power if the power supply is current-limiting."
+        },
+        "ledStripVoltageDropHigh": {
+          "title": "LED strip voltage drop is too high",
+          "description": "The connected supply points are within range, but the lowest VLED along the strip is {{voltage}} V, below the minimum {{limit}} V. Add more power injection points along the LED strip."
         },
         "ledStripVoltageLow": {
           "title": "LED strip voltage is too low",

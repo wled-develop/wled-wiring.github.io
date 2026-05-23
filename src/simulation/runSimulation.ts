@@ -797,6 +797,72 @@ const pinPairGroupKey = (handleId: string) => {
   return "default";
 };
 
+const isDigitalLedNode = (model: SimulationModel, nodeId: string) => (
+  model.elements.some((element) => element.componentId === nodeId && element.type === "digitalLed")
+);
+
+const isLedStripConnectionGroup = (groupKey: string) => (
+  groupKey === "start" ||
+  groupKey === "end" ||
+  groupKey.startsWith("middle_")
+);
+
+type LedStripSupplyVoltageProblem = {
+  nodeId: string;
+  voltage: number;
+  limit: number;
+  targetPins: SimulationCheckIssue["targets"];
+};
+
+const collectLedStripSupplyVoltageProblems = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+) => {
+  const problems = new Map<string, LedStripSupplyVoltageProblem>();
+  const gndPinByNodeAndGroup = new Map<string, SimulationModel["pins"][number]>();
+
+  model.pins.forEach((pin) => {
+    if(pin.role !== "gnd") return;
+    gndPinByNodeAndGroup.set(`${pin.nodeId}:${pinPairGroupKey(pin.handleId)}`, pin);
+  });
+
+  model.pins.forEach((pin) => {
+    if(pin.role !== "supply") return;
+    if(pin.voltageMin === undefined) return;
+    if(!isDigitalLedNode(model, pin.nodeId)) return;
+
+    const groupKey = pinPairGroupKey(pin.handleId);
+    if(!isLedStripConnectionGroup(groupKey)) return;
+
+    const gndPin = gndPinByNodeAndGroup.get(`${pin.nodeId}:${groupKey}`);
+    if(!gndPin) return;
+    if(pin.connectedWireIds.length === 0 && gndPin.connectedWireIds.length === 0) return;
+
+    const supplyVoltage = circuitVoltages.get(pin.circuitNodeId ?? "");
+    const gndVoltage = circuitVoltages.get(gndPin.circuitNodeId ?? "");
+    if(supplyVoltage === undefined || gndVoltage === undefined) return;
+
+    const deltaVoltageV = supplyVoltage - gndVoltage;
+    if(deltaVoltageV >= pin.voltageMin - VOLTAGE_TOLERANCE_V) return;
+
+    const current = problems.get(pin.nodeId);
+    const targetPins: SimulationCheckIssue["targets"] = [
+      {type: "pin", nodeId: pin.nodeId, handleId: pin.handleId},
+      {type: "pin", nodeId: gndPin.nodeId, handleId: gndPin.handleId},
+    ];
+    if(!current || deltaVoltageV < current.voltage) {
+      problems.set(pin.nodeId, {
+        nodeId: pin.nodeId,
+        voltage: deltaVoltageV,
+        limit: pin.voltageMin,
+        targetPins,
+      });
+    }
+  });
+
+  return problems;
+};
+
 const createPinVoltageRangeIssues = (
   model: SimulationModel,
   circuitVoltages: Map<string, number>,
@@ -820,7 +886,11 @@ const createPinVoltageRangeIssues = (
     if(supplyVoltage === undefined || gndVoltage === undefined) return;
 
     const deltaVoltageV = supplyVoltage - gndVoltage;
-    if(pin.voltageMin !== undefined && deltaVoltageV < pin.voltageMin - VOLTAGE_TOLERANCE_V) {
+    if(
+      pin.voltageMin !== undefined &&
+      deltaVoltageV < pin.voltageMin - VOLTAGE_TOLERANCE_V &&
+      !isDigitalLedNode(model, pin.nodeId)
+    ) {
       issues.push(issue(
         `simulation-pin-voltage-low:${pin.nodeId}:${pin.handleId}`,
         simulationIssueText("pinVoltageLow.title"),
@@ -851,6 +921,7 @@ const createPinVoltageRangeIssues = (
 const createLedStripVoltageRangeIssues = (
   model: SimulationModel,
   ledElementVoltageResults: ReturnType<typeof createLedElementVoltageResults>,
+  ledStripSupplyVoltageProblems: Map<string, LedStripSupplyVoltageProblem>,
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const supplyPinsByNode = new Map<string, SimulationModel["pins"]>();
@@ -874,9 +945,22 @@ const createLedStripVoltageRangeIssues = (
     groupedVoltages.set(key, group);
   });
 
+  ledStripSupplyVoltageProblems.forEach((problem) => {
+    issues.push(issue(
+      `simulation-led-strip-supply-voltage-low:${problem.nodeId}`,
+      simulationIssueText("ledStripSupplyVoltageLow.title"),
+      simulationIssueText("ledStripSupplyVoltageLow.description", {
+        voltage: problem.voltage.toFixed(3),
+        limit: problem.limit.toFixed(3),
+      }),
+      problem.targetPins,
+    ));
+  });
+
   groupedVoltages.forEach((group, key) => {
     const nodeId = group[0]?.nodeId;
     if(!nodeId) return;
+    if(ledStripSupplyVoltageProblems.has(nodeId)) return;
 
     const supplyPins = supplyPinsByNode.get(nodeId) ?? [];
     const minLimit = Math.min(
@@ -896,9 +980,9 @@ const createLedStripVoltageRangeIssues = (
 
     if(Number.isFinite(minLimit) && minVoltage < minLimit - VOLTAGE_TOLERANCE_V) {
       issues.push(issue(
-        `simulation-led-strip-voltage-low:${key}`,
-        simulationIssueText("ledStripVoltageLow.title"),
-        simulationIssueText("ledStripVoltageLow.description", {
+        `simulation-led-strip-voltage-drop-high:${key}`,
+        simulationIssueText("ledStripVoltageDropHigh.title"),
+        simulationIssueText("ledStripVoltageDropHigh.description", {
           voltage: minVoltage.toFixed(3),
           limit: minLimit.toFixed(3),
         }),
@@ -957,12 +1041,14 @@ const createSolvedCheckIssues = (
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
+  const ledStripSupplyVoltageProblems = collectLedStripSupplyVoltageProblems(model, circuitVoltages);
 
   issues.push(...createUnpoweredIgnoredIssues(model, linearModel.activeCircuitNodeIds));
   issues.push(...createPinVoltageRangeIssues(model, circuitVoltages));
   issues.push(...createLedStripVoltageRangeIssues(
     model,
     createLedElementVoltageResults(model, circuitVoltages),
+    ledStripSupplyVoltageProblems,
   ));
 
   model.elements.forEach((element) => {

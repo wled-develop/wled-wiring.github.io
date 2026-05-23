@@ -936,6 +936,7 @@ export const buildSimulationModel = (
       handleId: handle.handle.hid,
       circuitNodeId: pinToCircuitNodeId.get(id),
       sourceCheckNetId: checkNetByPinId.get(id)?.id,
+      connectedWireIds: handle.connectedEdges.map((edge) => edge.id),
       functions: handle.functions,
       role: pinRoleFromFunctions(handle.functions),
       voltageMin: handle.voltageMin,

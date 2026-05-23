@@ -211,6 +211,7 @@ export type SimulationPin = {
   handleId: string;
   circuitNodeId?: string;
   sourceCheckNetId?: string;
+  connectedWireIds: string[];
   functions: string[];
   role: SimulationPinRole;
   voltageMin?: number;

@@ -549,6 +549,7 @@ type SimulationPin = {
   handleId: string;
   circuitNodeId?: string;
   sourceCheckNetId?: string;
+  connectedWireIds: string[];
   functions: string[];
   role: 'gnd' | 'supply' | 'pwm' | 'other';
   position: {x: number; y: number};
@@ -692,7 +693,7 @@ Fuer jedes intern erzeugte LED-Netzelement eines digitalen LED-Streifens wird na
 Aus allen `deltaVoltageV`-Werten eines LED-Streifens wird zusaetzlich eine Zusammenfassung berechnet:
 
 - `minDeltaVoltageV = Math.min(...deltaVoltageV)`
-- Anzeigeformat im Diagramm: `ΔVmin=2.22V`
+- Anzeigeformat im Diagramm: `V_LED,min=2.22 V`, wobei `LED,min` in der UI tiefgestellt ist.
 - Diese Anzeige wird zusammen mit den anderen Simulationsergebnissen angezeigt.
 
 Wire-Strom und Spannungsabfall werden nicht dauerhaft als Label auf jedem Wire angezeigt, um das Diagramm nicht zu ueberladen. Sie sollen aber per Hover oder Select am Wire verfuegbar sein.
@@ -738,11 +739,11 @@ Anzeige-Regel:
     - `_start`: Supply-Start gegen `GND_start`
     - `_end`: Supply-Ende gegen `GND_end`
     - `_middle_N`: Supply-Mitte gegen `GND_middle_N`
-- Fuer die Differenzanzeige wird ein leicht versetzter Spannungspfeil vom Supply-Pin zum GND-Pin gezeichnet. Am Anfang und Ende wird die Versatzseite so gewaehlt, dass der Pfeil auf dem Streifen liegt. Bei Middle-Punkten wird vorzugsweise die Seite ohne Wire-Ueberdeckung gewaehlt. Das Label wird als `ΔV=0.15V` angezeigt und per Hinweispfeil mit dem Rand dieses Spannungspfeils verbunden; die Pfeilspitze soll den Spannungspfeil nicht durchkreuzen.
-- Zusaetzlich wird fuer den gesamten LED-Streifen die minimale interne LED-Netzelement-Differenzspannung angezeigt. Das Label wird als `ΔVmin=2.22V` formatiert.
-- Die `ΔVmin`-Anzeige wird erst nach allen Strom-, Spannungs- und Spannungsdifferenzanzeigen platziert, damit sie deren bereits belegte Bereiche beruecksichtigen kann.
+- Fuer die Differenzanzeige wird ein leicht versetzter Spannungspfeil vom Supply-Pin zum GND-Pin gezeichnet. Am Anfang und Ende wird die Versatzseite so gewaehlt, dass der Pfeil auf dem Streifen liegt. Bei Middle-Punkten wird vorzugsweise die Seite ohne Wire-Ueberdeckung gewaehlt. Das Label wird als `V_LED=0.15 V` angezeigt, wobei `LED` in der UI tiefgestellt ist, und per Hinweispfeil mit dem Rand dieses Spannungspfeils verbunden; die Pfeilspitze soll den Spannungspfeil nicht durchkreuzen.
+- Zusaetzlich wird fuer den gesamten LED-Streifen die minimale interne LED-Netzelement-Differenzspannung angezeigt. Das Label wird als `V_LED,min=2.22 V` formatiert, wobei `LED,min` in der UI tiefgestellt ist.
+- Die `V_LED,min`-Anzeige wird erst nach allen Strom-, Spannungs- und Spannungsdifferenzanzeigen platziert, damit sie deren bereits belegte Bereiche beruecksichtigen kann.
 - Fuer die Platzierung wird zuerst eine Position nahe der Mitte der LED-Komponente bewertet. Wenn dort bereits viele Anzeigen liegen oder Ueberdeckungen entstehen, werden weitere Kandidaten entlang des LED-Streifens bewertet und die Position mit mehr freiem Platz gewaehlt.
-- Von der `ΔVmin`-Anzeige fuehrt ein Hinweispfeil auf kuerzestem Weg zum LED-Streifen. Der Hinweispfeil endet am Komponentenrand und nicht in der Mitte des Streifens.
+- Von der `V_LED,min`-Anzeige fuehrt ein Hinweispfeil auf kuerzestem Weg zum LED-Streifen. Der Hinweispfeil endet am Komponentenrand und nicht in der Mitte des Streifens.
 
 Beispiele:
 
@@ -880,8 +881,9 @@ Spannungsanzeige:
 - Normale Pin-Spannungen werden nur an Pins mit mindestens einer angeschlossenen Wire angezeigt. Unverbundene normale Pins bleiben ohne Spannungslabel, auch wenn intern ein Wert berechnet wurde.
 - LED-Supply-Pins werden bei normalen Pin-Spannungslabels wie andere Pins behandelt.
 - LED-Streifen-Spannungspunkte sind eine Ausnahme: vorgesehene Supply-Start-/End-/Middle-Punkte duerfen auch ohne direkt angeschlossene Wire angezeigt werden, wenn dafuer ein Simulationsergebnis existiert. Diese Ausnahme betrifft nur explizite LED-Spannungspunkte mit Simulationsergebnis; normale LED-Supply-Pins bleiben ansonsten wie andere Pins an die Wire-Verbindung gekoppelt.
-- Zusaetzlich wird fuer ein LED-Supply/GND-Pin-Paar eine Spannungsdifferenz angezeigt: Ein Spannungspfeil wird leicht versetzt vom Supply-Pin zum zugeordneten GND-Pin gezeichnet. Am Anfang und Ende eines LED-Streifens wird die Versatzseite so gewaehlt, dass der Spannungspfeil auf dem Streifen liegt und nicht ausserhalb der Komponente. Bei Middle-Punkten werden beide moeglichen Seiten bewertet; wenn dort Wires verlaufen, wird vorzugsweise die Seite ohne Wire-Ueberdeckung gewaehlt. Ueber oder unter bzw. neben dem LED-Streifen wird eine Delta-Anzeige platziert, z.B. `ΔV=0.15V`. Von dieser Anzeige fuehrt ein Hinweispfeil zum Spannungspfeil. Die Spitze des Hinweispfeils endet am Rand des Spannungspfeils auf der Seite, von der der Hinweispfeil kommt, und durchkreuzt den Spannungspfeil nicht.
-- Fuer LED-Streifen wird zusaetzlich `ΔVmin=2.22V` angezeigt. Diese Anzeige fasst die kleinste lokale Differenzspannung aller intern erzeugten LED-Netzelemente des Streifens zusammen. Sie wird als letzte Simulationsergebnis-Anzeige platziert, bevorzugt nahe der Streifenmitte und bei Platzmangel entlang des Streifens verschoben. Der Hinweispfeil endet auf kuerzestem Weg am Komponentenrand.
+- Zusaetzlich wird fuer ein LED-Supply/GND-Pin-Paar eine Spannungsdifferenz angezeigt: Ein Spannungspfeil wird leicht versetzt vom Supply-Pin zum zugeordneten GND-Pin gezeichnet. Am Anfang und Ende eines LED-Streifens wird die Versatzseite so gewaehlt, dass der Spannungspfeil auf dem Streifen liegt und nicht ausserhalb der Komponente. Bei Middle-Punkten werden beide moeglichen Seiten bewertet; wenn dort Wires verlaufen, wird vorzugsweise die Seite ohne Wire-Ueberdeckung gewaehlt. Ueber oder unter bzw. neben dem LED-Streifen wird eine LED-Spannungsanzeige platziert, z.B. `V_LED=0.15 V`, wobei `LED` in der UI tiefgestellt ist. Von dieser Anzeige fuehrt ein Hinweispfeil zum Spannungspfeil. Die Spitze des Hinweispfeils endet am Rand des Spannungspfeils auf der Seite, von der der Hinweispfeil kommt, und durchkreuzt den Spannungspfeil nicht.
+- Fuer LED-Streifen wird zusaetzlich `V_LED,min=2.22 V` angezeigt, wobei `LED,min` in der UI tiefgestellt ist. Diese Anzeige fasst die kleinste lokale Differenzspannung aller intern erzeugten LED-Netzelemente des Streifens zusammen. Sie wird als letzte Simulationsergebnis-Anzeige platziert, bevorzugt nahe der Streifenmitte und bei Platzmangel entlang des Streifens verschoben. Der Hinweispfeil endet auf kuerzestem Weg am Komponentenrand.
+- Simulationsmeldungen fuer zu niedrige LED-Spannung werden pro LED-Streifen zusammengefasst. Wenn `V_LED` an einem angeschlossenen Start-, End- oder Middle-Anschluss unter dem Minimum liegt, wird nur die Versorgungsspannungs-Meldung erzeugt. Wenn alle angeschlossenen Versorgungspunkte im Bereich liegen, aber `V_LED,min` zu niedrig ist, wird stattdessen nur die Meldung fuer zu hohen Spannungsabfall ueber die Streifenlaenge erzeugt.
 - An `SolderJoint`-Komponenten werden Spannungen angezeigt, aber keine Stroeme.
 - Spannungsanzeigen sollen so platziert werden, dass sie keine Pins bzw. Handle-Bereiche, Wires oder andere Spannungs- oder Stromanzeigen ueberdecken.
 
@@ -985,7 +987,8 @@ Erste Checks:
 - Nicht simulierbare Komponente liegt in relevantem Strompfad.
 - Simulation konnte fuer ein Netz keine Spannung bestimmen.
 - Spannung am Wire bzw. zwischen Supply- und GND-Pin zu niedrig, fuer alle Pin-Paare, fuer die Spannung angezeigt werden soll.
-- Spannung am LED-Streifen unter Mindestspannung.
+- Spannung am angeschlossenen LED-Streifen-Versorgungspunkt unter Mindestspannung. Pro LED-Streifen wird dafuer nur eine zusammengefasste Meldung erzeugt. Sie weist darauf hin, dass Netzteilspannung bzw. bei Stromlimit/Degradation die verfuegbare Netzteilleistung erhoeht werden muss.
+- Spannung ueber die Laenge des LED-Streifens unter Mindestspannung, obwohl die angeschlossenen Versorgungspunkte im erlaubten Bereich liegen. Pro LED-Streifen wird dafuer nur eine zusammengefasste Meldung erzeugt. Sie weist darauf hin, dass der Spannungsabfall ueber den Streifen zu hoch ist und weitere Einspeisungen noetig sind.
 - Spannung am LED-Streifen ueber Maximalspannung.
 - Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System.
 - Nicht versorgtes Teilnetz wurde ignoriert.
@@ -1012,6 +1015,15 @@ Die Check-Liste sollte die gleiche UX verwenden wie `DiagramCheckPage`:
 - Empfehlung
 - Betroffene Elemente
 - Klick/Expand hebt betroffene Pins/Komponenten/Wires hervor
+
+Betroffene Elemente werden in der normalen UI nutzerverstaendlich angezeigt:
+
+- Komponenten ueber den uebersetzten Komponentennamen.
+- Pins als `Komponentenname - Pinname`.
+- Wires als Verbindung zwischen den lesbaren Endpunkten.
+- Interne Simulationselemente fallen auf die zugehoerige Komponente zurueck.
+
+Technische IDs wie ReactFlow-Node-IDs, Handle-IDs oder expandierte Simulationselement-IDs sollen nur als Fallback sichtbar werden, wenn der Diagrammkontext kein lesbares Label mehr liefern kann.
 
 ## UI-Konzept: Simulate current flow
 

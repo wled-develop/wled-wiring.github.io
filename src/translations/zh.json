@@ -533,6 +533,9 @@
       "noIssues": "没有模拟消息。",
       "issueCount": "{{count}} 条模拟消息",
       "affectedElements": "受影响的元素",
+      "targetPin": "{{component}} - {{pin}}",
+      "targetWire": "导线：{{source}} -> {{target}}",
+      "targetComponent": "{{component}}",
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC 输入功率限制不明确",
@@ -564,6 +567,14 @@
         "pinVoltageHigh": {
           "title": "供电电压过高",
           "description": "供电电压为 {{voltage}} V，高于最大值 {{limit}} V。"
+        },
+        "ledStripSupplyVoltageLow": {
+          "title": "LED 灯带供电电压过低",
+          "description": "已连接的 LED 灯带供电点处 VLED 为 {{voltage}} V，低于最小值 {{limit}} V。请提高电源电压；如果电源正在限流，请提高可用功率。"
+        },
+        "ledStripVoltageDropHigh": {
+          "title": "LED 灯带压降过高",
+          "description": "已连接的供电点电压在允许范围内，但灯带长度上的最低 VLED 为 {{voltage}} V，低于最小值 {{limit}} V。请沿 LED 灯带增加更多注入供电点。"
         },
         "ledStripVoltageLow": {
           "title": "LED 灯带电压过低",

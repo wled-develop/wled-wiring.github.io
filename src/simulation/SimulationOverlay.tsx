@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { useEdges, useNodes, useViewport, type Edge, type Node } from "@xyflow/react";
 
@@ -7,10 +7,14 @@ import { getRenderedWireEndpoint } from "../utils/utils_functions";
 import { useSimulationResultStore } from "./simulationResultStore";
 import type { SimulationPinResult } from "./simulationTypes";
 
+type OverlayValueLine =
+  | {kind: "text"; text: string}
+  | {kind: "ledVoltage"; value: string; qualifier?: "min"};
+
 type OverlayLabel = {
   id: string;
   kind: "voltage" | "voltageDelta" | "voltageDeltaMin" | "wireCurrent" | "wireHover";
-  valueLines: string[];
+  valueLines: OverlayValueLine[];
   x: number;
   y: number;
   anchorX: number;
@@ -64,10 +68,34 @@ const HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX = 16;
 const COMPONENT_OBSTACLE_PADDING = 3;
 const WIRE_OBSTACLE_PADDING = 5;
 
-const formatVoltage = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} V`;
-const formatDeltaVoltage = (value: number) => `\u0394V=${value.toFixed(2)}V`;
-const formatMinDeltaVoltage = (value: number) => `\u0394Vmin=${value.toFixed(2)}V`;
-const formatCurrent = (value: number) => `${Math.abs(value).toFixed(2)} A`;
+const textLine = (text: string): OverlayValueLine => ({kind: "text", text});
+const ledVoltageLine = (value: number, qualifier?: "min"): OverlayValueLine => ({
+  kind: "ledVoltage",
+  qualifier,
+  value: `${value.toFixed(2)} V`,
+});
+
+const formatVoltage = (value: number) => textLine(`${value >= 0 ? "+" : ""}${value.toFixed(2)} V`);
+const formatDeltaVoltage = (value: number) => ledVoltageLine(value);
+const formatMinDeltaVoltage = (value: number) => ledVoltageLine(value, "min");
+const formatCurrent = (value: number) => textLine(`${Math.abs(value).toFixed(2)} A`);
+
+const overlayValueLineText = (line: OverlayValueLine) => {
+  if(line.kind === "text") return line.text;
+  return line.qualifier === "min"
+    ? `VLED,min=${line.value}`
+    : `VLED=${line.value}`;
+};
+
+const renderOverlayValueLine = (line: OverlayValueLine): ReactNode => {
+  if(line.kind === "text") return line.text;
+
+  return (
+    <>
+      V<sub>LED{line.qualifier === "min" ? ",min" : ""}</sub>={line.value}
+    </>
+  );
+};
 
 const pinResultHasVoltage = (result: SimulationPinResult) => result.voltageV !== undefined;
 
@@ -112,8 +140,8 @@ const isLedSupplyVoltagePin = (
 
 const overlayScale = (zoom: number) => Math.min(1, Math.max(0.55, zoom));
 
-const estimateLabelSize = (valueLines: string[], scale: number) => {
-  const longest = Math.max(...valueLines.map((value) => value.length), 1);
+const estimateLabelSize = (valueLines: OverlayValueLine[], scale: number) => {
+  const longest = Math.max(...valueLines.map((value) => overlayValueLineText(value).length), 1);
   return {
     width: Math.max(42, longest * 6 + LABEL_PADDING_X * 2) * scale,
     height: LABEL_HEIGHT * Math.max(valueLines.length, 1) * scale,
@@ -1251,8 +1279,10 @@ export const SimulationOverlay = () => {
             whiteSpace: "nowrap",
           }}
         >
-          {label.valueLines.map((value) => (
-            <div key={value}>{value}</div>
+          {label.valueLines.map((value, index) => (
+            <div key={`${overlayValueLineText(value)}:${index}`}>
+              {renderOverlayValueLine(value)}
+            </div>
           ))}
         </div>
       ))}

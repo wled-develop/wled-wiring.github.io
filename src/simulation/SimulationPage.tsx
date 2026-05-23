@@ -35,13 +35,6 @@ const colorModeOptions: {value: LedSimulationColorMode; labelKey: string}[] = [
   {value: "B", labelKey: "blue"},
 ];
 
-const targetLabel = (target: SimulationTarget) => {
-  if(target.type === "node") return target.nodeId;
-  if(target.type === "wire") return target.edgeId;
-  if(target.type === "element") return target.elementId;
-  return `${target.nodeId}.${target.handleId}`;
-};
-
 const getSimulationModelStats = (model: SimulationModel) => {
   const simulatedCircuitNodeIds = new Set(
     model.elements.flatMap((element) => Object.values(element.terminals)),
@@ -54,6 +47,23 @@ const getSimulationModelStats = (model: SimulationModel) => {
       simulatedCircuitNodeIds.has(wire.targetCircuitNodeId)
     )).length,
   };
+};
+
+const allNodeHandles = (node: Node<ComponentDataType>) => [
+  ...(node.data.handles || []),
+  ...(node.data.repeatedHandleArray || []),
+];
+
+const findNodeForSimulationElement = (
+  elementId: string,
+  nodes: Node<ComponentDataType>[],
+) => {
+  if(!elementId.startsWith("component:")) return undefined;
+
+  const elementPath = elementId.slice("component:".length);
+  return nodes.find((node) => (
+    elementPath === node.id || elementPath.startsWith(`${node.id}:`)
+  ));
 };
 
 export const SimulationPage = () => {
@@ -85,6 +95,61 @@ export const SimulationPage = () => {
       label: t(`sidebar.simulation.colorModes.${option.labelKey}`),
     }))
   ), [t]);
+
+  const nodeById = useMemo(() => (
+    new Map(nodes.map((node) => [node.id, node]))
+  ), [nodes]);
+
+  const edgeById = useMemo(() => (
+    new Map(edges.map((edge) => [edge.id, edge]))
+  ), [edges]);
+
+  const componentLabel = (nodeId: string) => {
+    const node = nodeById.get(nodeId);
+    if(!node) return nodeId;
+
+    return t(node.data.name || node.data.technicalID || node.id);
+  };
+
+  const pinLabel = (nodeId: string, handleId: string) => {
+    const node = nodeById.get(nodeId);
+    const handle = node ? allNodeHandles(node).find((candidate) => candidate.hid === handleId) : undefined;
+    const pin = handle?.name || handleId;
+
+    return t("sidebar.simulation.targetPin", {
+      component: componentLabel(nodeId),
+      pin,
+    });
+  };
+
+  const targetLabel = (target: SimulationTarget) => {
+    if(target.type === "node") return componentLabel(target.nodeId);
+
+    if(target.type === "pin") {
+      return pinLabel(target.nodeId, target.handleId);
+    }
+
+    if(target.type === "wire") {
+      const edge = edgeById.get(target.edgeId);
+      if(!edge) return target.edgeId;
+
+      const source = edge.sourceHandle ? pinLabel(edge.source, edge.sourceHandle) : componentLabel(edge.source);
+      const targetPin = edge.targetHandle ? pinLabel(edge.target, edge.targetHandle) : componentLabel(edge.target);
+      return t("sidebar.simulation.targetWire", {
+        source,
+        target: targetPin,
+      });
+    }
+
+    const node = findNodeForSimulationElement(target.elementId, nodes);
+    if(node) {
+      return t("sidebar.simulation.targetComponent", {
+        component: componentLabel(node.id),
+      });
+    }
+
+    return target.elementId;
+  };
 
   const runSimulation = () => {
     setStatus("running");

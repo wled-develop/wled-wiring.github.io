@@ -21,6 +21,7 @@ export const SolderJoint: Node = {
         resizableX: false,
         rotatable: false,
         borderWidth: 2,
+        simdata: {},
         handles: [
         {
             hid: "hid1",

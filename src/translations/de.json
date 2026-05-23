@@ -533,6 +533,9 @@
       "noIssues": "Keine Simulationsmeldungen.",
       "issueCount": "{{count}} Simulationsmeldung(en)",
       "affectedElements": "Betroffene Elemente",
+      "targetPin": "{{component}} - {{pin}}",
+      "targetWire": "Wire: {{source}} -> {{target}}",
+      "targetComponent": "{{component}}",
       "issues": {
         "dcdcInputPowerAmbiguous": {
           "title": "DCDC-Eingangsleistungslimit ist mehrdeutig",
@@ -564,6 +567,14 @@
         "pinVoltageHigh": {
           "title": "Versorgungsspannung zu hoch",
           "description": "Die Versorgungsspannung ist {{voltage}} V und liegt ueber dem Maximum {{limit}} V."
+        },
+        "ledStripSupplyVoltageLow": {
+          "title": "Versorgungsspannung am LED-Streifen zu niedrig",
+          "description": "VLED an einem angeschlossenen Versorgungspunkt des LED-Streifens ist {{voltage}} V und liegt unter dem Minimum {{limit}} V. Erhoehe die Netzteilspannung oder die verfuegbare Leistung, falls das Netzteil im Stromlimit arbeitet."
+        },
+        "ledStripVoltageDropHigh": {
+          "title": "Spannungsabfall ueber den LED-Streifen zu hoch",
+          "description": "Die angeschlossenen Versorgungspunkte sind im erlaubten Bereich, aber die niedrigste VLED ueber die Laenge des Streifens ist {{voltage}} V und liegt unter dem Minimum {{limit}} V. Fuege weitere Einspeisungen entlang des LED-Streifens hinzu."
         },
         "ledStripVoltageLow": {
           "title": "LED-Streifen-Spannung zu niedrig",
