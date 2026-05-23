@@ -21,6 +21,29 @@ export const ESP8266D1mini: Node = {
             description: "compData.ESP8266D1mini.description",
             buyLinks: []
         },
+        simdata: {
+            version: 1,
+            elements: [
+                {
+                    id: "idle-load-5V",
+                    type: "constantPowerSink",
+                    terminals: {positive: "5V", negative: "GND1"},
+                    parameters: {
+                        powerW: 0.5,
+                        minVoltageV: 3,
+                    },
+                },
+                {
+                    id: "idle-load-3V3",
+                    type: "constantPowerSink",
+                    terminals: {positive: "3V3", negative: "GND1"},
+                    parameters: {
+                        powerW: 0.5,
+                        minVoltageV: 3,
+                    },
+                },
+            ]
+        },
         handles: [
             {
                 "borderColor": "#8c8c8c",
