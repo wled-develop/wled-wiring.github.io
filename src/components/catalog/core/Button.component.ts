@@ -24,7 +24,11 @@ export default defineComponent({
       "rotation": 0,
       "rotatable": true,
       "resizableX": false,
-      "borderWidth": 2
+      "borderWidth": 2,
+      "nodeOrigin": [
+        0.5,
+        0.5
+      ]
     },
     "handles": [
       {
@@ -95,88 +99,5 @@ export default defineComponent({
     "simulation": {
       "version": 1
     }
-  },
-  "compatibility": {
-    "templateData": {
-      "image": {
-        "url": "./Button.jpg",
-        "width": 80,
-        "height": 29
-      },
-      "technicalID": "Button",
-      "name": "compData.Button.name",
-      "description": "compData.Button.descriptionShort",
-      "technicalVersion": 1,
-      "group": "electronics",
-      "rotation": 0,
-      "borderWidth": 2,
-      "resizableX": false,
-      "rotatable": true,
-      "popover": {
-        "description": "compData.Button.description",
-        "buyLinks": []
-      },
-      "simdata": {
-        "version": 1
-      },
-      "handles": [
-        {
-          "borderColor": "green",
-          "borderLineWidth": 0.8,
-          "borderRadius": "30%",
-          "borderType": "dotted",
-          "description": "Terminal 1",
-          "functions": [
-            "dig_in"
-          ],
-          "height": 4,
-          "hid": "1",
-          "name": "1",
-          "position": "left",
-          "postype": "centered",
-          "tolVmax": 250,
-          "tolVmin": 0,
-          "type": "source",
-          "Vout": 0,
-          "width": 10,
-          "x": 5.5,
-          "xalign": "start",
-          "y": 27,
-          "yalign": "start",
-          "prefferedLineWidth": 1,
-          "mustBeConnected": true
-        },
-        {
-          "borderColor": "green",
-          "borderLineWidth": 0.8,
-          "borderRadius": "30%",
-          "borderType": "dotted",
-          "description": "Terminal 2",
-          "functions": [
-            "dig_in"
-          ],
-          "height": 4,
-          "hid": "2",
-          "name": "2",
-          "position": "left",
-          "postype": "centered",
-          "tolVmax": 250,
-          "tolVmin": 0,
-          "type": "source",
-          "Vout": 0,
-          "width": 10,
-          "x": 75,
-          "xalign": "start",
-          "y": 27,
-          "yalign": "start",
-          "prefferedLineWidth": 1,
-          "mustBeConnected": true
-        }
-      ]
-    },
-    "nodeOrigin": [
-      0.5,
-      0.5
-    ]
   }
 });

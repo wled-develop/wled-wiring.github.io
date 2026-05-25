@@ -45,13 +45,12 @@ type ComponentPackage = {
   assets?: ComponentAsset[];
   translations?: ComponentTranslations;
   store?: ComponentStoreMetadata;
-  compatibility?: ComponentPackageCompatibility;
 };
 ```
 
 `ComponentDefinition` ist JSON-kompatibel. Sie darf keine Funktionen, Klassen, React-Komponenten, Imports oder berechneten Werte enthalten. Alle abgeleiteten Werte entstehen in einer Normalisierungs- und Validierungsschicht.
 
-`compatibility` ist ein Migrationsfeld fuer bestehende Runtime-Daten. Es darf nur JSON-kompatible Snapshots enthalten und soll schrittweise entfallen, sobald alle benoetigten Eigenschaften schema-nativ modelliert sind. Neue Store- oder Editor-Komponenten sollen dieses Feld nicht benoetigen.
+Das fruehere Migrationsfeld `compatibility.templateData` ist entfallen. Bestehende Runtime-Sonderdaten, die nicht fachlich zu Handles, Feldern, Simulation oder Anzeige gehoeren, liegen nun explizit in schema-nativen Feldern wie `geometry.nodeOrigin` und `runtime`.
 
 Runtime-Pipeline:
 
@@ -142,6 +141,7 @@ type ComponentGeometryDefinition = {
     width: number;
     height: number;
   };
+  nodeOrigin?: [number, number];
   noBackgroundImage?: boolean;
   rotation?: number;
   rotatable?: boolean;
@@ -168,6 +168,8 @@ type ComponentAsset = {
 ```
 
 Eingebaute Komponenten koennen Bilder weiter aus `public/` referenzieren. Store-Komponenten koennen entweder ein Store-gehostetes Asset, eine externe Bild-URL oder ein kleines eingebettetes `dataUrl` verwenden. Eingebettete Assets sind auf maximal 1 kB pro Asset begrenzt. Wenn eine Komponente auf eine externe Bild-URL verweist, muss der Editor vor dem Speichern oder Veroeffentlichen bestaetigen lassen, dass das Bild frei verwendet werden darf.
+
+`geometry.nodeOrigin` beschreibt optional den ReactFlow-Origin der erzeugten Template-Node. Er wird nur fuer Komponenten benoetigt, deren Positionierung nicht dem Standard entspricht.
 
 ### Physikalische Eigenschaften
 
@@ -261,6 +263,35 @@ type ComponentFieldDefinition =
 ```
 
 Die bestehenden `inputFields`, `selectFields` und `inputFieldsBox` werden beim Normalisieren daraus erzeugt. Damit bleiben die sichtbaren Komponenten erstmal kompatibel.
+
+### Runtime-Sonderfelder
+
+Einige bestehende Komponenten enthalten UI- oder Instanzoptionen, die nicht fachlich in Anzeige, Geometrie, Handles oder Simulation fallen. Diese Daten liegen schema-nativ in `component.runtime` und werden beim Normalisieren in `ComponentDataType` uebernommen.
+
+```ts
+type ComponentRuntimeDefinition = {
+  inputFieldsBox?: CompInputFieldsBoxType;
+  applyNodeResizer?: boolean;
+  putToBackground?: boolean;
+  onlyBorder?: boolean;
+  changableColor?: boolean;
+  color?: string;
+  changableTextColor?: boolean;
+  textColor?: string;
+  infoText?: string;
+  infoTextSize?: number;
+  infoTextFontFamily?: string;
+  infoTextBold?: boolean;
+  infoTextAlign?: "left" | "center" | "right";
+  noBackgroundImageURL?: boolean;
+  ledSimulationOptions?: LedStripSimulationOptionSelection;
+  ledSimulationOptionValues?: LedStripSimulationOptionValues;
+  wireInfoForNodeId?: string;
+  correspondingWireSelected?: boolean;
+};
+```
+
+Diese Felder ersetzen keine fachlichen Definitionen. Sie dienen nur fuer bestehende Runtime-Features wie Info-Textknoten, LineBox-Resize/Farbe, Eingabefeld-Boxen, LED-Simulationsauswahl und WireInfo-Knoten.
 
 ### Interne Verbindungen
 
@@ -621,8 +652,7 @@ Phase 1 bis 3b sind umgesetzt:
 - `componentRef` ist als optionaler Teil von `ComponentDataType` vorbereitet, damit spaetere lokale und Store-Komponenten nachvollziehbar gespeichert werden koennen.
 - Die alten Dateien unter `src/components/ComponentTypes/` und der Legacy-Adapter wurden entfernt.
 - Runtime-Sonderfaelle wurden ebenfalls aus dem alten Ordner geloest: `SolderJoint` wird aus der Registry geholt, `WireInfoNode` liegt als internes Template in `src/components/catalog/internalTemplates.ts`.
-
-Fuer die verlustfreie Migration enthalten die generierten Pakete vorerst weiterhin einen JSON-kompatiblen `compatibility.templateData`-Snapshot der bisherigen Runtime-Daten. Dadurch bleiben Diagramm-Checks, Simulation, Template-Updates, Sonderknoten und Uebersetzungs-Keys ohne fachliche Aenderung lauffaehig. Der naechste saubere Schritt ist, diese Snapshots schrittweise durch schema-native Felder zu ersetzen, sobald alle benoetigten Runtime-Eigenschaften explizit im neuen Schema modelliert sind.
+- `compatibility.templateData` wurde entfernt. Die Templates werden vollstaendig aus `ComponentPackage`-Daten erzeugt; bisher nur im Snapshot vorhandene Runtime-Sonderdaten wurden nach `component.runtime` bzw. `geometry.nodeOrigin` verschoben.
 
 ### Phase 1: Schema und Adapter
 

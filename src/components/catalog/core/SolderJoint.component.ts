@@ -24,7 +24,11 @@ export default defineComponent({
       "rotation": 0,
       "rotatable": false,
       "resizableX": false,
-      "borderWidth": 2
+      "borderWidth": 2,
+      "nodeOrigin": [
+        0.5,
+        0.5
+      ]
     },
     "handles": [
       {
@@ -50,53 +54,6 @@ export default defineComponent({
           "changeColorAutomatically": true
         }
       }
-    ]
-  },
-  "compatibility": {
-    "templateData": {
-      "name": "compData.SolderJoint.name",
-      "description": "compData.SolderJoint.descriptionShort",
-      "popover": {
-        "description": "compData.SolderJoint.description"
-      },
-      "technicalID": "SolderJoint",
-      "technicalVersion": 1,
-      "group": "others",
-      "image": {
-        "url": "./SolderJoint.jpg",
-        "width": 16,
-        "height": 16
-      },
-      "noBackgroundImage": true,
-      "rotation": 0,
-      "resizableX": false,
-      "rotatable": false,
-      "borderWidth": 2,
-      "simdata": {},
-      "handles": [
-        {
-          "hid": "hid1",
-          "type": "source",
-          "x": 8,
-          "y": 8,
-          "xalign": "start",
-          "yalign": "start",
-          "width": 8,
-          "height": 8,
-          "borderType": "solid",
-          "borderColor": "rgb(0,0,0)",
-          "borderLineWidth": 2,
-          "borderRadius": "50%",
-          "postype": "centered",
-          "position": "left",
-          "name": "Solder joint pin",
-          "changeColorAutomatically": true
-        }
-      ]
-    },
-    "nodeOrigin": [
-      0.5,
-      0.5
     ]
   }
 });

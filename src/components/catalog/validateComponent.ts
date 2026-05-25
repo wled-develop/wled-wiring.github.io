@@ -1,4 +1,3 @@
-import type { ComponentDataType } from '../../types';
 import type { ComponentSimulationElementUse, SimulationParameterRef } from '../../simulation/simulationTypes';
 import type { ComponentPackage, HandleFunction, LocalizedText } from './componentSchema';
 
@@ -109,19 +108,6 @@ const collectParameterRefs = (value: SimulationParameterRef, refs: {field: strin
   if ('table' in value) collectParameterRefs(value.by, refs);
 };
 
-const validateTemplateData = (
-  data: unknown,
-  issues: ComponentValidationIssue[],
-) => {
-  if (!data) return;
-  const templateData = data as Partial<ComponentDataType>;
-  if (!templateData.technicalID) addIssue(issues, 'error', 'compatibility.templateData.technicalID', 'Template technicalID is required.');
-  if (!Number.isInteger(templateData.technicalVersion) || Number(templateData.technicalVersion) <= 0) {
-    addIssue(issues, 'error', 'compatibility.templateData.technicalVersion', 'Template technicalVersion must be a positive integer.');
-  }
-  hasUniqueId(templateData.handles?.map((handle) => handle.hid) ?? [], issues, 'compatibility.templateData.handles', 'template handle');
-};
-
 export const validateComponentPackage = (componentPackage: ComponentPackage): ComponentValidationResult => {
   const issues: ComponentValidationIssue[] = [];
   const definition = componentPackage.component;
@@ -225,8 +211,6 @@ export const validateComponentPackage = (componentPackage: ComponentPackage): Co
       addIssue(issues, 'error', `assets[${index}].dataUrl`, 'Embedded assets are limited to 1 kB.');
     }
   });
-
-  validateTemplateData(componentPackage.compatibility?.templateData, issues);
 
   return {
     valid: !issues.some((issue) => issue.severity === 'error'),

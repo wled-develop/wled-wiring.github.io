@@ -59,8 +59,8 @@ export type CompSelectFieldDataType = {
   customImage: boolean;
   color: string;
   fieldWidth: number;
-  hide: boolean;
-  showNameIfSelected: boolean;
+  hide?: boolean;
+  showNameIfSelected?: boolean;
   options: {
     value: number;
     label: string;
@@ -78,7 +78,7 @@ export type CompInputFieldsBoxType = {
   borderLineWidth: number;
   borderRadius: string;
   backgroundColor: string;
-  backgroundColorSelected: string;
+  backgroundColorSelected?: string;
   rotate180only?: boolean;
 } 
 
@@ -114,7 +114,7 @@ export type HandleDataType = {
     postype: HandlePostype; 
     position: Position; // use always left; currently top, bottom and right does nont work correctly
     name: string;
-    description: string;
+    description?: string;
     repeated?: HandleRepeatedType;
     repeatAtFirst?: HandleRepeatAtFirstType;
     repeatIndex?: number;
@@ -144,6 +144,7 @@ export type HandleDataType = {
     componentRef?: ComponentRef;
     group: ComponentGroupType;
     image?: ImageDataType;
+    noBackgroundImageURL?: boolean;
     noBackgroundImage?: boolean
     rotation: number;
     nodeLength?: number;

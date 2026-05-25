@@ -33,40 +33,47 @@ const positionToReactFlow = (position: ComponentHandleDefinition['position']): P
   }
 };
 
-const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => ({
-  hid: handle.id,
-  type: handle.type,
-  x: handle.x,
-  y: handle.y,
-  xalign: handle.xalign,
-  yalign: handle.yalign,
-  width: handle.width,
-  height: handle.height,
-  borderType: handle.border?.type ?? 'solid',
-  borderColor: handle.border?.color ?? 'black',
-  borderRadius: handle.border?.radius ?? '0',
-  borderLineWidth: handle.border?.lineWidth ?? 1,
-  postype: handle.postype,
-  position: positionToReactFlow(handle.position),
-  name: localizedToRuntimeText(handle.name),
-  description: localizedToRuntimeText(handle.description),
-  repeated: handle.behavior?.repeated === undefined ? undefined : handle.behavior.repeated ? 'yes' : 'no',
-  repeatAtFirst: handle.behavior?.repeatAtFirst === undefined ? undefined : handle.behavior.repeatAtFirst ? 'yes' : 'no',
-  changeColorAutomatically: handle.behavior?.changeColorAutomatically,
-  tolVmax: handle.voltage?.toleranceMax,
-  tolVmin: handle.voltage?.toleranceMin,
-  Vout: handle.voltage?.out,
-  VoutDependency: handle.voltage?.outDependency,
-  controllableBy: handle.behavior?.controllableBy,
-  functions: handle.functions,
-  prefferedLineWidth: handle.behavior?.preferredLineWidth,
-  hideConditions: handle.behavior?.hideConditions?.map((condition) => ({
-    selectHID: condition.fieldId,
-    values: condition.values,
-  })),
-  prefferedLineDirection: handle.behavior?.preferredLineDirection,
-  mustBeConnected: handle.behavior?.mustBeConnected,
-});
+const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => {
+  const runtimeHandle: HandleDataType = {
+    hid: handle.id,
+    type: handle.type,
+    x: handle.x,
+    y: handle.y,
+    xalign: handle.xalign,
+    yalign: handle.yalign,
+    width: handle.width,
+    height: handle.height,
+    borderType: handle.border?.type ?? 'solid',
+    borderColor: handle.border?.color ?? 'black',
+    borderRadius: handle.border?.radius ?? '0',
+    borderLineWidth: handle.border?.lineWidth ?? 1,
+    postype: handle.postype,
+    position: positionToReactFlow(handle.position),
+    name: localizedToRuntimeText(handle.name),
+    repeated: handle.behavior?.repeated === undefined ? undefined : handle.behavior.repeated ? 'yes' : 'no',
+    repeatAtFirst: handle.behavior?.repeatAtFirst === undefined ? undefined : handle.behavior.repeatAtFirst ? 'yes' : 'no',
+    changeColorAutomatically: handle.behavior?.changeColorAutomatically,
+    tolVmax: handle.voltage?.toleranceMax,
+    tolVmin: handle.voltage?.toleranceMin,
+    Vout: handle.voltage?.out,
+    VoutDependency: handle.voltage?.outDependency,
+    controllableBy: handle.behavior?.controllableBy,
+    functions: handle.functions,
+    prefferedLineWidth: handle.behavior?.preferredLineWidth,
+    hideConditions: handle.behavior?.hideConditions?.map((condition) => ({
+      selectHID: condition.fieldId,
+      values: condition.values,
+    })),
+    prefferedLineDirection: handle.behavior?.preferredLineDirection,
+    mustBeConnected: handle.behavior?.mustBeConnected,
+  };
+
+  if (handle.description !== undefined) {
+    runtimeHandle.description = localizedToRuntimeText(handle.description);
+  }
+
+  return runtimeHandle;
+};
 
 const normalizeNumberField = (
   field: Extract<ComponentFieldDefinition, {type: 'number'}>,
@@ -85,31 +92,38 @@ const normalizeNumberField = (
 
 const normalizeSelectField = (
   field: Extract<ComponentFieldDefinition, {type: 'select'}>,
-): CompSelectFieldDataType => ({
-  technicalID: field.id,
-  name: localizedToRuntimeText(field.name),
-  displayName: field.ui?.displayName ?? true,
-  selectedValue: field.selectedValue,
-  unit: field.unit ?? field.ui?.unit ?? '',
-  customImage: field.ui?.customImage ?? false,
-  color: field.ui?.color ?? 'black',
-  fieldWidth: field.ui?.fieldWidth ?? 40,
-  hide: field.ui?.hide ?? false,
-  showNameIfSelected: field.ui?.showNameIfSelected ?? false,
-  options: field.options.map((option) => ({
-    value: option.value,
-    label: localizedToRuntimeText(option.label),
-    img: option.image?.url
-      ? {
-          url: option.image.url,
-          width: option.image.width ?? 0,
-          height: option.image.height ?? 0,
-        }
-      : undefined,
-    x: option.x,
-    y: option.y,
-  })),
-});
+): CompSelectFieldDataType => {
+  const runtimeField: CompSelectFieldDataType = {
+    technicalID: field.id,
+    name: localizedToRuntimeText(field.name),
+    displayName: field.ui?.displayName ?? true,
+    selectedValue: field.selectedValue,
+    unit: field.unit ?? field.ui?.unit ?? '',
+    customImage: field.ui?.customImage ?? false,
+    color: field.ui?.color ?? 'black',
+    fieldWidth: field.ui?.fieldWidth ?? 40,
+    options: field.options.map((option) => ({
+      value: option.value,
+      label: localizedToRuntimeText(option.label),
+      img: option.image
+        ? {
+            url: option.image.url ?? '',
+            width: option.image.width ?? 0,
+            height: option.image.height ?? 0,
+          }
+        : undefined,
+      x: option.x,
+      y: option.y,
+    })),
+  };
+
+  if (field.ui?.hide !== undefined) runtimeField.hide = field.ui.hide;
+  if (field.ui?.showNameIfSelected !== undefined) {
+    runtimeField.showNameIfSelected = field.ui.showNameIfSelected;
+  }
+
+  return runtimeField;
+};
 
 const createTemplateData = (componentPackage: ComponentPackage): ComponentDataType => {
   const definition = componentPackage.component;
@@ -158,15 +172,14 @@ const createTemplateData = (componentPackage: ComponentPackage): ComponentDataTy
       componentId: definition.id,
       version: definition.version,
     },
+    ...definition.runtime,
   };
 };
 
 export const normalizeComponentPackage = (
   componentPackage: ComponentPackage,
 ): NormalizedComponentDefinition => {
-  const templateData = (
-    componentPackage.compatibility?.templateData as ComponentDataType | undefined
-  ) ?? createTemplateData(componentPackage);
+  const templateData = createTemplateData(componentPackage);
 
   return {
     package: componentPackage,
@@ -175,7 +188,7 @@ export const normalizeComponentPackage = (
     version: componentPackage.component.version,
     group: componentPackage.component.display.group,
     templateData,
-    nodeOrigin: componentPackage.compatibility?.nodeOrigin,
+    nodeOrigin: componentPackage.component.geometry.nodeOrigin,
   };
 };
 

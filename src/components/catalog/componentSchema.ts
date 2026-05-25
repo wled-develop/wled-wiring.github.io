@@ -52,6 +52,7 @@ export type ComponentGeometryDefinition = {
     width: number;
     height: number;
   };
+  nodeOrigin?: GeneralComponent['origin'];
   noBackgroundImage?: boolean;
   rotation?: number;
   rotatable?: boolean;
@@ -146,6 +147,28 @@ export type ComponentInternalConnectionDefinition = ComponentInternalConnectionT
 
 export type ComponentEditorHints = Record<string, unknown>;
 
+export type ComponentRuntimeDefinition = Pick<
+  ComponentDataType,
+  | 'applyNodeResizer'
+  | 'putToBackground'
+  | 'onlyBorder'
+  | 'changableColor'
+  | 'color'
+  | 'changableTextColor'
+  | 'textColor'
+  | 'infoText'
+  | 'infoTextSize'
+  | 'infoTextFontFamily'
+  | 'infoTextBold'
+  | 'infoTextAlign'
+  | 'inputFieldsBox'
+  | 'ledSimulationOptions'
+  | 'ledSimulationOptionValues'
+  | 'noBackgroundImageURL'
+  | 'wireInfoForNodeId'
+  | 'correspondingWireSelected'
+>;
+
 export type ComponentDefinition = {
   id: string;
   version: number;
@@ -156,6 +179,7 @@ export type ComponentDefinition = {
   fields?: ComponentFieldDefinition[];
   internalConnections?: ComponentInternalConnectionDefinition[];
   simulation?: ComponentSimulationDefinition;
+  runtime?: ComponentRuntimeDefinition;
   editor?: ComponentEditorHints;
 };
 
@@ -166,11 +190,6 @@ export type ComponentStoreMetadata = {
   license?: string;
 };
 
-export type ComponentPackageCompatibility = {
-  templateData?: unknown;
-  nodeOrigin?: GeneralComponent['origin'];
-};
-
 export type ComponentPackage = {
   schemaVersion: 1;
   source: ComponentSource;
@@ -178,7 +197,6 @@ export type ComponentPackage = {
   assets?: ComponentAsset[];
   translations?: ComponentTranslations;
   store?: ComponentStoreMetadata;
-  compatibility?: ComponentPackageCompatibility;
 };
 
 export type NormalizedComponentDefinition = {
