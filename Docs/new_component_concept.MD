@@ -45,10 +45,13 @@ type ComponentPackage = {
   assets?: ComponentAsset[];
   translations?: ComponentTranslations;
   store?: ComponentStoreMetadata;
+  compatibility?: ComponentPackageCompatibility;
 };
 ```
 
 `ComponentDefinition` ist JSON-kompatibel. Sie darf keine Funktionen, Klassen, React-Komponenten, Imports oder berechneten Werte enthalten. Alle abgeleiteten Werte entstehen in einer Normalisierungs- und Validierungsschicht.
+
+`compatibility` ist ein Migrationsfeld fuer bestehende Runtime-Daten. Es darf nur JSON-kompatible Snapshots enthalten und soll schrittweise entfallen, sobald alle benoetigten Eigenschaften schema-nativ modelliert sind. Neue Store- oder Editor-Komponenten sollen dieses Feld nicht benoetigen.
 
 Runtime-Pipeline:
 
@@ -70,6 +73,7 @@ type ComponentDefinition = {
   version: number;
   display: ComponentDisplayDefinition;
   geometry: ComponentGeometryDefinition;
+  physical?: ComponentPhysicalDefinition;
   handles: ComponentHandleDefinition[];
   fields?: ComponentFieldDefinition[];
   internalConnections?: ComponentInternalConnectionDefinition[];
@@ -144,7 +148,10 @@ type ComponentGeometryDefinition = {
   resizableX?: boolean;
   resizableY?: boolean;
   borderWidth?: number;
-  physLengthStep?: number;
+};
+
+type ComponentPhysicalDefinition = {
+  lengthStep?: number;
 };
 
 type ComponentAsset = {
@@ -161,6 +168,10 @@ type ComponentAsset = {
 ```
 
 Eingebaute Komponenten koennen Bilder weiter aus `public/` referenzieren. Store-Komponenten koennen entweder ein Store-gehostetes Asset, eine externe Bild-URL oder ein kleines eingebettetes `dataUrl` verwenden. Eingebettete Assets sind auf maximal 1 kB pro Asset begrenzt. Wenn eine Komponente auf eine externe Bild-URL verweist, muss der Editor vor dem Speichern oder Veroeffentlichen bestaetigen lassen, dass das Bild frei verwendet werden darf.
+
+### Physikalische Eigenschaften
+
+`physical.lengthStep` beschreibt nicht die Darstellung, sondern die fachliche Schrittweite, in der `physLength` geaendert werden darf. Fuer LED-Streifen kann dieser Wert z.B. der Laenge eines einzelnen Logik-LED-Segments entsprechen. Beim Normalisieren wird `physical.lengthStep` auf das bestehende `ComponentDataType.physLengthStep` gemappt.
 
 ### Handles
 
@@ -328,7 +339,9 @@ export default defineComponent({
       rotatable: true,
       resizableX: true,
       borderWidth: 2,
-      physLengthStep: 0.016667,
+    },
+    physical: {
+      lengthStep: 0.016667,
     },
     handles: [
       {
@@ -421,9 +434,11 @@ Der Editor bearbeitet `ComponentPackage`, nicht ReactFlow-Nodes direkt. Er sollt
    - Breite/Hoehe festlegen.
    - Vorschau in Originalgroesse.
    - Rotierbarkeit und Resize-Optionen.
+
+3. Physikalische Eigenschaften
    - Physikalischer Laengenschritt fuer LED-Streifen.
 
-3. Anschluesse
+4. Anschluesse
    - Handles direkt auf dem Bild platzieren.
    - Handles per Drag verschieben.
    - Groesse, Form, Farbe und Rand bearbeiten.
@@ -431,22 +446,22 @@ Der Editor bearbeitet `ComponentPackage`, nicht ReactFlow-Nodes direkt. Er sollt
    - Spannungswerte und Toleranzen setzen.
    - Pflichtanschluss, Wiederholung, Hide-Conditions und bevorzugte Leitungsrichtung setzen.
 
-4. Felder und Optionen
+5. Felder und Optionen
    - Nummernfelder fuer Spannung, Strom, Widerstand usw.
    - Select-Felder mit optionalen Bildern.
    - Hide-Conditions visuell mit Handles verbinden.
 
-5. Interne Verbindungen
+6. Interne Verbindungen
    - Short- und Fuse-Verbindungen zwischen Handles auswaehlen.
    - Sicherungsparameter auf feste Werte oder Felder legen.
 
-6. Simulation
+7. Simulation
    - Elementtypen aus dem bestehenden Simulationskatalog auswaehlen.
    - Terminals per Handle-Auswahl verbinden.
    - Parameter als feste Werte, Field-Refs, Select-Refs oder erlaubte Spezialrefs definieren.
    - Vorschau, ob die Komponente als simulationsfaehig gilt.
 
-7. Validierung
+8. Validierung
    - Schemafehler.
    - Doppelte IDs.
    - Unbekannte Handle-Funktionen.
@@ -454,7 +469,7 @@ Der Editor bearbeitet `ComponentPackage`, nicht ReactFlow-Nodes direkt. Er sollt
    - Fehlende Uebersetzungen oder Fallback-Texte.
    - Ungueltige Asset-Referenzen.
 
-8. Vorschau
+9. Vorschau
    - Katalogkarte.
    - Komponente im Mini-ReactFlow-Canvas.
    - Optionales Testdiagramm fuer Diagramm-Checks und Simulation.
@@ -594,6 +609,21 @@ Die Validierung darf Korrekturvorschlaege anzeigen, aber nicht automatisch raten
 
 ## Migration
 
+### Implementierungsstand 2026-05-25
+
+Phase 1 bis 3b sind umgesetzt:
+
+- Das Schema liegt in `src/components/catalog/componentSchema.ts`.
+- `defineComponent`, `normalizeComponentPackage`, `validateComponentPackage` und `createReactFlowTemplate` bilden den neuen Kernpfad.
+- `componentRegistry.ts` laedt eingebaute Komponenten automatisch mit `import.meta.glob("./core/*.component.ts", {eager: true})`.
+- `ComponentList.ts` ist nur noch eine Kompatibilitaetsschicht und exportiert die aus der Registry erzeugten ReactFlow-Templates.
+- Alle bisher in `ComponentList.ts` sichtbaren eingebauten Komponenten wurden als echte `src/components/catalog/core/*.component.ts`-Datenpakete registriert.
+- `componentRef` ist als optionaler Teil von `ComponentDataType` vorbereitet, damit spaetere lokale und Store-Komponenten nachvollziehbar gespeichert werden koennen.
+- Die alten Dateien unter `src/components/ComponentTypes/` und der Legacy-Adapter wurden entfernt.
+- Runtime-Sonderfaelle wurden ebenfalls aus dem alten Ordner geloest: `SolderJoint` wird aus der Registry geholt, `WireInfoNode` liegt als internes Template in `src/components/catalog/internalTemplates.ts`.
+
+Fuer die verlustfreie Migration enthalten die generierten Pakete vorerst weiterhin einen JSON-kompatiblen `compatibility.templateData`-Snapshot der bisherigen Runtime-Daten. Dadurch bleiben Diagramm-Checks, Simulation, Template-Updates, Sonderknoten und Uebersetzungs-Keys ohne fachliche Aenderung lauffaehig. Der naechste saubere Schritt ist, diese Snapshots schrittweise durch schema-native Felder zu ersetzen, sobald alle benoetigten Runtime-Eigenschaften explizit im neuen Schema modelliert sind.
+
 ### Phase 1: Schema und Adapter
 
 - Neues Schema in `src/components/catalog/componentSchema.ts` definieren.
@@ -625,6 +655,22 @@ src/components/catalog/
 - Dabei keine fachlichen Aenderungen vornehmen.
 - Nach jeder Gruppe Build und Diagramm-Check-/Simulationsbeispiele pruefen.
 - Uebersetzungs-Keys in `src/translations/` erhalten.
+
+### Phase 3b: Legacy-Quellen abbauen
+
+Nach Phase 3 duerfen die alten Dateien unter `src/components/ComponentTypes/` noch nicht pauschal geloescht werden, solange `src/components/catalog/core/*.component.ts` sie ueber `legacyComponentToPackage(...)` importiert. Phase 3b baut diese Abhaengigkeit schrittweise ab.
+
+Vorgehen pro Komponente:
+
+- Die jeweilige `core/*.component.ts`-Datei von `legacyComponentToPackage(OldComponent)` auf eine echte JSON-kompatible `defineComponent({...})`-Definition umstellen.
+- Alle bisherigen fachlichen Daten unveraendert uebertragen: Anzeige, Geometrie, physikalische Eigenschaften, Handles, Felder, interne Verbindungen, Simulation, Popover-Links und Translation-Keys.
+- Nach der Umstellung Build, Lint und mindestens eine fachlich passende Diagramm-Check-/Simulationspruefung ausfuehren.
+- Erst wenn keine Datei mehr die alte `ComponentTypes/<Name>.ts` importiert, darf genau diese alte Datei geloescht werden.
+- Nach jeder geloeschten Legacy-Datei sicherstellen, dass `ComponentList`, Template-Updates, gespeicherte Diagramme und Uebersetzungen weiterhin funktionieren.
+
+Phase 3b ist abgeschlossen, wenn alle eingebauten Komponenten direkt aus `ComponentPackage`-Daten bestehen und `src/components/ComponentTypes/` fuer Katalogkomponenten nicht mehr benoetigt wird. Sonderfaelle wie Hilfsknoten oder Runtime-spezifische Komponenten duerfen nur dann geloescht werden, wenn alle direkten Imports in App, Wire-Logik und Editor ebenfalls ersetzt wurden.
+
+Status 2026-05-25: Phase 3b ist umgesetzt. Es gibt keine Imports auf `src/components/ComponentTypes/` mehr; der alte Ordner wurde geloescht.
 
 ### Phase 4: Komponenten-Editor
 

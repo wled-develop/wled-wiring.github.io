@@ -24,7 +24,7 @@ import CrosssectionSvg from '../icons/crosssection.svg?react';
 import { gray, red, green, blue, cyan, purple, magenta, gold } from '@ant-design/colors';
 
 import "./EditableWire.css";
-import { WireInfoNode } from "../components/ComponentTypes/WireInfoNode.ts";
+import { WireInfoNode } from "../components/catalog/internalTemplates.ts";
 
 import {ComponentDataType, EdgeDataType, edgePoint, XYPoint, intersectionPoint, segmentData, type EditableWire} from "../types.ts";
 import {canonicalizeColorForCompare, colorNameToRGBString, findHandleData, getRenderedWireEndpoint, postypeToAdjustedXY} from "../utils/utils_functions.ts";

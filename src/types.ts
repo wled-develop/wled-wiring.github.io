@@ -21,6 +21,13 @@ export type HandleRepeatAtFirstType=("yes" | "no");
 
 export type ComponentGroupType=("controller" | "led" | "psu" | "levelshifter" | "electronics" | "others" | "special");
 
+export type ComponentRef = {
+  source: "core" | "local" | "store";
+  packageId?: string;
+  componentId: string;
+  version: number;
+};
+
 
 export type PhysLengthType = {startIndex: number, length: number|undefined};
 
@@ -134,6 +141,7 @@ export type HandleDataType = {
     description: string;
     technicalID: string;
     technicalVersion: number;
+    componentRef?: ComponentRef;
     group: ComponentGroupType;
     image?: ImageDataType;
     noBackgroundImage?: boolean

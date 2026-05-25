@@ -1,0 +1,4441 @@
+import { defineComponent } from '../defineComponent';
+
+export default defineComponent({
+  "schemaVersion": 1,
+  "source": {
+    "type": "core"
+  },
+  "component": {
+    "id": "MHC_V43",
+    "version": 1,
+    "display": {
+      "name": "compData.MHC_V43.name",
+      "descriptionShort": "compData.MHC_V43.descriptionShort",
+      "description": "compData.MHC_V43.description",
+      "group": "controller",
+      "buyLinks": [
+        {
+          "text": "MyHome-Control Shop (Germnany)",
+          "url": "https://shop.myhome-control.de/"
+        },
+        {
+          "text": "WLED Shop (worldwide)",
+          "url": "https://wled.shop"
+        }
+      ]
+    },
+    "geometry": {
+      "image": {
+        "url": "./MHC_V43.png",
+        "width": 332,
+        "height": 198
+      },
+      "rotation": 0,
+      "rotatable": true,
+      "resizableX": false,
+      "borderWidth": 2
+    },
+    "handles": [
+      {
+        "id": "VIN",
+        "name": "Power supply (input)",
+        "description": "5-24 V DC power supply",
+        "type": "source",
+        "x": 17,
+        "y": 42.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "red",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_in"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 4,
+          "toleranceMax": 26
+        },
+        "behavior": {
+          "preferredLineWidth": 4
+        }
+      },
+      {
+        "id": "GND1",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 17,
+        "y": 63.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "black",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "preferredLineWidth": 4
+        }
+      },
+      {
+        "id": "DAT2",
+        "name": "Data 2 out (GPIO 18)",
+        "description": "LED data out",
+        "type": "source",
+        "x": 17,
+        "y": 131,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {}
+      },
+      {
+        "id": "CLK2",
+        "name": "Clock 2 out (GPIO 13)",
+        "description": "LED data or clock out",
+        "type": "source",
+        "x": 17,
+        "y": 152,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {}
+      },
+      {
+        "id": "VOUT",
+        "name": "Power output",
+        "description": "Power output (fused)",
+        "type": "source",
+        "x": 310,
+        "y": 43,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "right",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "red",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "outDependency": "VIN",
+          "toleranceMin": 0,
+          "toleranceMax": 26
+        },
+        "behavior": {
+          "preferredLineWidth": 4
+        }
+      },
+      {
+        "id": "GND2",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 310,
+        "y": 64.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "right",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "black",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "preferredLineWidth": 4
+        }
+      },
+      {
+        "id": "DAT",
+        "name": "Data out (GPIO 16)",
+        "description": "LED data out",
+        "type": "source",
+        "x": 310,
+        "y": 86.3,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "right",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {}
+      },
+      {
+        "id": "CLK",
+        "name": "Clock out (GPIO 12)",
+        "description": "LED data or clock out",
+        "type": "source",
+        "x": 310,
+        "y": 108.6,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 30,
+        "height": 18,
+        "postype": "right",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {}
+      },
+      {
+        "id": "GND3",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 4,
+        "y": 88,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO15",
+        "name": "GPIO 15",
+        "description": "GPIO 15",
+        "type": "source",
+        "x": 4,
+        "y": 99,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO14",
+        "name": "GPIO 14",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 4,
+        "y": 110,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "3V3_1",
+        "name": "3.3V output",
+        "description": "3.3 V output from internal voltage regulator",
+        "type": "source",
+        "x": 22,
+        "y": 88,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GND4",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 22,
+        "y": 99,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO36",
+        "name": "GPIO 36",
+        "description": "Digital or analog input",
+        "type": "source",
+        "x": 22,
+        "y": 110,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "an_in"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GND5",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 37,
+        "y": 88,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "3V3_2",
+        "name": "3.3V output",
+        "description": "3.3 V output from internal voltage regulator",
+        "type": "source",
+        "x": 37,
+        "y": 99,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO32",
+        "name": "GPIO 32",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 37,
+        "y": 110,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO0",
+        "name": "GPIO 0",
+        "description": "Digital In/Out (be careful: strapping pin, enters serial bootloader when pulled LOW during reset)",
+        "type": "source",
+        "x": 48,
+        "y": 88,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO1",
+        "name": "GPIO 1",
+        "description": "Digital In/Out. Normally used for serial communication",
+        "type": "source",
+        "x": 48,
+        "y": 99,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO3",
+        "name": "GPIO 3",
+        "description": "Digital In/Out. Normally used for serial communication",
+        "type": "source",
+        "x": 48,
+        "y": 110,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GND6",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 161,
+        "y": 83,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "3V3_3",
+        "name": "3.3V output",
+        "description": "3.3 V output from internal voltage regulator",
+        "type": "source",
+        "x": 161,
+        "y": 94,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO4",
+        "name": "GPIO 4",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 161,
+        "y": 105,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO0_1",
+        "name": "GPIO 0",
+        "description": "Digital In/Out (be crafeul: strapping pin, enters serial bootloader when pulled LOW during reset)",
+        "type": "source",
+        "x": 73,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RST",
+        "name": "Reset",
+        "description": "Reset input. Pull low to reset the controller",
+        "type": "source",
+        "x": 84,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "rst"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "3V3_4",
+        "name": "3.3V output",
+        "description": "3.3 V output from internal voltage regulator",
+        "type": "source",
+        "x": 95,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO3_1",
+        "name": "GPIO 3",
+        "description": "Digital In/Out. Normally used for serial communication",
+        "type": "source",
+        "x": 106,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO1_1",
+        "name": "GPIO 1",
+        "description": "Digital In/Out. Normally used for serial communication",
+        "type": "source",
+        "x": 117,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GND7",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 128,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "VIN_2",
+        "name": "Voltage supply",
+        "description": "Voltage supply input (for test purposes only)",
+        "type": "source",
+        "x": 139,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "DAT_1",
+        "name": "Data out (GPIO 16)",
+        "description": "LED data out (use this one for tests only)",
+        "type": "source",
+        "x": 150,
+        "y": 181.5,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO17",
+        "name": "GPIO 17",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 299,
+        "y": 146.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO25",
+        "name": "GPIO 25",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 310,
+        "y": 146.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO26",
+        "name": "GPIO 26",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 321,
+        "y": 146.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO19",
+        "name": "GPIO 19",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 299,
+        "y": 157.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO5",
+        "name": "GPIO 5",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 310,
+        "y": 157.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO27",
+        "name": "GPIO 27",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 321,
+        "y": 157.8,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GND8",
+        "name": "GND",
+        "description": "GND",
+        "type": "source",
+        "x": 273.3,
+        "y": 175.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "3V3_5",
+        "name": "3.3V output",
+        "description": "3.3 V output from internal voltage regulator",
+        "type": "source",
+        "x": 284.3,
+        "y": 175.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "red",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "suppl_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO33",
+        "name": "GPIO 33",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 295.3,
+        "y": 175.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO23",
+        "name": "GPIO 23",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 273.3,
+        "y": 186.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO22",
+        "name": "GPIO 22",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 284.3,
+        "y": 186.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "GPIO21",
+        "name": "GPIO 21",
+        "description": "Digital In/Out",
+        "type": "source",
+        "x": 295.3,
+        "y": 186.4,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 8,
+        "height": 8,
+        "postype": "centered",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 0.8,
+          "radius": "20%"
+        },
+        "functions": [
+          "dig_in",
+          "dig_out"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "AUDIO",
+        "name": "Line - In",
+        "description": "Audio input for sound reactive WLED",
+        "type": "source",
+        "x": -106,
+        "y": 157,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 12,
+        "height": 23,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dashed",
+          "color": "blue",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "audio_in"
+        ],
+        "voltage": {
+          "out": 3.3,
+          "toleranceMin": 0,
+          "toleranceMax": 3.6
+        },
+        "behavior": {
+          "preferredLineWidth": 3,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "usb",
+        "name": "USB",
+        "description": "USB (power and data)",
+        "type": "source",
+        "x": 135,
+        "y": 261,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 35,
+        "height": 30,
+        "postype": "bottom",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "#8c8c8c",
+          "lineWidth": 2,
+          "radius": "5%"
+        },
+        "functions": [
+          "usb_full"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 5
+        },
+        "behavior": {
+          "preferredLineWidth": 5,
+          "hideConditions": [
+            {
+              "fieldId": "USB",
+              "values": [
+                0
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "ETH",
+        "name": "Ethernet",
+        "description": "Ethernet (LAN)",
+        "type": "source",
+        "x": 220,
+        "y": 300,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 70,
+        "height": 10,
+        "postype": "bottom",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "#8c8c8c",
+          "lineWidth": 2,
+          "radius": "5%"
+        },
+        "functions": [
+          "eth"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 5
+        },
+        "behavior": {
+          "preferredLineWidth": 5,
+          "hideConditions": [
+            {
+              "fieldId": "Ethernet",
+              "values": [
+                0
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH1B",
+        "name": "Channel 1, B",
+        "description": "Channel 1, B",
+        "type": "source",
+        "x": -113,
+        "y": 112,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "rs485_B"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": -7,
+          "toleranceMax": 12
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH1GND",
+        "name": "Channel 1, GND",
+        "description": "Channel 1, GND",
+        "type": "source",
+        "x": -113,
+        "y": 124,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH1A",
+        "name": "Channel 1, A",
+        "description": "Channel 1, A",
+        "type": "source",
+        "x": -113,
+        "y": 137,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "rs485_A"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": -7,
+          "toleranceMax": 12
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH2B",
+        "name": "Channel 2, B",
+        "description": "Channel 2, B",
+        "type": "source",
+        "x": -113,
+        "y": 150,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "rs485_B"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": -7,
+          "toleranceMax": 12
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH2GND",
+        "name": "Channel 2, GND",
+        "description": "Channel 2, GND",
+        "type": "source",
+        "x": -113,
+        "y": 162,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "black",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "gnd"
+        ],
+        "voltage": {
+          "out": 0,
+          "toleranceMin": 0,
+          "toleranceMax": 0
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "RS485CH2A",
+        "name": "Channel 2, A",
+        "description": "Channel 2, A",
+        "type": "source",
+        "x": -113,
+        "y": 175,
+        "xalign": "start",
+        "yalign": "start",
+        "width": 25,
+        "height": 12,
+        "postype": "left",
+        "position": "left",
+        "border": {
+          "type": "dotted",
+          "color": "green",
+          "lineWidth": 1,
+          "radius": "20%"
+        },
+        "functions": [
+          "rs485_A"
+        ],
+        "voltage": {
+          "out": 5,
+          "toleranceMin": -7,
+          "toleranceMax": 12
+        },
+        "behavior": {
+          "preferredLineWidth": 2,
+          "hideConditions": [
+            {
+              "fieldId": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "fields": [
+      {
+        "id": "Fuse",
+        "type": "select",
+        "name": "Fuse: ",
+        "selectedValue": 10,
+        "unit": "A",
+        "options": [
+          {
+            "value": 2,
+            "label": "2 A",
+            "image": {
+              "url": "./miniOTO_2A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 3,
+            "label": "3 A",
+            "image": {
+              "url": "./miniOTO_3A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 4,
+            "label": "4 A",
+            "image": {
+              "url": "./miniOTO_4A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 5,
+            "label": "5 A",
+            "image": {
+              "url": "./miniOTO_5A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 7.5,
+            "label": "7.5 A",
+            "image": {
+              "url": "./miniOTO_7.5A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 10,
+            "label": "10 A",
+            "image": {
+              "url": "./miniOTO_10A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          },
+          {
+            "value": 15,
+            "label": "15 A",
+            "image": {
+              "url": "./miniOTO_15A_top.jpg",
+              "width": 60,
+              "height": 20
+            },
+            "x": 133,
+            "y": 9
+          }
+        ],
+        "ui": {
+          "displayName": false,
+          "customImage": true,
+          "color": "black",
+          "fieldWidth": 100,
+          "hide": true,
+          "showNameIfSelected": true
+        }
+      },
+      {
+        "id": "LineInMic",
+        "type": "select",
+        "name": "Adapter/mic: ",
+        "selectedValue": 0,
+        "unit": "",
+        "options": [
+          {
+            "value": 0,
+            "label": "No",
+            "image": {
+              "url": "",
+              "width": 0,
+              "height": 0
+            },
+            "x": 0,
+            "y": 0
+          },
+          {
+            "value": 1,
+            "label": "Microphone",
+            "image": {
+              "url": "./INMP441_SOLDERED.png",
+              "width": 60,
+              "height": 60
+            },
+            "x": -5,
+            "y": 68
+          },
+          {
+            "value": 2,
+            "label": "Line-In",
+            "image": {
+              "url": "./MHC_LineInToI2S.png",
+              "width": 166,
+              "height": 102
+            },
+            "x": -112,
+            "y": 82
+          },
+          {
+            "value": 3,
+            "label": "RS-485/DMX",
+            "image": {
+              "url": "./MHC_RS485DMX.png",
+              "width": 166,
+              "height": 102
+            },
+            "x": -126,
+            "y": 82
+          }
+        ],
+        "ui": {
+          "displayName": false,
+          "customImage": true,
+          "color": "black",
+          "fieldWidth": 100,
+          "hide": true,
+          "showNameIfSelected": true
+        }
+      },
+      {
+        "id": "USB",
+        "type": "select",
+        "name": "USB Adapter: ",
+        "selectedValue": 0,
+        "unit": "",
+        "options": [
+          {
+            "value": 0,
+            "label": "No",
+            "image": {
+              "url": "",
+              "width": 0,
+              "height": 0
+            },
+            "x": 0,
+            "y": 0
+          },
+          {
+            "value": 1,
+            "label": "Yes",
+            "image": {
+              "url": "./MHC_USB_Adapter.png",
+              "width": 90,
+              "height": 100
+            },
+            "x": 66,
+            "y": 175
+          }
+        ],
+        "ui": {
+          "displayName": false,
+          "customImage": true,
+          "color": "black",
+          "fieldWidth": 100,
+          "hide": true,
+          "showNameIfSelected": true
+        }
+      },
+      {
+        "id": "Ethernet",
+        "type": "select",
+        "name": "Ethernet Adapter: ",
+        "selectedValue": 0,
+        "unit": "",
+        "options": [
+          {
+            "value": 0,
+            "label": "No",
+            "image": {
+              "url": "",
+              "width": 0,
+              "height": 0
+            },
+            "x": 0,
+            "y": 0
+          },
+          {
+            "value": 1,
+            "label": "Yes",
+            "image": {
+              "url": "./MHC_Ethernet_Adapter.png",
+              "width": 170,
+              "height": 230
+            },
+            "x": 157,
+            "y": 75
+          }
+        ],
+        "ui": {
+          "displayName": false,
+          "customImage": true,
+          "color": "black",
+          "fieldWidth": 100,
+          "hide": true,
+          "showNameIfSelected": true
+        }
+      }
+    ],
+    "internalConnections": [
+      {
+        "kind": "fuse",
+        "fromHandle": "VIN",
+        "toHandle": "VOUT",
+        "fuseId": "Fuse",
+        "nominalCurrentField": "Fuse"
+      }
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "vin-vout-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN",
+            "b": "VOUT"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "2": 0.095,
+                "3": 0.061,
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "15": 0.0165,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse"
+              },
+              "default": 0.0065
+            },
+            "nominalCurrentA": {
+              "select": "Fuse"
+            }
+          }
+        },
+        {
+          "id": "controller-idle-load",
+          "type": "constantPowerSink",
+          "terminals": {
+            "positive": "VIN",
+            "negative": "GND1"
+          },
+          "parameters": {
+            "powerW": 0.5,
+            "minVoltageV": 3
+          }
+        },
+        {
+          "id": "gnd-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND2"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-3",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND3"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-4",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND4"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-5",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND5"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-6",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND6"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-7",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND7"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-8",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND8"
+          }
+        },
+        {
+          "id": "rs485-ch1-gnd-bridge",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "RS485CH1GND"
+          }
+        },
+        {
+          "id": "rs485-ch2-gnd-bridge",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "RS485CH2GND"
+          }
+        }
+      ]
+    }
+  },
+  "compatibility": {
+    "templateData": {
+      "name": "compData.MHC_V43.name",
+      "description": "compData.MHC_V43.descriptionShort",
+      "popover": {
+        "description": "compData.MHC_V43.description",
+        "buyLinks": [
+          {
+            "text": "MyHome-Control Shop (Germnany)",
+            "url": "https://shop.myhome-control.de/"
+          },
+          {
+            "text": "WLED Shop (worldwide)",
+            "url": "https://wled.shop"
+          }
+        ]
+      },
+      "technicalID": "MHC_V43",
+      "technicalVersion": 1,
+      "group": "controller",
+      "image": {
+        "url": "./MHC_V43.png",
+        "width": 332,
+        "height": 198
+      },
+      "rotation": 0,
+      "resizableX": false,
+      "rotatable": true,
+      "borderWidth": 2,
+      "inputFieldsBox": {
+        "x": 120,
+        "y": 83,
+        "borderType": "transparent",
+        "borderColor": "black",
+        "borderLineWidth": 0,
+        "borderRadius": "0%",
+        "backgroundColor": "transparent",
+        "backgroundColorSelected": "white",
+        "rotate180only": true
+      },
+      "selectFields": [
+        {
+          "technicalID": "Fuse",
+          "name": "Fuse: ",
+          "displayName": false,
+          "selectedValue": 10,
+          "unit": "A",
+          "fieldWidth": 100,
+          "customImage": true,
+          "color": "black",
+          "hide": true,
+          "showNameIfSelected": true,
+          "options": [
+            {
+              "value": 2,
+              "label": "2 A",
+              "img": {
+                "url": "./miniOTO_2A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 3,
+              "label": "3 A",
+              "img": {
+                "url": "./miniOTO_3A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 4,
+              "label": "4 A",
+              "img": {
+                "url": "./miniOTO_4A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 5,
+              "label": "5 A",
+              "img": {
+                "url": "./miniOTO_5A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 7.5,
+              "label": "7.5 A",
+              "img": {
+                "url": "./miniOTO_7.5A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 10,
+              "label": "10 A",
+              "img": {
+                "url": "./miniOTO_10A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            },
+            {
+              "value": 15,
+              "label": "15 A",
+              "img": {
+                "url": "./miniOTO_15A_top.jpg",
+                "width": 60,
+                "height": 20
+              },
+              "x": 133,
+              "y": 9
+            }
+          ]
+        },
+        {
+          "technicalID": "LineInMic",
+          "name": "Adapter/mic: ",
+          "displayName": false,
+          "selectedValue": 0,
+          "unit": "",
+          "fieldWidth": 100,
+          "customImage": true,
+          "color": "black",
+          "hide": true,
+          "showNameIfSelected": true,
+          "options": [
+            {
+              "value": 0,
+              "label": "No",
+              "img": {
+                "url": "",
+                "width": 0,
+                "height": 0
+              },
+              "x": 0,
+              "y": 0
+            },
+            {
+              "value": 1,
+              "label": "Microphone",
+              "img": {
+                "url": "./INMP441_SOLDERED.png",
+                "width": 60,
+                "height": 60
+              },
+              "x": -5,
+              "y": 68
+            },
+            {
+              "value": 2,
+              "label": "Line-In",
+              "img": {
+                "url": "./MHC_LineInToI2S.png",
+                "width": 166,
+                "height": 102
+              },
+              "x": -112,
+              "y": 82
+            },
+            {
+              "value": 3,
+              "label": "RS-485/DMX",
+              "img": {
+                "url": "./MHC_RS485DMX.png",
+                "width": 166,
+                "height": 102
+              },
+              "x": -126,
+              "y": 82
+            }
+          ]
+        },
+        {
+          "technicalID": "USB",
+          "name": "USB Adapter: ",
+          "displayName": false,
+          "selectedValue": 0,
+          "unit": "",
+          "fieldWidth": 100,
+          "customImage": true,
+          "color": "black",
+          "hide": true,
+          "showNameIfSelected": true,
+          "options": [
+            {
+              "value": 0,
+              "label": "No",
+              "img": {
+                "url": "",
+                "width": 0,
+                "height": 0
+              },
+              "x": 0,
+              "y": 0
+            },
+            {
+              "value": 1,
+              "label": "Yes",
+              "img": {
+                "url": "./MHC_USB_Adapter.png",
+                "width": 90,
+                "height": 100
+              },
+              "x": 66,
+              "y": 175
+            }
+          ]
+        },
+        {
+          "technicalID": "Ethernet",
+          "name": "Ethernet Adapter: ",
+          "displayName": false,
+          "selectedValue": 0,
+          "unit": "",
+          "fieldWidth": 100,
+          "customImage": true,
+          "color": "black",
+          "hide": true,
+          "showNameIfSelected": true,
+          "options": [
+            {
+              "value": 0,
+              "label": "No",
+              "img": {
+                "url": "",
+                "width": 0,
+                "height": 0
+              },
+              "x": 0,
+              "y": 0
+            },
+            {
+              "value": 1,
+              "label": "Yes",
+              "img": {
+                "url": "./MHC_Ethernet_Adapter.png",
+                "width": 170,
+                "height": 230
+              },
+              "x": 157,
+              "y": 75
+            }
+          ]
+        }
+      ],
+      "internalConnections": [
+        {
+          "kind": "fuse",
+          "fromHandle": "VIN",
+          "toHandle": "VOUT",
+          "fuseId": "Fuse",
+          "nominalCurrentField": "Fuse"
+        }
+      ],
+      "simdata": {
+        "version": 1,
+        "elements": [
+          {
+            "id": "vin-vout-fuse",
+            "type": "fuse",
+            "terminals": {
+              "a": "VIN",
+              "b": "VOUT"
+            },
+            "parameters": {
+              "resistanceOhm": {
+                "table": {
+                  "2": 0.095,
+                  "3": 0.061,
+                  "4": 0.04,
+                  "5": 0.035,
+                  "10": 0.0208,
+                  "15": 0.0165,
+                  "7.5": 0.028
+                },
+                "by": {
+                  "select": "Fuse"
+                },
+                "default": 0.0065
+              },
+              "nominalCurrentA": {
+                "select": "Fuse"
+              }
+            }
+          },
+          {
+            "id": "controller-idle-load",
+            "type": "constantPowerSink",
+            "terminals": {
+              "positive": "VIN",
+              "negative": "GND1"
+            },
+            "parameters": {
+              "powerW": 0.5,
+              "minVoltageV": 3
+            }
+          },
+          {
+            "id": "gnd-bridge-1-2",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND2"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-3",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND3"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-4",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND4"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-5",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND5"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-6",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND6"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-7",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND7"
+            }
+          },
+          {
+            "id": "gnd-bridge-1-8",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "GND8"
+            }
+          },
+          {
+            "id": "rs485-ch1-gnd-bridge",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "RS485CH1GND"
+            }
+          },
+          {
+            "id": "rs485-ch2-gnd-bridge",
+            "type": "shortBridge",
+            "terminals": {
+              "a": "GND1",
+              "b": "RS485CH2GND"
+            }
+          }
+        ]
+      },
+      "handles": [
+        {
+          "borderColor": "red",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "5-24 V DC power supply",
+          "functions": [
+            "suppl_in"
+          ],
+          "height": 18,
+          "hid": "VIN",
+          "name": "Power supply (input)",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 26,
+          "tolVmin": 4,
+          "type": "source",
+          "Vout": 0,
+          "width": 30,
+          "x": 17,
+          "xalign": "start",
+          "y": 42.5,
+          "yalign": "start",
+          "prefferedLineWidth": 4
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 18,
+          "hid": "GND1",
+          "name": "GND",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 30,
+          "x": 17,
+          "xalign": "start",
+          "y": 63.5,
+          "yalign": "start",
+          "prefferedLineWidth": 4
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "LED data out",
+          "functions": [
+            "dig_out"
+          ],
+          "height": 18,
+          "hid": "DAT2",
+          "name": "Data 2 out (GPIO 18)",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 5,
+          "width": 30,
+          "x": 17,
+          "xalign": "start",
+          "y": 131,
+          "yalign": "start"
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "LED data or clock out",
+          "functions": [
+            "dig_out"
+          ],
+          "height": 18,
+          "hid": "CLK2",
+          "name": "Clock 2 out (GPIO 13)",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 5,
+          "width": 30,
+          "x": 17,
+          "xalign": "start",
+          "y": 152,
+          "yalign": "start"
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "Power output (fused)",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 18,
+          "hid": "VOUT",
+          "name": "Power output",
+          "position": "left",
+          "postype": "right",
+          "tolVmax": 26,
+          "tolVmin": 0,
+          "type": "source",
+          "VoutDependency": "VIN",
+          "width": 30,
+          "x": 310,
+          "xalign": "start",
+          "y": 43,
+          "yalign": "start",
+          "prefferedLineWidth": 4
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 18,
+          "hid": "GND2",
+          "name": "GND",
+          "position": "left",
+          "postype": "right",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 30,
+          "x": 310,
+          "xalign": "start",
+          "y": 64.5,
+          "yalign": "start",
+          "prefferedLineWidth": 4
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "LED data out",
+          "functions": [
+            "dig_out"
+          ],
+          "height": 18,
+          "hid": "DAT",
+          "name": "Data out (GPIO 16)",
+          "position": "left",
+          "postype": "right",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 5,
+          "width": 30,
+          "x": 310,
+          "xalign": "start",
+          "y": 86.3,
+          "yalign": "start"
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "LED data or clock out",
+          "functions": [
+            "dig_out"
+          ],
+          "height": 18,
+          "hid": "CLK",
+          "name": "Clock out (GPIO 12)",
+          "position": "left",
+          "postype": "right",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 5,
+          "width": 30,
+          "x": 310,
+          "xalign": "start",
+          "y": 108.6,
+          "yalign": "start"
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND3",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 4,
+          "xalign": "start",
+          "y": 88,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GPIO 15",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO15",
+          "name": "GPIO 15",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 4,
+          "xalign": "start",
+          "y": 99,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO14",
+          "name": "GPIO 14",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 4,
+          "xalign": "start",
+          "y": 110,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "3.3 V output from internal voltage regulator",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "3V3_1",
+          "name": "3.3V output",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 22,
+          "xalign": "start",
+          "y": 88,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND4",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 22,
+          "xalign": "start",
+          "y": 99,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital or analog input",
+          "functions": [
+            "dig_in",
+            "an_in"
+          ],
+          "height": 8,
+          "hid": "GPIO36",
+          "name": "GPIO 36",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 22,
+          "xalign": "start",
+          "y": 110,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND5",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 37,
+          "xalign": "start",
+          "y": 88,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "3.3 V output from internal voltage regulator",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "3V3_2",
+          "name": "3.3V output",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 37,
+          "xalign": "start",
+          "y": 99,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO32",
+          "name": "GPIO 32",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 37,
+          "xalign": "start",
+          "y": 110,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out (be careful: strapping pin, enters serial bootloader when pulled LOW during reset)",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO0",
+          "name": "GPIO 0",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 48,
+          "xalign": "start",
+          "y": 88,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out. Normally used for serial communication",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO1",
+          "name": "GPIO 1",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 48,
+          "xalign": "start",
+          "y": 99,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out. Normally used for serial communication",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO3",
+          "name": "GPIO 3",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 48,
+          "xalign": "start",
+          "y": 110,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND6",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 161,
+          "xalign": "start",
+          "y": 83,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "3.3 V output from internal voltage regulator",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "3V3_3",
+          "name": "3.3V output",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 161,
+          "xalign": "start",
+          "y": 94,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO4",
+          "name": "GPIO 4",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 161,
+          "xalign": "start",
+          "y": 105,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out (be crafeul: strapping pin, enters serial bootloader when pulled LOW during reset)",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO0_1",
+          "name": "GPIO 0",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 73,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Reset input. Pull low to reset the controller",
+          "functions": [
+            "rst"
+          ],
+          "height": 8,
+          "hid": "RST",
+          "name": "Reset",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 84,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "3.3 V output from internal voltage regulator",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "3V3_4",
+          "name": "3.3V output",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 95,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out. Normally used for serial communication",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO3_1",
+          "name": "GPIO 3",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 106,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out. Normally used for serial communication",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO1_1",
+          "name": "GPIO 1",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 117,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND7",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 128,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Voltage supply input (for test purposes only)",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "VIN_2",
+          "name": "Voltage supply",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 139,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "LED data out (use this one for tests only)",
+          "functions": [
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "DAT_1",
+          "name": "Data out (GPIO 16)",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 5,
+          "width": 8,
+          "x": 150,
+          "xalign": "start",
+          "y": 181.5,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO17",
+          "name": "GPIO 17",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 299,
+          "xalign": "start",
+          "y": 146.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO25",
+          "name": "GPIO 25",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 310,
+          "xalign": "start",
+          "y": 146.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO26",
+          "name": "GPIO 26",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 321,
+          "xalign": "start",
+          "y": 146.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO19",
+          "name": "GPIO 19",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 299,
+          "xalign": "start",
+          "y": 157.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO5",
+          "name": "GPIO 5",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 310,
+          "xalign": "start",
+          "y": 157.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO27",
+          "name": "GPIO 27",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 321,
+          "xalign": "start",
+          "y": 157.8,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 8,
+          "hid": "GND8",
+          "name": "GND",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 8,
+          "x": 273.3,
+          "xalign": "start",
+          "y": 175.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "red",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "3.3 V output from internal voltage regulator",
+          "functions": [
+            "suppl_out"
+          ],
+          "height": 8,
+          "hid": "3V3_5",
+          "name": "3.3V output",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 284.3,
+          "xalign": "start",
+          "y": 175.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO33",
+          "name": "GPIO 33",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 295.3,
+          "xalign": "start",
+          "y": 175.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO23",
+          "name": "GPIO 23",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 273.3,
+          "xalign": "start",
+          "y": 186.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO22",
+          "name": "GPIO 22",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 284.3,
+          "xalign": "start",
+          "y": 186.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 0.8,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Digital In/Out",
+          "functions": [
+            "dig_in",
+            "dig_out"
+          ],
+          "height": 8,
+          "hid": "GPIO21",
+          "name": "GPIO 21",
+          "position": "left",
+          "postype": "centered",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 8,
+          "x": 295.3,
+          "xalign": "start",
+          "y": 186.4,
+          "yalign": "start",
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "blue",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dashed",
+          "description": "Audio input for sound reactive WLED",
+          "functions": [
+            "audio_in"
+          ],
+          "height": 23,
+          "hid": "AUDIO",
+          "name": "Line - In",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 3.6,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 3.3,
+          "width": 12,
+          "x": -106,
+          "xalign": "start",
+          "y": 157,
+          "yalign": "start",
+          "prefferedLineWidth": 3,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "#8c8c8c",
+          "borderLineWidth": 2,
+          "borderRadius": "5%",
+          "borderType": "dotted",
+          "description": "USB (power and data)",
+          "functions": [
+            "usb_full"
+          ],
+          "height": 30,
+          "hid": "usb",
+          "name": "USB",
+          "position": "left",
+          "postype": "bottom",
+          "tolVmax": 5,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 35,
+          "x": 135,
+          "xalign": "start",
+          "y": 261,
+          "yalign": "start",
+          "prefferedLineWidth": 5,
+          "hideConditions": [
+            {
+              "selectHID": "USB",
+              "values": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "#8c8c8c",
+          "borderLineWidth": 2,
+          "borderRadius": "5%",
+          "borderType": "dotted",
+          "description": "Ethernet (LAN)",
+          "functions": [
+            "eth"
+          ],
+          "height": 10,
+          "hid": "ETH",
+          "name": "Ethernet",
+          "position": "left",
+          "postype": "bottom",
+          "tolVmax": 5,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 70,
+          "x": 220,
+          "xalign": "start",
+          "y": 300,
+          "yalign": "start",
+          "prefferedLineWidth": 5,
+          "hideConditions": [
+            {
+              "selectHID": "Ethernet",
+              "values": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 1, B",
+          "functions": [
+            "rs485_B"
+          ],
+          "height": 12,
+          "hid": "RS485CH1B",
+          "name": "Channel 1, B",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 12,
+          "tolVmin": -7,
+          "type": "source",
+          "Vout": 5,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 112,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 1, GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 12,
+          "hid": "RS485CH1GND",
+          "name": "Channel 1, GND",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 124,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 1, A",
+          "functions": [
+            "rs485_A"
+          ],
+          "height": 12,
+          "hid": "RS485CH1A",
+          "name": "Channel 1, A",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 12,
+          "tolVmin": -7,
+          "type": "source",
+          "Vout": 5,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 137,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 2, B",
+          "functions": [
+            "rs485_B"
+          ],
+          "height": 12,
+          "hid": "RS485CH2B",
+          "name": "Channel 2, B",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 12,
+          "tolVmin": -7,
+          "type": "source",
+          "Vout": 5,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 150,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "black",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 2, GND",
+          "functions": [
+            "gnd"
+          ],
+          "height": 12,
+          "hid": "RS485CH2GND",
+          "name": "Channel 2, GND",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 0,
+          "tolVmin": 0,
+          "type": "source",
+          "Vout": 0,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 162,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "borderColor": "green",
+          "borderLineWidth": 1,
+          "borderRadius": "20%",
+          "borderType": "dotted",
+          "description": "Channel 2, A",
+          "functions": [
+            "rs485_A"
+          ],
+          "height": 12,
+          "hid": "RS485CH2A",
+          "name": "Channel 2, A",
+          "position": "left",
+          "postype": "left",
+          "tolVmax": 12,
+          "tolVmin": -7,
+          "type": "source",
+          "Vout": 5,
+          "width": 25,
+          "x": -113,
+          "xalign": "start",
+          "y": 175,
+          "yalign": "start",
+          "prefferedLineWidth": 2,
+          "hideConditions": [
+            {
+              "selectHID": "LineInMic",
+              "values": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+});

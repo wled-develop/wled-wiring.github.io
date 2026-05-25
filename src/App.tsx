@@ -35,7 +35,7 @@ import {
 
 import {getRenderedWireEndpoint, postypeToAdjustedXYConn, stripCheckAndDivideIfMiddleConnection} from "./utils/utils_functions.ts";
 
-import { SolderJoint } from './components/ComponentTypes/SolderJoint.ts';
+import { getComponentTemplate } from './components/catalog/componentRegistry.ts';
 
 import {SelectOutlined, DeleteOutlined, RedoOutlined, UndoOutlined} from '@ant-design/icons';
 import ConnectionIcon from './icons/connection.svg?react';
@@ -421,6 +421,8 @@ const FlowApp = () => {
       const edgePoints=useZustandStore.getState().edgePoints;
 
       if(retval.pType!=undefined) {
+        const solderJointTemplate = getComponentTemplate('SolderJoint');
+        if(!solderJointTemplate) return;
         undoRedo.takeSnapshot('connect wire to existing wire');
         // put SolderJoint node at this position
         const type='general-component-type';
@@ -428,7 +430,7 @@ const FlowApp = () => {
           id: String(Math.random()),
           type,
           position: {x: retval.x-10, y: retval.y-10}, // TBC: why 10? appatently must be handle position plus 2 (borderWidth?)
-          data: structuredClone(SolderJoint.data),
+          data: structuredClone(solderJointTemplate.data),
         };
         (newNode.data as ComponentDataType).handles[0].borderColor = retval.color;
         setNodes((nds) => nds.concat(newNode));
