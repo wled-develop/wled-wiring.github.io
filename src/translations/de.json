@@ -87,6 +87,73 @@
       }
     }
   },
+  "componentEditor": {
+    "title": "Komponenten-Editor",
+    "valid": "gueltig",
+    "invalid": "ungueltig",
+    "actions": {
+      "new": "Neu",
+      "openCore": "Eingebaute Komponente oeffnen",
+      "openLocal": "Lokalen Entwurf oeffnen",
+      "saveLocal": "Lokal speichern",
+      "importJson": "JSON importieren",
+      "exportJson": "JSON exportieren",
+      "backToDesigner": "Zurueck zum Designer"
+    },
+    "tabs": {
+      "basics": "Stammdaten",
+      "geometry": "Geometrie",
+      "handles": "Anschluesse",
+      "fields": "Felder",
+      "connections": "Verbindungen",
+      "simulation": "Simulation",
+      "runtime": "Runtime"
+    },
+    "fields": {
+      "id": "Komponenten-ID",
+      "version": "Version",
+      "name": "Name",
+      "descriptionShort": "Kurzbeschreibung",
+      "description": "Beschreibung",
+      "group": "Gruppe",
+      "showName": "Name anzeigen",
+      "imageUrl": "Bild-URL",
+      "imageWidth": "Bildbreite",
+      "imageHeight": "Bildhoehe",
+      "rotation": "Rotation",
+      "borderWidth": "Randbreite",
+      "lengthStep": "Physikalischer Laengenschritt",
+      "rotatable": "Drehbar",
+      "resizableX": "X skalierbar",
+      "resizableY": "Y skalierbar",
+      "noBackgroundImage": "Kein Hintergrundbild"
+    },
+    "sections": {
+      "applyHandles": "Anschluesse anwenden",
+      "applyFields": "Felder anwenden",
+      "applyConnections": "Verbindungen anwenden",
+      "applySimulation": "Simulation anwenden",
+      "applyRuntime": "Runtime anwenden",
+      "handlesDescription": "Bearbeite die Anschluesse als Schema-JSON. Die Validierung prueft IDs, Groessen, Funktionen, Hide-Conditions und Referenzen.",
+      "fieldsDescription": "Bearbeite Nummern- und Auswahlfelder als Schema-JSON. Auswahloptionen koennen optionale Bilddefinitionen enthalten.",
+      "connectionsDescription": "Bearbeite interne Short- und Fuse-Verbindungen als Schema-JSON.",
+      "simulationDescription": "Bearbeite die Simulationsdefinition als Schema-JSON, oder nutze null fuer keine Simulationsdaten.",
+      "runtimeDescription": "Bearbeite bestehende reine Runtime-UI-Optionen als Schema-JSON, oder nutze null wenn keine benoetigt werden."
+    },
+    "preview": {
+      "title": "Vorschau"
+    },
+    "validation": {
+      "title": "Validierung",
+      "noIssues": "Keine Validierungsprobleme."
+    },
+    "messages": {
+      "savedLocal": "Komponentenentwurf lokal gespeichert.",
+      "imported": "Komponentenpaket importiert.",
+      "importFailed": "Komponentenpaket konnte nicht importiert werden.",
+      "invalidJson": "Ungueltiges JSON"
+    }
+  },
   "popover": {
     "selectWireLength": "Kabellänge auswählen (physikalisch):",
     "selectWireCrossSection": "Kabelquerschnitt auswählen (physikalisch):",

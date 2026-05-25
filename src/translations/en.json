@@ -87,6 +87,73 @@
       }
     }
   },
+  "componentEditor": {
+    "title": "Component editor",
+    "valid": "valid",
+    "invalid": "invalid",
+    "actions": {
+      "new": "New",
+      "openCore": "Open built-in component",
+      "openLocal": "Open local draft",
+      "saveLocal": "Save locally",
+      "importJson": "Import JSON",
+      "exportJson": "Export JSON",
+      "backToDesigner": "Back to designer"
+    },
+    "tabs": {
+      "basics": "Basics",
+      "geometry": "Geometry",
+      "handles": "Handles",
+      "fields": "Fields",
+      "connections": "Connections",
+      "simulation": "Simulation",
+      "runtime": "Runtime"
+    },
+    "fields": {
+      "id": "Component ID",
+      "version": "Version",
+      "name": "Name",
+      "descriptionShort": "Short description",
+      "description": "Description",
+      "group": "Group",
+      "showName": "Show name",
+      "imageUrl": "Image URL",
+      "imageWidth": "Image width",
+      "imageHeight": "Image height",
+      "rotation": "Rotation",
+      "borderWidth": "Border width",
+      "lengthStep": "Physical length step",
+      "rotatable": "Rotatable",
+      "resizableX": "Resizable X",
+      "resizableY": "Resizable Y",
+      "noBackgroundImage": "No background image"
+    },
+    "sections": {
+      "applyHandles": "Apply handles",
+      "applyFields": "Apply fields",
+      "applyConnections": "Apply connections",
+      "applySimulation": "Apply simulation",
+      "applyRuntime": "Apply runtime",
+      "handlesDescription": "Edit the component handles as schema JSON. The validator checks IDs, sizes, functions, hide conditions, and references.",
+      "fieldsDescription": "Edit number and select fields as schema JSON. Select options may include optional image definitions.",
+      "connectionsDescription": "Edit internal short and fuse connections as schema JSON.",
+      "simulationDescription": "Edit the simulation definition as schema JSON, or use null for no simulation data.",
+      "runtimeDescription": "Edit existing runtime-only UI options as schema JSON, or use null when none are needed."
+    },
+    "preview": {
+      "title": "Preview"
+    },
+    "validation": {
+      "title": "Validation",
+      "noIssues": "No validation issues."
+    },
+    "messages": {
+      "savedLocal": "Component draft saved locally.",
+      "imported": "Component package imported.",
+      "importFailed": "Component package could not be imported.",
+      "invalidJson": "Invalid JSON"
+    }
+  },
   "popover": {
     "selectWireLength": "Select wire length (physically):",
     "selectWireCrossSection": "Select wire cross section (physically):",

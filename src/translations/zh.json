@@ -87,6 +87,73 @@
       }
     }
   },
+  "componentEditor": {
+    "title": "组件编辑器",
+    "valid": "有效",
+    "invalid": "无效",
+    "actions": {
+      "new": "新建",
+      "openCore": "打开内置组件",
+      "openLocal": "打开本地草稿",
+      "saveLocal": "保存到本地",
+      "importJson": "导入 JSON",
+      "exportJson": "导出 JSON",
+      "backToDesigner": "返回设计器"
+    },
+    "tabs": {
+      "basics": "基础",
+      "geometry": "几何",
+      "handles": "连接点",
+      "fields": "字段",
+      "connections": "内部连接",
+      "simulation": "仿真",
+      "runtime": "运行时"
+    },
+    "fields": {
+      "id": "组件 ID",
+      "version": "版本",
+      "name": "名称",
+      "descriptionShort": "简短描述",
+      "description": "描述",
+      "group": "分组",
+      "showName": "显示名称",
+      "imageUrl": "图片 URL",
+      "imageWidth": "图片宽度",
+      "imageHeight": "图片高度",
+      "rotation": "旋转",
+      "borderWidth": "边框宽度",
+      "lengthStep": "物理长度步进",
+      "rotatable": "可旋转",
+      "resizableX": "可沿 X 调整",
+      "resizableY": "可沿 Y 调整",
+      "noBackgroundImage": "无背景图片"
+    },
+    "sections": {
+      "applyHandles": "应用连接点",
+      "applyFields": "应用字段",
+      "applyConnections": "应用内部连接",
+      "applySimulation": "应用仿真",
+      "applyRuntime": "应用运行时",
+      "handlesDescription": "以 schema JSON 编辑组件连接点。验证会检查 ID、尺寸、功能、隐藏条件和引用。",
+      "fieldsDescription": "以 schema JSON 编辑数字字段和选择字段。选择项可以包含可选图片定义。",
+      "connectionsDescription": "以 schema JSON 编辑内部短接和保险丝连接。",
+      "simulationDescription": "以 schema JSON 编辑仿真定义；没有仿真数据时使用 null。",
+      "runtimeDescription": "以 schema JSON 编辑已有的运行时 UI 选项；不需要时使用 null。"
+    },
+    "preview": {
+      "title": "预览"
+    },
+    "validation": {
+      "title": "验证",
+      "noIssues": "没有验证问题。"
+    },
+    "messages": {
+      "savedLocal": "组件草稿已保存到本地。",
+      "imported": "组件包已导入。",
+      "importFailed": "无法导入组件包。",
+      "invalidJson": "JSON 无效"
+    }
+  },
   "popover": {
     "selectWireLength": "选择导线长度（物理尺寸）：",
     "selectWireCrossSection": "选择导线横截面积（物理尺寸）：",

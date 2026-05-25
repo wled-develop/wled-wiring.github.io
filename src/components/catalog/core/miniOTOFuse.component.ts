@@ -111,7 +111,7 @@ export default defineComponent({
             "value": 3,
             "label": "3 A",
             "image": {
-              "url": "./miniOTO_3A.jpg",
+              "url": "./miniOTO_3A.png",
               "width": 60,
               "height": 89
             },

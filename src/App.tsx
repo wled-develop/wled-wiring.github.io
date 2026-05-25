@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { Suspense, lazy, useCallback, useRef, useState, useEffect } from 'react';
 import { ConfigProvider, theme, message, notification, Button, Modal, Select } from 'antd';
 import { useTranslation } from "react-i18next";
 import { DndProvider } from 'react-dnd-multi-backend'
@@ -92,6 +92,8 @@ const defaultEdgeOptions = {
        physType: "single",
   } as EdgeDataType
 };
+
+const ComponentEditorApp = lazy(() => import('./editor/EditorApp.tsx'));
 
 const exampleOptions = [
   {labelKey: 'examples.example1', value: 'examples/example1'},
@@ -918,6 +920,12 @@ const FlowApp = () => {
                   setIsLinksModalOpen(true);
                 }}
               >{t('footRow.links.title')}</Button>
+              <Button
+                type="link"
+                onClick={() => {
+                  window.location.href = './?componentEditor=1';
+                }}
+              >{t('componentEditor.title')}</Button>
         </div>
       </div>
       <Modal
@@ -1030,13 +1038,24 @@ const FlowApp = () => {
   );
 }
 
-const App = () => (
-  <ReactFlowProvider>
-    <DndProvider options={HTML5toTouch}>
-      <ComponentDragPreviewLayer />
-      <FlowApp />
-    </DndProvider>
- </ReactFlowProvider>
-);
+const App = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('componentEditor') === '1') {
+    return (
+      <Suspense fallback={null}>
+        <ComponentEditorApp />
+      </Suspense>
+    );
+  }
+
+  return (
+    <ReactFlowProvider>
+      <DndProvider options={HTML5toTouch}>
+        <ComponentDragPreviewLayer />
+        <FlowApp />
+      </DndProvider>
+    </ReactFlowProvider>
+  );
+};
 
 export default App;

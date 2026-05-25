@@ -642,7 +642,7 @@ Die Validierung darf Korrekturvorschlaege anzeigen, aber nicht automatisch raten
 
 ### Implementierungsstand 2026-05-25
 
-Phase 1 bis 3b sind umgesetzt:
+Phase 1 bis 4 sind umgesetzt:
 
 - Das Schema liegt in `src/components/catalog/componentSchema.ts`.
 - `defineComponent`, `normalizeComponentPackage`, `validateComponentPackage` und `createReactFlowTemplate` bilden den neuen Kernpfad.
@@ -653,6 +653,7 @@ Phase 1 bis 3b sind umgesetzt:
 - Die alten Dateien unter `src/components/ComponentTypes/` und der Legacy-Adapter wurden entfernt.
 - Runtime-Sonderfaelle wurden ebenfalls aus dem alten Ordner geloest: `SolderJoint` wird aus der Registry geholt, `WireInfoNode` liegt als internes Template in `src/components/catalog/internalTemplates.ts`.
 - `compatibility.templateData` wurde entfernt. Die Templates werden vollstaendig aus `ComponentPackage`-Daten erzeugt; bisher nur im Snapshot vorhandene Runtime-Sonderdaten wurden nach `component.runtime` bzw. `geometry.nodeOrigin` verschoben.
+- Der lokale Komponenten-Editor ist in die Haupt-App integriert und ueber `?componentEditor=1` erreichbar. Er bearbeitet `ComponentPackage`-Daten, nutzt denselben Validator und Normalizer wie die Runtime, bietet Vorschau, lokale Browser-Entwuerfe sowie Import/Export von `.component.json`. Der alte separate Einstieg `editor.html` wurde entfernt.
 
 ### Phase 1: Schema und Adapter
 
@@ -704,9 +705,13 @@ Status 2026-05-25: Phase 3b ist umgesetzt. Es gibt keine Imports auf `src/compon
 
 ### Phase 4: Komponenten-Editor
 
-- Editor zuerst lokal bauen.
-- Validierung und Vorschau vor Store-Anbindung fertigstellen.
-- Import/Export von `.component.json` anbieten.
+Status 2026-05-25: Phase 4 ist lokal umgesetzt.
+
+- Der Editor ist ueber die Haupt-App erreichbar (`?componentEditor=1`) und benoetigt keinen separaten `editor.html`-Einstieg mehr.
+- Stammdaten und Geometrie werden strukturiert bearbeitet; Handles, Felder, interne Verbindungen, Simulation und Runtime-Sonderdaten werden als Schema-JSON gepflegt.
+- Validierung und Vorschau verwenden `validateComponentPackage`, `normalizeComponentPackage` und `createReactFlowTemplate`.
+- Lokale Entwuerfe werden im Browser gespeichert.
+- Import und Export von `.component.json` sind umgesetzt.
 
 ### Phase 5: Store-Anbindung
 
