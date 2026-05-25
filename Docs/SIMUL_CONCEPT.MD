@@ -742,7 +742,7 @@ Implementierungsstand:
 - `SimulationElement.ledStripPosition` speichert `distanceM`, fortlaufenden `sectionIndex`, `logicLedIndex` und `physicalLedCount` fuer expandierte `digitalLed`-Elemente.
 - Das Overlay zeigt am `V_LED,min`-Label einen Plot-Button, wenn Plotdaten fuer den Streifen vorhanden sind.
 - Das Unterfenster wird als AntD-Modal geoeffnet und zeichnet den Plot als SVG mit Grid, tiefgestelltem `LED` in der Y-Achse, Minimum-Markierung und vertikalen `physLengths`-Grenzlinien.
-
+er
 Nicht-Ziele fuer die erste Umsetzung:
 
 - Kein Export des Plots in das Diagramm-JSON.
