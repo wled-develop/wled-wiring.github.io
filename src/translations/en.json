@@ -98,7 +98,12 @@
       "saveLocal": "Save locally",
       "importJson": "Import JSON",
       "exportJson": "Export JSON",
-      "backToDesigner": "Back to designer"
+      "backToDesigner": "Back to designer",
+      "addHandle": "Add handle",
+      "addField": "Add field",
+      "addOption": "Add option",
+      "addConnection": "Add connection",
+      "addSimulationElement": "Add simulation element"
     },
     "tabs": {
       "basics": "Basics",
@@ -126,7 +131,33 @@
       "rotatable": "Rotatable",
       "resizableX": "Resizable X",
       "resizableY": "Resizable Y",
-      "noBackgroundImage": "No background image"
+      "noBackgroundImage": "No background image",
+      "handleId": "Handle ID",
+      "handleType": "Handle type",
+      "functions": "Functions",
+      "borderColor": "Border color",
+      "borderType": "Border type",
+      "borderLineWidth": "Border line width",
+      "borderRadius": "Border radius",
+      "hideConditions": "Hide conditions",
+      "fieldId": "Field ID",
+      "fieldType": "Field type",
+      "unit": "Unit",
+      "selectedValue": "Selected value",
+      "connectionKind": "Connection kind",
+      "fromHandle": "From handle",
+      "toHandle": "To handle",
+      "elementId": "Element ID",
+      "elementType": "Element type"
+    },
+    "editorModes": {
+      "ui": "UI",
+      "json": "JSON"
+    },
+    "labels": {
+      "unnamed": "Unnamed",
+      "terminals": "Terminals",
+      "parameters": "Parameters"
     },
     "sections": {
       "applyHandles": "Apply handles",

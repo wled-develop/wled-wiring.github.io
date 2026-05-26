@@ -78,6 +78,7 @@ import {initialNodes, nodeTypes } from './components';
 import {edgeTypes} from './wires';
 import { SimulationOverlay } from './simulation/SimulationOverlay.tsx';
 import { initializeLedSimulationOptionValues } from './simulation/ledStripSimulationOptions.ts';
+import { ENABLE_COMPONENT_EDITOR_FOOTER_LINK } from './editor/componentEditorFeatureFlags.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -920,12 +921,14 @@ const FlowApp = () => {
                   setIsLinksModalOpen(true);
                 }}
               >{t('footRow.links.title')}</Button>
-              <Button
-                type="link"
-                onClick={() => {
-                  window.location.href = './?componentEditor=1';
-                }}
-              >{t('componentEditor.title')}</Button>
+              {ENABLE_COMPONENT_EDITOR_FOOTER_LINK && (
+                <Button
+                  type="link"
+                  onClick={() => {
+                    window.location.href = './?componentEditor=1';
+                  }}
+                >{t('componentEditor.title')}</Button>
+              )}
         </div>
       </div>
       <Modal

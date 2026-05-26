@@ -1,6 +1,6 @@
 # Konzept: Neues Komponentenmodell
 
-Stand: 2026-05-25
+Stand: 2026-05-26
 
 ## Ziel
 
@@ -705,10 +705,11 @@ Status 2026-05-25: Phase 3b ist umgesetzt. Es gibt keine Imports auf `src/compon
 
 ### Phase 4: Komponenten-Editor
 
-Status 2026-05-25: Phase 4 ist lokal umgesetzt.
+Status 2026-05-26: Phase 4 ist lokal umgesetzt.
 
 - Der Editor ist ueber die Haupt-App erreichbar (`?componentEditor=1`) und benoetigt keinen separaten `editor.html`-Einstieg mehr.
-- Stammdaten und Geometrie werden strukturiert bearbeitet; Handles, Felder, interne Verbindungen, Simulation und Runtime-Sonderdaten werden als Schema-JSON gepflegt.
+- Der Footer-Link zum Editor wird ueber den Code-Schalter `ENABLE_COMPONENT_EDITOR_FOOTER_LINK` in `src/editor/componentEditorFeatureFlags.ts` ein- oder ausgeblendet. Der direkte URL-Einstieg bleibt davon unabhaengig nutzbar.
+- Stammdaten und Geometrie werden strukturiert bearbeitet. Handles, Felder, interne Verbindungen und Simulation haben UI-first-Editoren mit optionalem JSON-Modus fuer Spezialfaelle und schnelle Bulk-Aenderungen. Runtime-Sonderdaten bleiben vorerst im JSON-Modus.
 - Validierung und Vorschau verwenden `validateComponentPackage`, `normalizeComponentPackage` und `createReactFlowTemplate`.
 - Lokale Entwuerfe werden im Browser gespeichert.
 - Import und Export von `.component.json` sind umgesetzt.

@@ -98,7 +98,12 @@
       "saveLocal": "Lokal speichern",
       "importJson": "JSON importieren",
       "exportJson": "JSON exportieren",
-      "backToDesigner": "Zurueck zum Designer"
+      "backToDesigner": "Zurueck zum Designer",
+      "addHandle": "Anschluss hinzufuegen",
+      "addField": "Feld hinzufuegen",
+      "addOption": "Option hinzufuegen",
+      "addConnection": "Verbindung hinzufuegen",
+      "addSimulationElement": "Simulationselement hinzufuegen"
     },
     "tabs": {
       "basics": "Stammdaten",
@@ -126,7 +131,33 @@
       "rotatable": "Drehbar",
       "resizableX": "X skalierbar",
       "resizableY": "Y skalierbar",
-      "noBackgroundImage": "Kein Hintergrundbild"
+      "noBackgroundImage": "Kein Hintergrundbild",
+      "handleId": "Anschluss-ID",
+      "handleType": "Anschluss-Typ",
+      "functions": "Funktionen",
+      "borderColor": "Randfarbe",
+      "borderType": "Randtyp",
+      "borderLineWidth": "Randbreite",
+      "borderRadius": "Randradius",
+      "hideConditions": "Ausblendbedingungen",
+      "fieldId": "Feld-ID",
+      "fieldType": "Feldtyp",
+      "unit": "Einheit",
+      "selectedValue": "Ausgewaehlter Wert",
+      "connectionKind": "Verbindungsart",
+      "fromHandle": "Von Anschluss",
+      "toHandle": "Zu Anschluss",
+      "elementId": "Element-ID",
+      "elementType": "Elementtyp"
+    },
+    "editorModes": {
+      "ui": "UI",
+      "json": "JSON"
+    },
+    "labels": {
+      "unnamed": "Ohne Namen",
+      "terminals": "Terminals",
+      "parameters": "Parameter"
     },
     "sections": {
       "applyHandles": "Anschluesse anwenden",
