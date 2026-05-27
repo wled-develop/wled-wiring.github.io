@@ -74,6 +74,10 @@ const LOCAL_STORAGE_KEY = 'wled-wiring-component-editor-drafts-v1';
 
 const { TextArea } = Input;
 
+type PreviewFlowControls = {
+  fitView: (options?: {padding?: number; duration?: number}) => Promise<boolean>;
+};
+
 const HANDLE_TYPE_OPTIONS = ['source', 'target'].map((value) => ({value, label: value}));
 const HANDLE_ALIGN_OPTIONS = ['start', 'end'].map((value) => ({value, label: value}));
 const HANDLE_POSTYPE_OPTIONS = ['centered', 'top', 'bottom', 'left', 'right'].map((value) => ({value, label: value}));
@@ -1491,10 +1495,12 @@ const ComponentEditorContent = () => {
   const {token} = theme.useToken();
   const [messageApi, messageContextHolder] = message.useMessage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewFlowRef = useRef<PreviewFlowControls | null>(null);
 
   const [componentPackage, setComponentPackage] = useState<ComponentPackage>(createEmptyPackage());
   const [drafts, setDrafts] = useState<DraftEntry[]>(readDrafts);
   const [activeEditorTab, setActiveEditorTab] = useState('basics');
+  const [previewFitNonce, setPreviewFitNonce] = useState(0);
   const [selectedHandleId, setSelectedHandleId] = useState<string | undefined>(
     () => componentPackage.component.handles[0]?.id,
   );
@@ -1582,6 +1588,7 @@ const ComponentEditorContent = () => {
     setSelectedFieldIndex((nextPackage.component.fields?.length ?? 0) > 0 ? 0 : undefined);
     setSelectedConnectionIndex((nextPackage.component.internalConnections?.length ?? 0) > 0 ? 0 : undefined);
     setSelectedSimulationElementIndex((nextPackage.component.simulation?.elements?.length ?? 0) > 0 ? 0 : undefined);
+    setPreviewFitNonce((value) => value + 1);
     resetJsonSections(nextPackage);
   };
 
@@ -1666,6 +1673,13 @@ const ComponentEditorContent = () => {
         },
       }]
     : [];
+
+  useEffect(() => {
+    if (!previewFlowRef.current || previewNodes.length === 0) return;
+    window.requestAnimationFrame(() => {
+      previewFlowRef.current?.fitView({padding: 0.2, duration: 200});
+    });
+  }, [previewFitNonce, previewNodes.length]);
 
   return (
     <ConfigProvider
@@ -2142,6 +2156,10 @@ const ComponentEditorContent = () => {
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 fitView
+                onInit={(instance) => {
+                  previewFlowRef.current = instance;
+                  instance.fitView({padding: 0.2});
+                }}
                 nodesDraggable={false}
                 nodesConnectable={false}
                 elementsSelectable={false}
