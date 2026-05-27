@@ -1511,6 +1511,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                 (combinedHandlesArrayVisible).map(({hid, type, x, y, xalign, yalign, width, height, borderType, borderColor, borderLineWidth, borderRadius, position, name, repeated, repeatAtFirst}) => {
                     const rotated_width=(rotationSwapImgWH)?height:width;
                     const rotated_height=(rotationSwapImgWH)?width:height;
+                    const editorSelected=compData.editorSelectedHandleId===hid;
 
                     //const posArray=[Position.Left, Position.Top, Position.Right, Position.Bottom, Position.Left, Position.Top, Position.Right, Position.Bottom];
                     //const posIndex= (position==Position.Left)?0:((position==Position.Top)?1:((position==Position.Right)?2:(3)));
@@ -1523,11 +1524,17 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                     const rotated_top=(rotation==0)?original_top:((rotation==90)?original_left:((rotation==180)?nodeBasicSizeY-original_top:(nodeLength*nodeBasicSizeX-original_left)));
 
                     return (repeated==undefined || repeated=="no" || repeatAtFirst=="yes") && <Handle
-                        className={"react-flow__handle"}
+                        className={`react-flow__handle${editorSelected ? " react-flow__handle--editor-selected" : ""}`}
                         id={hid}
                         key={`node${id}_handle_${hid}`}
                         type={type}
                         position={position}
+                        onClick={(event) => {
+                            if(compData.editorOnHandleSelect) {
+                                event.stopPropagation();
+                                compData.editorOnHandleSelect(hid);
+                            }
+                        }}
                         onMouseEnter={(event) => {
                             if(name) showPinTooltip(event, name);
                         }}
@@ -1540,6 +1547,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                             borderStyle: borderType,
                             borderRadius: borderRadius,
                             borderWidth: borderLineWidth,
+                            boxShadow: editorSelected ? "0 0 0 3px #faad14, 0 0 8px 5px rgba(250, 173, 20, 0.55)" : undefined,
                             position: "absolute",
                             top: rotated_top,
                             left: rotated_left,

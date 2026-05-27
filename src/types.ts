@@ -157,6 +157,8 @@ export type HandleDataType = {
     repeatedHandleArray?: HandleDataType[];
     physLengths?: PhysLengthType[];
     selectedHid?: "" | null;
+    editorSelectedHandleId?: string;
+    editorOnHandleSelect?: (handleId: string) => void;
     // for Line/box node
     applyNodeResizer?: boolean;
     putToBackground?: boolean;

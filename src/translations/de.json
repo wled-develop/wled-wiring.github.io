@@ -100,6 +100,7 @@
       "exportJson": "JSON exportieren",
       "backToDesigner": "Zurueck zum Designer",
       "addHandle": "Anschluss hinzufuegen",
+      "deleteHandle": "Anschluss loeschen",
       "addField": "Feld hinzufuegen",
       "addOption": "Option hinzufuegen",
       "addConnection": "Verbindung hinzufuegen",
@@ -172,7 +173,10 @@
       "runtimeDescription": "Bearbeite bestehende reine Runtime-UI-Optionen als Schema-JSON, oder nutze null wenn keine benoetigt werden."
     },
     "preview": {
-      "title": "Vorschau"
+      "title": "Vorschau",
+      "selectedHandle": "Ausgewaehlter Anschluss",
+      "selectHandle": "Anschluss auswaehlen",
+      "nudge": "Um 1 px verschieben"
     },
     "validation": {
       "title": "Validierung",
@@ -182,7 +186,8 @@
       "savedLocal": "Komponentenentwurf lokal gespeichert.",
       "imported": "Komponentenpaket importiert.",
       "importFailed": "Komponentenpaket konnte nicht importiert werden.",
-      "invalidJson": "Ungueltiges JSON"
+      "invalidJson": "Ungueltiges JSON",
+      "noHandles": "Noch keine Anschluesse vorhanden. Fuege einen Anschluss hinzu, um seine Eigenschaften zu bearbeiten."
     }
   },
   "popover": {

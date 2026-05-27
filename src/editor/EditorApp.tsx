@@ -25,8 +25,12 @@ import {
   DeleteOutlined,
   DownloadOutlined,
   FolderOpenOutlined,
+  LeftOutlined,
   PlusOutlined,
+  RightOutlined,
   SaveOutlined,
+  UpOutlined,
+  DownOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -473,12 +477,27 @@ const ParameterRefEditor = ({value, fields, onChange}: ParameterRefEditorProps) 
 type HandlesEditorProps = {
   handles: ComponentHandleDefinition[];
   fields: ComponentFieldDefinition[];
+  selectedHandleId?: string;
+  onSelectedHandleIdChange: (handleId: string | undefined) => void;
   onChange: (handles: ComponentHandleDefinition[]) => void;
 };
 
-const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
+const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdChange, onChange}: HandlesEditorProps) => {
   const {t} = useTranslation(['main']);
   const fieldOptions = fields.map((field) => ({value: field.id, label: field.id}));
+  const selectedIndex = handles.findIndex((handle) => handle.id === selectedHandleId);
+  const activeIndex = selectedIndex >= 0 ? selectedIndex : handles.length > 0 ? 0 : -1;
+  const activeHandle = activeIndex >= 0 ? handles[activeIndex] : undefined;
+
+  useEffect(() => {
+    if (handles.length === 0) {
+      if (selectedHandleId !== undefined) onSelectedHandleIdChange(undefined);
+      return;
+    }
+    if (selectedIndex < 0) {
+      onSelectedHandleIdChange(handles[0].id);
+    }
+  }, [handles, onSelectedHandleIdChange, selectedHandleId, selectedIndex]);
 
   const createHandle = (): ComponentHandleDefinition => ({
     id: `handle_${handles.length + 1}`,
@@ -495,45 +514,98 @@ const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
     border: {type: 'solid', color: '#000000', lineWidth: 1, radius: '30%'},
   });
 
+  const updateActiveHandle = (updater: (handle: ComponentHandleDefinition) => ComponentHandleDefinition) => {
+    if (activeIndex < 0) return;
+    const nextHandles = updateArrayItem(handles, activeIndex, updater);
+    onChange(nextHandles);
+  };
+
+  const deleteActiveHandle = () => {
+    if (activeIndex < 0) return;
+    const nextHandles = removeArrayItem(handles, activeIndex);
+    onChange(nextHandles);
+    onSelectedHandleIdChange(nextHandles[Math.min(activeIndex, nextHandles.length - 1)]?.id);
+  };
+
+  const handleOptionsWithIndex = handles.map((handle, index) => ({
+    value: handle.id,
+    label: `${index + 1}. ${handle.id || t('componentEditor.labels.unnamed')}`,
+  }));
+
+  if (!activeHandle) {
+    return (
+      <Flex vertical gap={8}>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newHandle = createHandle();
+            onChange(handles.concat(newHandle));
+            onSelectedHandleIdChange(newHandle.id);
+          }}
+        >
+          {t('componentEditor.actions.addHandle')}
+        </Button>
+        <Alert type="info" message={t('componentEditor.messages.noHandles')} showIcon />
+      </Flex>
+    );
+  }
+
   return (
     <Flex vertical gap={8}>
-      <Button icon={<PlusOutlined />} onClick={() => onChange(handles.concat(createHandle()))}>
-        {t('componentEditor.actions.addHandle')}
-      </Button>
-      {handles.map((handle, index) => (
+      <Flex gap={8} wrap="wrap" align="center">
+        <Select
+          showSearch
+          optionFilterProp="label"
+          value={activeHandle.id}
+          options={handleOptionsWithIndex}
+          style={{minWidth: 260, flex: '1 1 260px'}}
+          onChange={onSelectedHandleIdChange}
+        />
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newHandle = createHandle();
+            onChange(handles.concat(newHandle));
+            onSelectedHandleIdChange(newHandle.id);
+          }}
+        >
+          {t('componentEditor.actions.addHandle')}
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={deleteActiveHandle}>
+          {t('componentEditor.actions.deleteHandle')}
+        </Button>
+      </Flex>
         <Card
-          key={`${handle.id}-${index}`}
+          key={`${activeHandle.id}-${activeIndex}`}
           size="small"
-          title={handle.id || t('componentEditor.labels.unnamed')}
-          extra={(
-            <Button
-              icon={<DeleteOutlined />}
-              onClick={() => onChange(removeArrayItem(handles, index))}
-            />
-          )}
+          title={activeHandle.id || t('componentEditor.labels.unnamed')}
         >
           <Form layout="vertical">
             <Flex gap={8} wrap="wrap">
               <Form.Item label={t('componentEditor.fields.handleId')} style={{flex: '1 1 160px'}}>
                 <Input
-                  value={handle.id}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({...item, id: event.target.value})))}
+                  value={activeHandle.id}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    updateActiveHandle((item) => ({...item, id: nextId}));
+                    onSelectedHandleIdChange(nextId);
+                  }}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.name')} style={{flex: '1 1 180px'}}>
                 <Input
-                  value={localizedTextToInput(handle.name)}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={localizedTextToInput(activeHandle.name)}
+                  onChange={(event) => updateActiveHandle((item) => ({
                     ...item,
                     name: inputToLocalizedText(event.target.value),
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.handleType')} style={{width: 120}}>
                 <Select
-                  value={handle.type}
+                  value={activeHandle.type}
                   options={HANDLE_TYPE_OPTIONS}
-                  onChange={(type) => onChange(updateArrayItem(handles, index, (item) => ({...item, type})))}
+                  onChange={(type) => updateActiveHandle((item) => ({...item, type}))}
                 />
               </Form.Item>
             </Flex>
@@ -541,135 +613,135 @@ const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
               {(['x', 'y', 'width', 'height'] as const).map((key) => (
                 <Form.Item key={key} label={key} style={{width: 108}}>
                   <InputNumber
-                    value={handle[key]}
-                    onChange={(value) => onChange(updateArrayItem(handles, index, (item) => ({
+                    value={activeHandle[key]}
+                    onChange={(value) => updateActiveHandle((item) => ({
                       ...item,
                       [key]: value ?? 0,
-                    })))}
+                    }))}
                     style={{width: '100%'}}
                   />
                 </Form.Item>
               ))}
               <Form.Item label="xalign" style={{width: 112}}>
                 <Select
-                  value={handle.xalign}
+                  value={activeHandle.xalign}
                   options={HANDLE_ALIGN_OPTIONS}
-                  onChange={(xalign) => onChange(updateArrayItem(handles, index, (item) => ({...item, xalign})))}
+                  onChange={(xalign) => updateActiveHandle((item) => ({...item, xalign}))}
                 />
               </Form.Item>
               <Form.Item label="yalign" style={{width: 112}}>
                 <Select
-                  value={handle.yalign}
+                  value={activeHandle.yalign}
                   options={HANDLE_ALIGN_OPTIONS}
-                  onChange={(yalign) => onChange(updateArrayItem(handles, index, (item) => ({...item, yalign})))}
+                  onChange={(yalign) => updateActiveHandle((item) => ({...item, yalign}))}
                 />
               </Form.Item>
               <Form.Item label="postype" style={{width: 132}}>
                 <Select
-                  value={handle.postype}
+                  value={activeHandle.postype}
                   options={HANDLE_POSTYPE_OPTIONS}
-                  onChange={(postype) => onChange(updateArrayItem(handles, index, (item) => ({...item, postype})))}
+                  onChange={(postype) => updateActiveHandle((item) => ({...item, postype}))}
                 />
               </Form.Item>
               <Form.Item label="position" style={{width: 132}}>
                 <Select
-                  value={handle.position}
+                  value={activeHandle.position}
                   options={HANDLE_POSITION_OPTIONS}
-                  onChange={(position) => onChange(updateArrayItem(handles, index, (item) => ({...item, position})))}
+                  onChange={(position) => updateActiveHandle((item) => ({...item, position}))}
                 />
               </Form.Item>
             </Flex>
             <Form.Item label={t('componentEditor.fields.functions')}>
               <Select
                 mode="multiple"
-                value={handle.functions ?? []}
+                value={activeHandle.functions ?? []}
                 options={KNOWN_HANDLE_FUNCTIONS.map((value) => ({value, label: value}))}
-                onChange={(functions) => onChange(updateArrayItem(handles, index, (item) => ({
+                onChange={(functions) => updateActiveHandle((item) => ({
                   ...item,
                   functions: functions.length > 0 ? functions : undefined,
-                })))}
+                }))}
               />
             </Form.Item>
             <Flex gap={8} wrap="wrap">
               <Form.Item label={t('componentEditor.fields.borderColor')} style={{width: 128}}>
                 <Input
                   type="color"
-                  value={handle.border?.color ?? '#000000'}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.border?.color ?? '#000000'}
+                  onChange={(event) => updateActiveHandle((item) => ({
                     ...item,
                     border: {...(item.border ?? {type: 'solid', lineWidth: 1, radius: '30%'}), color: event.target.value},
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.borderType')} style={{width: 128}}>
                 <Input
-                  value={handle.border?.type ?? ''}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.border?.type ?? ''}
+                  onChange={(event) => updateActiveHandle((item) => ({
                     ...item,
                     border: {...(item.border ?? {color: '#000000', lineWidth: 1, radius: '30%'}), type: event.target.value},
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.borderLineWidth')} style={{width: 128}}>
                 <InputNumber
                   min={0}
-                  value={handle.border?.lineWidth}
-                  onChange={(lineWidth) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.border?.lineWidth}
+                  onChange={(lineWidth) => updateActiveHandle((item) => ({
                     ...item,
                     border: {...(item.border ?? {type: 'solid', color: '#000000', radius: '30%'}), lineWidth: lineWidth ?? 0},
-                  })))}
+                  }))}
                   style={{width: '100%'}}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.borderRadius')} style={{width: 128}}>
                 <Input
-                  value={handle.border?.radius ?? ''}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.border?.radius ?? ''}
+                  onChange={(event) => updateActiveHandle((item) => ({
                     ...item,
                     border: {...(item.border ?? {type: 'solid', color: '#000000', lineWidth: 1}), radius: event.target.value},
-                  })))}
+                  }))}
                 />
               </Form.Item>
             </Flex>
             <Flex gap={8} wrap="wrap">
               <Form.Item label="Vout" style={{width: 120}}>
                 <InputNumber
-                  value={handle.voltage?.out}
-                  onChange={(out) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.voltage?.out}
+                  onChange={(out) => updateActiveHandle((item) => ({
                     ...item,
                     voltage: {...(item.voltage ?? {}), out: out ?? undefined},
-                  })))}
+                  }))}
                   style={{width: '100%'}}
                 />
               </Form.Item>
               <Form.Item label="Vout dependency" style={{width: 180}}>
                 <Select
                   allowClear
-                  value={handle.voltage?.outDependency}
+                  value={activeHandle.voltage?.outDependency}
                   options={handleOptions(handles)}
-                  onChange={(outDependency) => onChange(updateArrayItem(handles, index, (item) => ({
+                  onChange={(outDependency) => updateActiveHandle((item) => ({
                     ...item,
                     voltage: {...(item.voltage ?? {}), outDependency},
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label="Tol min" style={{width: 120}}>
                 <InputNumber
-                  value={handle.voltage?.toleranceMin}
-                  onChange={(toleranceMin) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.voltage?.toleranceMin}
+                  onChange={(toleranceMin) => updateActiveHandle((item) => ({
                     ...item,
                     voltage: {...(item.voltage ?? {}), toleranceMin: toleranceMin ?? undefined},
-                  })))}
+                  }))}
                   style={{width: '100%'}}
                 />
               </Form.Item>
               <Form.Item label="Tol max" style={{width: 120}}>
                 <InputNumber
-                  value={handle.voltage?.toleranceMax}
-                  onChange={(toleranceMax) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.voltage?.toleranceMax}
+                  onChange={(toleranceMax) => updateActiveHandle((item) => ({
                     ...item,
                     voltage: {...(item.voltage ?? {}), toleranceMax: toleranceMax ?? undefined},
-                  })))}
+                  }))}
                   style={{width: '100%'}}
                 />
               </Form.Item>
@@ -678,11 +750,11 @@ const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
               {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically'] as const).map((key) => (
                 <Checkbox
                   key={key}
-                  checked={Boolean(handle.behavior?.[key])}
-                  onChange={(event) => onChange(updateArrayItem(handles, index, (item) => ({
+                  checked={Boolean(activeHandle.behavior?.[key])}
+                  onChange={(event) => updateActiveHandle((item) => ({
                     ...item,
                     behavior: {...(item.behavior ?? {}), [key]: event.target.checked},
-                  })))}
+                  }))}
                 >
                   {key}
                 </Checkbox>
@@ -692,42 +764,42 @@ const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
               <Form.Item label="controllableBy" style={{width: 180}}>
                 <Select
                   allowClear
-                  value={handle.behavior?.controllableBy}
+                  value={activeHandle.behavior?.controllableBy}
                   options={handleOptions(handles)}
-                  onChange={(controllableBy) => onChange(updateArrayItem(handles, index, (item) => ({
+                  onChange={(controllableBy) => updateActiveHandle((item) => ({
                     ...item,
                     behavior: {...(item.behavior ?? {}), controllableBy},
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label="preferredLineWidth" style={{width: 160}}>
                 <InputNumber
-                  value={handle.behavior?.preferredLineWidth}
-                  onChange={(preferredLineWidth) => onChange(updateArrayItem(handles, index, (item) => ({
+                  value={activeHandle.behavior?.preferredLineWidth}
+                  onChange={(preferredLineWidth) => updateActiveHandle((item) => ({
                     ...item,
                     behavior: {...(item.behavior ?? {}), preferredLineWidth: preferredLineWidth ?? undefined},
-                  })))}
+                  }))}
                   style={{width: '100%'}}
                 />
               </Form.Item>
               <Form.Item label="preferredLineDirection" style={{width: 180}}>
                 <Select
                   allowClear
-                  value={handle.behavior?.preferredLineDirection}
+                  value={activeHandle.behavior?.preferredLineDirection}
                   options={['up', 'down', 'left', 'right'].map((value) => ({value, label: value}))}
-                  onChange={(preferredLineDirection) => onChange(updateArrayItem(handles, index, (item) => ({
+                  onChange={(preferredLineDirection) => updateActiveHandle((item) => ({
                     ...item,
                     behavior: {...(item.behavior ?? {}), preferredLineDirection},
-                  })))}
+                  }))}
                 />
               </Form.Item>
             </Flex>
             <Form.Item label={t('componentEditor.fields.hideConditions')}>
               <Select
                 mode="multiple"
-                value={(handle.behavior?.hideConditions ?? []).map((condition) => condition.fieldId)}
+                value={(activeHandle.behavior?.hideConditions ?? []).map((condition) => condition.fieldId)}
                 options={fieldOptions}
-                onChange={(fieldIds) => onChange(updateArrayItem(handles, index, (item) => ({
+                onChange={(fieldIds) => updateActiveHandle((item) => ({
                   ...item,
                   behavior: {
                     ...(item.behavior ?? {}),
@@ -736,12 +808,11 @@ const HandlesEditor = ({handles, fields, onChange}: HandlesEditorProps) => {
                       values: item.behavior?.hideConditions?.find((condition) => condition.fieldId === fieldId)?.values ?? [],
                     })),
                   },
-                })))}
+                }))}
               />
             </Form.Item>
           </Form>
         </Card>
-      ))}
     </Flex>
   );
 };
@@ -1193,6 +1264,10 @@ const ComponentEditorContent = () => {
 
   const [componentPackage, setComponentPackage] = useState<ComponentPackage>(createEmptyPackage());
   const [drafts, setDrafts] = useState<DraftEntry[]>(readDrafts);
+  const [activeEditorTab, setActiveEditorTab] = useState('basics');
+  const [selectedHandleId, setSelectedHandleId] = useState<string | undefined>(
+    () => componentPackage.component.handles[0]?.id,
+  );
 
   const coreDefinitions = useMemo(() => getAllComponentDefinitions(), []);
   const validation = useMemo(() => validateComponentPackage(componentPackage), [componentPackage]);
@@ -1301,11 +1376,51 @@ const ComponentEditorContent = () => {
   };
 
   const validationRows = validation.issues.map((issue, index) => ({...issue, key: String(index)}));
+  const selectedHandleIndex = componentPackage.component.handles.findIndex((handle) => handle.id === selectedHandleId);
+  const selectedHandle = selectedHandleIndex >= 0 ? componentPackage.component.handles[selectedHandleIndex] : undefined;
+  const handlesTabActive = activeEditorTab === 'handles';
+
+  useEffect(() => {
+    if (componentPackage.component.handles.length === 0) {
+      if (selectedHandleId !== undefined) setSelectedHandleId(undefined);
+      return;
+    }
+    if (!selectedHandle) {
+      setSelectedHandleId(componentPackage.component.handles[0].id);
+    }
+  }, [componentPackage.component.handles, selectedHandle, selectedHandleId]);
+
+  const nudgeSelectedHandle = (dx: number, dy: number) => {
+    if (selectedHandleIndex < 0) return;
+    updateComponent((component) => ({
+      ...component,
+      handles: updateArrayItem(component.handles, selectedHandleIndex, (handle) => ({
+        ...handle,
+        x: handle.x + dx,
+        y: handle.y + dy,
+      })),
+    }));
+  };
+  const updateSelectedHandlePosition = (patch: Partial<Pick<ComponentHandleDefinition, 'x' | 'y'>>) => {
+    if (selectedHandleIndex < 0) return;
+    updateComponent((component) => ({
+      ...component,
+      handles: updateArrayItem(component.handles, selectedHandleIndex, (handle) => ({
+        ...handle,
+        ...patch,
+      })),
+    }));
+  };
   const previewNodes = previewTemplate
     ? [{
         ...previewTemplate,
         id: 'preview',
         position: {x: 40, y: 40},
+        data: {
+          ...previewTemplate.data,
+          editorSelectedHandleId: handlesTabActive ? selectedHandleId : undefined,
+          editorOnHandleSelect: handlesTabActive ? setSelectedHandleId : undefined,
+        },
       }]
     : [];
 
@@ -1387,6 +1502,8 @@ const ComponentEditorContent = () => {
         <main className="component-editor-main">
           <section className="component-editor-form">
             <Tabs
+              activeKey={activeEditorTab}
+              onChange={setActiveEditorTab}
               items={[
                 {
                   key: 'basics',
@@ -1641,6 +1758,8 @@ const ComponentEditorContent = () => {
                         <HandlesEditor
                           handles={componentPackage.component.handles}
                           fields={componentPackage.component.fields ?? []}
+                          selectedHandleId={selectedHandleId}
+                          onSelectedHandleIdChange={setSelectedHandleId}
                           onChange={(handles) => {
                             updateComponent((component) => ({...component, handles}));
                           }}
@@ -1782,6 +1901,48 @@ const ComponentEditorContent = () => {
                 <Controls />
               </ReactFlow>
             </div>
+            <Flex vertical gap={8} className="component-editor-preview-handle-tools">
+              <Typography.Text strong>{t('componentEditor.preview.selectedHandle')}</Typography.Text>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                value={selectedHandle?.id}
+                placeholder={t('componentEditor.preview.selectHandle')}
+                options={componentPackage.component.handles.map((handle, index) => ({
+                  value: handle.id,
+                  label: `${index + 1}. ${handle.id || t('componentEditor.labels.unnamed')}`,
+                }))}
+                onChange={setSelectedHandleId}
+              />
+              {selectedHandle && (
+                <>
+                  <Flex gap={8} wrap="wrap">
+                    <Form.Item label="x" style={{marginBottom: 0, flex: '1 1 120px'}}>
+                      <InputNumber
+                        value={selectedHandle.x}
+                        onChange={(value) => updateSelectedHandlePosition({x: value ?? 0})}
+                        style={{width: '100%'}}
+                      />
+                    </Form.Item>
+                    <Form.Item label="y" style={{marginBottom: 0, flex: '1 1 120px'}}>
+                      <InputNumber
+                        value={selectedHandle.y}
+                        onChange={(value) => updateSelectedHandlePosition({y: value ?? 0})}
+                        style={{width: '100%'}}
+                      />
+                    </Form.Item>
+                  </Flex>
+                  <Flex gap={8} align="center" wrap="wrap">
+                    <Typography.Text type="secondary">{t('componentEditor.preview.nudge')}</Typography.Text>
+                    <Button icon={<LeftOutlined />} onClick={() => nudgeSelectedHandle(-1, 0)} />
+                    <Button icon={<RightOutlined />} onClick={() => nudgeSelectedHandle(1, 0)} />
+                    <Button icon={<UpOutlined />} onClick={() => nudgeSelectedHandle(0, -1)} />
+                    <Button icon={<DownOutlined />} onClick={() => nudgeSelectedHandle(0, 1)} />
+                  </Flex>
+                </>
+              )}
+            </Flex>
             <Divider />
             <Typography.Title level={4}>{t('componentEditor.validation.title')}</Typography.Title>
             {validationRows.length === 0 ? (

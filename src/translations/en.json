@@ -100,6 +100,7 @@
       "exportJson": "Export JSON",
       "backToDesigner": "Back to designer",
       "addHandle": "Add handle",
+      "deleteHandle": "Delete handle",
       "addField": "Add field",
       "addOption": "Add option",
       "addConnection": "Add connection",
@@ -172,7 +173,10 @@
       "runtimeDescription": "Edit existing runtime-only UI options as schema JSON, or use null when none are needed."
     },
     "preview": {
-      "title": "Preview"
+      "title": "Preview",
+      "selectedHandle": "Selected handle",
+      "selectHandle": "Select handle",
+      "nudge": "Move by 1 px"
     },
     "validation": {
       "title": "Validation",
@@ -182,7 +186,8 @@
       "savedLocal": "Component draft saved locally.",
       "imported": "Component package imported.",
       "importFailed": "Component package could not be imported.",
-      "invalidJson": "Invalid JSON"
+      "invalidJson": "Invalid JSON",
+      "noHandles": "No handles yet. Add one to edit its properties."
     }
   },
   "popover": {

@@ -151,6 +151,10 @@ html, body {
   height: 360px;
 }
 
+.component-editor-preview-handle-tools {
+  margin-top: 10px;
+}
+
 @media (max-width: 900px) {
   .component-editor-header {
     align-items: stretch;
@@ -242,6 +246,11 @@ textarea.info-node-textarea {
 
 .react-flow__handle:hover {
   box-shadow: 0 0 2px 5px currentColor;
+}
+
+.react-flow__handle--editor-selected {
+  cursor: pointer;
+  z-index: 5;
 }
 
 .pin-tooltip-floating {
