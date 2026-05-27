@@ -819,11 +819,28 @@ const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdCha
 
 type FieldsEditorProps = {
   fields: ComponentFieldDefinition[];
+  selectedFieldIndex: number | undefined;
+  onSelectedFieldIndexChange: (index: number | undefined) => void;
   onChange: (fields: ComponentFieldDefinition[]) => void;
 };
 
-const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
+const FieldsEditor = ({fields, selectedFieldIndex, onSelectedFieldIndexChange, onChange}: FieldsEditorProps) => {
   const {t} = useTranslation(['main']);
+  const activeIndex = selectedFieldIndex !== undefined && selectedFieldIndex >= 0 && selectedFieldIndex < fields.length
+    ? selectedFieldIndex
+    : fields.length > 0 ? 0 : -1;
+  const activeField = activeIndex >= 0 ? fields[activeIndex] : undefined;
+
+  useEffect(() => {
+    if (fields.length === 0) {
+      if (selectedFieldIndex !== undefined) onSelectedFieldIndexChange(undefined);
+      return;
+    }
+    if (selectedFieldIndex === undefined || selectedFieldIndex < 0 || selectedFieldIndex >= fields.length) {
+      onSelectedFieldIndexChange(0);
+    }
+  }, [fields.length, onSelectedFieldIndexChange, selectedFieldIndex]);
+
   const createNumberField = (): ComponentFieldDefinition => ({
     id: `field_${fields.length + 1}`,
     type: 'number',
@@ -834,40 +851,93 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
     step: 1,
   });
 
+  const updateActiveField = (updater: (field: ComponentFieldDefinition) => ComponentFieldDefinition) => {
+    if (activeIndex < 0) return;
+    onChange(updateArrayItem(fields, activeIndex, updater));
+  };
+
+  const deleteActiveField = () => {
+    if (activeIndex < 0) return;
+    const nextFields = removeArrayItem(fields, activeIndex);
+    onChange(nextFields);
+    onSelectedFieldIndexChange(nextFields.length > 0 ? Math.min(activeIndex, nextFields.length - 1) : undefined);
+  };
+
+  const fieldOptionsWithIndex = fields.map((field, index) => ({
+    value: index,
+    label: `${index + 1}. ${field.id || t('componentEditor.labels.unnamed')}`,
+  }));
+
+  if (!activeField) {
+    return (
+      <Flex vertical gap={8}>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newField = createNumberField();
+            onChange(fields.concat(newField));
+            onSelectedFieldIndexChange(fields.length);
+          }}
+        >
+          {t('componentEditor.actions.addField')}
+        </Button>
+        <Alert type="info" message={t('componentEditor.messages.noFields')} showIcon />
+      </Flex>
+    );
+  }
+
   return (
     <Flex vertical gap={8}>
-      <Button icon={<PlusOutlined />} onClick={() => onChange(fields.concat(createNumberField()))}>
-        {t('componentEditor.actions.addField')}
-      </Button>
-      {fields.map((field, index) => (
+      <Flex gap={8} wrap="wrap" align="center">
+        <Select
+          showSearch
+          optionFilterProp="label"
+          value={activeIndex}
+          options={fieldOptionsWithIndex}
+          style={{minWidth: 260, flex: '1 1 260px'}}
+          onChange={onSelectedFieldIndexChange}
+        />
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newField = createNumberField();
+            onChange(fields.concat(newField));
+            onSelectedFieldIndexChange(fields.length);
+          }}
+        >
+          {t('componentEditor.actions.addField')}
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={deleteActiveField}>
+          {t('componentEditor.actions.deleteField')}
+        </Button>
+      </Flex>
         <Card
-          key={`${field.id}-${index}`}
+          key={`${activeField.id}-${activeIndex}`}
           size="small"
-          title={field.id || t('componentEditor.labels.unnamed')}
-          extra={<Button icon={<DeleteOutlined />} onClick={() => onChange(removeArrayItem(fields, index))} />}
+          title={activeField.id || t('componentEditor.labels.unnamed')}
         >
           <Form layout="vertical">
             <Flex gap={8} wrap="wrap">
               <Form.Item label={t('componentEditor.fields.fieldId')} style={{flex: '1 1 160px'}}>
                 <Input
-                  value={field.id}
-                  onChange={(event) => onChange(updateArrayItem(fields, index, (item) => ({...item, id: event.target.value})))}
+                  value={activeField.id}
+                  onChange={(event) => updateActiveField((item) => ({...item, id: event.target.value}))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.name')} style={{flex: '1 1 180px'}}>
                 <Input
-                  value={localizedTextToInput(field.name)}
-                  onChange={(event) => onChange(updateArrayItem(fields, index, (item) => ({
+                  value={localizedTextToInput(activeField.name)}
+                  onChange={(event) => updateActiveField((item) => ({
                     ...item,
                     name: inputToLocalizedText(event.target.value),
-                  })))}
+                  }))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.fieldType')} style={{width: 132}}>
                 <Select
-                  value={field.type}
+                  value={activeField.type}
                   options={FIELD_TYPE_OPTIONS}
-                  onChange={(type) => onChange(updateArrayItem(fields, index, (item) => (
+                  onChange={(type) => updateActiveField((item) => (
                     type === 'number'
                       ? {
                           id: item.id,
@@ -889,28 +959,28 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
                           unit: item.unit,
                           ui: item.ui,
                         }
-                  )))}
+                  ))}
                 />
               </Form.Item>
               <Form.Item label={t('componentEditor.fields.unit')} style={{width: 120}}>
                 <Input
-                  value={field.unit}
-                  onChange={(event) => onChange(updateArrayItem(fields, index, (item) => ({
+                  value={activeField.unit}
+                  onChange={(event) => updateActiveField((item) => ({
                     ...item,
                     unit: event.target.value || undefined,
-                  })))}
+                  }))}
                 />
               </Form.Item>
             </Flex>
-            {field.type === 'number' ? (
+            {activeField.type === 'number' ? (
               <Flex gap={8} wrap="wrap">
                 {(['value', 'min', 'max', 'step'] as const).map((key) => (
                   <Form.Item key={key} label={key} style={{width: 120}}>
                     <InputNumber
-                      value={field[key]}
-                      onChange={(value) => onChange(updateArrayItem(fields, index, (item) => (
+                      value={activeField[key]}
+                      onChange={(value) => updateActiveField((item) => (
                         item.type === 'number' ? {...item, [key]: value ?? 0} : item
-                      )))}
+                      ))}
                       style={{width: '100%'}}
                     />
                   </Form.Item>
@@ -920,16 +990,16 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
               <Flex vertical gap={8}>
                 <Form.Item label={t('componentEditor.fields.selectedValue')} style={{maxWidth: 220}}>
                   <Select
-                    value={field.selectedValue}
-                    options={field.options.map((option) => ({value: option.value, label: `${option.value}: ${localizedTextToInput(option.label)}`}))}
-                    onChange={(selectedValue) => onChange(updateArrayItem(fields, index, (item) => (
+                    value={activeField.selectedValue}
+                    options={activeField.options.map((option) => ({value: option.value, label: `${option.value}: ${localizedTextToInput(option.label)}`}))}
+                    onChange={(selectedValue) => updateActiveField((item) => (
                       item.type === 'select' ? {...item, selectedValue} : item
-                    )))}
+                    ))}
                   />
                 </Form.Item>
                 <Button
                   icon={<PlusOutlined />}
-                  onClick={() => onChange(updateArrayItem(fields, index, (item) => (
+                  onClick={() => updateActiveField((item) => (
                     item.type === 'select'
                       ? {
                           ...item,
@@ -939,15 +1009,15 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
                           }),
                         }
                       : item
-                  )))}
+                  ))}
                 >
                   {t('componentEditor.actions.addOption')}
                 </Button>
-                {field.options.map((option, optionIndex) => (
+                {activeField.options.map((option, optionIndex) => (
                   <Flex key={`${option.value}-${optionIndex}`} gap={8} wrap="wrap" align="center">
                     <InputNumber
                       value={option.value}
-                      onChange={(value) => onChange(updateArrayItem(fields, index, (item) => (
+                      onChange={(value) => updateActiveField((item) => (
                         item.type === 'select'
                           ? {
                               ...item,
@@ -957,12 +1027,12 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
                               })),
                             }
                           : item
-                      )))}
+                      ))}
                       style={{width: 96}}
                     />
                     <Input
                       value={localizedTextToInput(option.label)}
-                      onChange={(event) => onChange(updateArrayItem(fields, index, (item) => (
+                      onChange={(event) => updateActiveField((item) => (
                         item.type === 'select'
                           ? {
                               ...item,
@@ -972,40 +1042,40 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
                               })),
                             }
                           : item
-                      )))}
+                      ))}
                       style={{width: 220}}
                     />
                     <InputNumber
                       placeholder="x"
                       value={option.x}
-                      onChange={(x) => onChange(updateArrayItem(fields, index, (item) => (
+                      onChange={(x) => updateActiveField((item) => (
                         item.type === 'select'
                           ? {
                               ...item,
                               options: updateArrayItem(item.options, optionIndex, (current) => ({...current, x: x ?? undefined})),
                             }
                           : item
-                      )))}
+                      ))}
                       style={{width: 96}}
                     />
                     <InputNumber
                       placeholder="y"
                       value={option.y}
-                      onChange={(y) => onChange(updateArrayItem(fields, index, (item) => (
+                      onChange={(y) => updateActiveField((item) => (
                         item.type === 'select'
                           ? {
                               ...item,
                               options: updateArrayItem(item.options, optionIndex, (current) => ({...current, y: y ?? undefined})),
                             }
                           : item
-                      )))}
+                      ))}
                       style={{width: 96}}
                     />
                     <Button
                       icon={<DeleteOutlined />}
-                      onClick={() => onChange(updateArrayItem(fields, index, (item) => (
+                      onClick={() => updateActiveField((item) => (
                         item.type === 'select' ? {...item, options: removeArrayItem(item.options, optionIndex)} : item
-                      )))}
+                      ))}
                     />
                   </Flex>
                 ))}
@@ -1016,11 +1086,11 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
               {(['displayName', 'hide', 'showNameIfSelected', 'customImage'] as const).map((key) => (
                 <Checkbox
                   key={key}
-                  checked={Boolean(field.ui?.[key])}
-                  onChange={(event) => onChange(updateArrayItem(fields, index, (item) => ({
+                  checked={Boolean(activeField.ui?.[key])}
+                  onChange={(event) => updateActiveField((item) => ({
                     ...item,
                     ui: {...(item.ui ?? {}), [key]: event.target.checked},
-                  })))}
+                  }))}
                 >
                   {key}
                 </Checkbox>
@@ -1028,7 +1098,6 @@ const FieldsEditor = ({fields, onChange}: FieldsEditorProps) => {
             </Space>
           </Form>
         </Card>
-      ))}
     </Flex>
   );
 };
@@ -1037,98 +1106,184 @@ type ConnectionsEditorProps = {
   connections: ComponentInternalConnectionDefinition[];
   handles: ComponentHandleDefinition[];
   fields: ComponentFieldDefinition[];
+  selectedConnectionIndex: number | undefined;
+  onSelectedConnectionIndexChange: (index: number | undefined) => void;
   onChange: (connections: ComponentInternalConnectionDefinition[]) => void;
 };
 
-const ConnectionsEditor = ({connections, handles, fields, onChange}: ConnectionsEditorProps) => {
+const ConnectionsEditor = ({
+  connections,
+  handles,
+  fields,
+  selectedConnectionIndex,
+  onSelectedConnectionIndexChange,
+  onChange,
+}: ConnectionsEditorProps) => {
   const {t} = useTranslation(['main']);
   const handleSelectOptions = handleOptions(handles);
   const numberFieldOptions = fields
     .filter((field) => field.type === 'number')
     .map((field) => ({value: field.id, label: field.id}));
+  const activeIndex = selectedConnectionIndex !== undefined
+    && selectedConnectionIndex >= 0
+    && selectedConnectionIndex < connections.length
+    ? selectedConnectionIndex
+    : connections.length > 0 ? 0 : -1;
+  const activeConnection = activeIndex >= 0 ? connections[activeIndex] : undefined;
+
+  useEffect(() => {
+    if (connections.length === 0) {
+      if (selectedConnectionIndex !== undefined) onSelectedConnectionIndexChange(undefined);
+      return;
+    }
+    if (
+      selectedConnectionIndex === undefined
+      || selectedConnectionIndex < 0
+      || selectedConnectionIndex >= connections.length
+    ) {
+      onSelectedConnectionIndexChange(0);
+    }
+  }, [connections.length, onSelectedConnectionIndexChange, selectedConnectionIndex]);
+
   const createConnection = (): ComponentInternalConnectionDefinition => ({
     kind: 'short',
     fromHandle: handles[0]?.id ?? '',
     toHandle: handles[1]?.id ?? handles[0]?.id ?? '',
   });
 
+  const updateActiveConnection = (
+    updater: (connection: ComponentInternalConnectionDefinition) => ComponentInternalConnectionDefinition,
+  ) => {
+    if (activeIndex < 0) return;
+    onChange(updateArrayItem(connections, activeIndex, updater));
+  };
+
+  const deleteActiveConnection = () => {
+    if (activeIndex < 0) return;
+    const nextConnections = removeArrayItem(connections, activeIndex);
+    onChange(nextConnections);
+    onSelectedConnectionIndexChange(
+      nextConnections.length > 0 ? Math.min(activeIndex, nextConnections.length - 1) : undefined,
+    );
+  };
+
+  const connectionOptionsWithIndex = connections.map((connection, index) => ({
+    value: index,
+    label: `${index + 1}. ${connection.kind}: ${connection.fromHandle} -> ${connection.toHandle}`,
+  }));
+
+  if (!activeConnection) {
+    return (
+      <Flex vertical gap={8}>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newConnection = createConnection();
+            onChange(connections.concat(newConnection));
+            onSelectedConnectionIndexChange(connections.length);
+          }}
+        >
+          {t('componentEditor.actions.addConnection')}
+        </Button>
+        <Alert type="info" message={t('componentEditor.messages.noConnections')} showIcon />
+      </Flex>
+    );
+  }
+
   return (
     <Flex vertical gap={8}>
-      <Button icon={<PlusOutlined />} onClick={() => onChange(connections.concat(createConnection()))}>
-        {t('componentEditor.actions.addConnection')}
-      </Button>
-      {connections.map((connection, index) => (
+      <Flex gap={8} wrap="wrap" align="center">
+        <Select
+          showSearch
+          optionFilterProp="label"
+          value={activeIndex}
+          options={connectionOptionsWithIndex}
+          style={{minWidth: 300, flex: '1 1 300px'}}
+          onChange={onSelectedConnectionIndexChange}
+        />
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newConnection = createConnection();
+            onChange(connections.concat(newConnection));
+            onSelectedConnectionIndexChange(connections.length);
+          }}
+        >
+          {t('componentEditor.actions.addConnection')}
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={deleteActiveConnection}>
+          {t('componentEditor.actions.deleteConnection')}
+        </Button>
+      </Flex>
         <Card
-          key={`${connection.kind}-${connection.fromHandle}-${connection.toHandle}-${index}`}
+          key={`${activeConnection.kind}-${activeConnection.fromHandle}-${activeConnection.toHandle}-${activeIndex}`}
           size="small"
-          title={`${connection.kind}: ${connection.fromHandle} -> ${connection.toHandle}`}
-          extra={<Button icon={<DeleteOutlined />} onClick={() => onChange(removeArrayItem(connections, index))} />}
+          title={`${activeConnection.kind}: ${activeConnection.fromHandle} -> ${activeConnection.toHandle}`}
         >
           <Flex gap={8} wrap="wrap">
             <Form.Item label={t('componentEditor.fields.connectionKind')} style={{width: 132}}>
               <Select
-                value={connection.kind}
+                value={activeConnection.kind}
                 options={CONNECTION_KIND_OPTIONS}
-                onChange={(kind) => onChange(updateArrayItem(connections, index, (item) => (
+                onChange={(kind) => updateActiveConnection((item) => (
                   kind === 'fuse'
                     ? {
                         kind: 'fuse',
                         fromHandle: item.fromHandle,
                         toHandle: item.toHandle,
-                        fuseId: item.kind === 'fuse' ? item.fuseId : `fuse_${index + 1}`,
+                        fuseId: item.kind === 'fuse' ? item.fuseId : `fuse_${activeIndex + 1}`,
                       }
                     : {kind: 'short', fromHandle: item.fromHandle, toHandle: item.toHandle}
-                )))}
+                ))}
               />
             </Form.Item>
             <Form.Item label={t('componentEditor.fields.fromHandle')} style={{width: 180}}>
               <Select
-                value={connection.fromHandle}
+                value={activeConnection.fromHandle}
                 options={handleSelectOptions}
-                onChange={(fromHandle) => onChange(updateArrayItem(connections, index, (item) => ({...item, fromHandle})))}
+                onChange={(fromHandle) => updateActiveConnection((item) => ({...item, fromHandle}))}
               />
             </Form.Item>
             <Form.Item label={t('componentEditor.fields.toHandle')} style={{width: 180}}>
               <Select
-                value={connection.toHandle}
+                value={activeConnection.toHandle}
                 options={handleSelectOptions}
-                onChange={(toHandle) => onChange(updateArrayItem(connections, index, (item) => ({...item, toHandle})))}
+                onChange={(toHandle) => updateActiveConnection((item) => ({...item, toHandle}))}
               />
             </Form.Item>
-            {connection.kind === 'fuse' && (
+            {activeConnection.kind === 'fuse' && (
               <>
                 <Form.Item label="fuseId" style={{width: 160}}>
                   <Input
-                    value={connection.fuseId}
-                    onChange={(event) => onChange(updateArrayItem(connections, index, (item) => (
+                    value={activeConnection.fuseId}
+                    onChange={(event) => updateActiveConnection((item) => (
                       item.kind === 'fuse' ? {...item, fuseId: event.target.value} : item
-                    )))}
+                    ))}
                   />
                 </Form.Item>
                 <Form.Item label="nominalCurrent" style={{width: 160}}>
                   <InputNumber
-                    value={connection.nominalCurrent}
-                    onChange={(nominalCurrent) => onChange(updateArrayItem(connections, index, (item) => (
+                    value={activeConnection.nominalCurrent}
+                    onChange={(nominalCurrent) => updateActiveConnection((item) => (
                       item.kind === 'fuse' ? {...item, nominalCurrent: nominalCurrent ?? undefined} : item
-                    )))}
+                    ))}
                     style={{width: '100%'}}
                   />
                 </Form.Item>
                 <Form.Item label="nominalCurrentField" style={{width: 200}}>
                   <Select
                     allowClear
-                    value={connection.nominalCurrentField}
+                    value={activeConnection.nominalCurrentField}
                     options={numberFieldOptions}
-                    onChange={(nominalCurrentField) => onChange(updateArrayItem(connections, index, (item) => (
+                    onChange={(nominalCurrentField) => updateActiveConnection((item) => (
                       item.kind === 'fuse' ? {...item, nominalCurrentField} : item
-                    )))}
+                    ))}
                   />
                 </Form.Item>
               </>
             )}
           </Flex>
         </Card>
-      ))}
     </Flex>
   );
 };
@@ -1137,6 +1292,8 @@ type SimulationEditorProps = {
   simulation: ComponentPackage['component']['simulation'] | undefined;
   handles: ComponentHandleDefinition[];
   fields: ComponentFieldDefinition[];
+  selectedElementIndex: number | undefined;
+  onSelectedElementIndexChange: (index: number | undefined) => void;
   onChange: (simulation: ComponentPackage['component']['simulation'] | undefined) => void;
 };
 
@@ -1164,52 +1321,125 @@ const createSimulationElement = (
   } as ComponentSimulationElementUse;
 };
 
-const SimulationEditor = ({simulation, handles, fields, onChange}: SimulationEditorProps) => {
+const SimulationEditor = ({
+  simulation,
+  handles,
+  fields,
+  selectedElementIndex,
+  onSelectedElementIndexChange,
+  onChange,
+}: SimulationEditorProps) => {
   const {t} = useTranslation(['main']);
   const elements = simulation?.elements ?? [];
   const handleSelectOptions = handleOptions(handles);
+  const activeIndex = selectedElementIndex !== undefined && selectedElementIndex >= 0 && selectedElementIndex < elements.length
+    ? selectedElementIndex
+    : elements.length > 0 ? 0 : -1;
+  const activeElement = activeIndex >= 0 ? elements[activeIndex] : undefined;
+
+  useEffect(() => {
+    if (elements.length === 0) {
+      if (selectedElementIndex !== undefined) onSelectedElementIndexChange(undefined);
+      return;
+    }
+    if (selectedElementIndex === undefined || selectedElementIndex < 0 || selectedElementIndex >= elements.length) {
+      onSelectedElementIndexChange(0);
+    }
+  }, [elements.length, onSelectedElementIndexChange, selectedElementIndex]);
+
   const setElements = (nextElements: ComponentSimulationElementUse[]) => {
     onChange(nextElements.length > 0 ? {version: 1, elements: nextElements} : undefined);
   };
 
+  const updateActiveElement = (updater: (element: ComponentSimulationElementUse) => ComponentSimulationElementUse) => {
+    if (activeIndex < 0) return;
+    setElements(updateArrayItem(elements, activeIndex, updater));
+  };
+
+  const deleteActiveElement = () => {
+    if (activeIndex < 0) return;
+    const nextElements = removeArrayItem(elements, activeIndex);
+    setElements(nextElements);
+    onSelectedElementIndexChange(nextElements.length > 0 ? Math.min(activeIndex, nextElements.length - 1) : undefined);
+  };
+
+  const elementOptionsWithIndex = elements.map((element, index) => ({
+    value: index,
+    label: `${index + 1}. ${element.id || t('componentEditor.labels.unnamed')}`,
+  }));
+
+  if (!activeElement) {
+    return (
+      <Flex vertical gap={8}>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newElement = createSimulationElement('resistor', elements.length, handles);
+            setElements(elements.concat(newElement));
+            onSelectedElementIndexChange(elements.length);
+          }}
+        >
+          {t('componentEditor.actions.addSimulationElement')}
+        </Button>
+        <Alert type="info" message={t('componentEditor.messages.noSimulationElements')} showIcon />
+      </Flex>
+    );
+  }
+
   return (
     <Flex vertical gap={8}>
-      <Button
-        icon={<PlusOutlined />}
-        onClick={() => setElements(elements.concat(createSimulationElement('resistor', elements.length, handles)))}
-      >
-        {t('componentEditor.actions.addSimulationElement')}
-      </Button>
-      {elements.map((element, index) => {
-        const definition = SIMULATION_ELEMENT_DEFINITIONS[element.type];
-        const parameters = element.parameters ?? {};
+      <Flex gap={8} wrap="wrap" align="center">
+        <Select
+          showSearch
+          optionFilterProp="label"
+          value={activeIndex}
+          options={elementOptionsWithIndex}
+          style={{minWidth: 260, flex: '1 1 260px'}}
+          onChange={onSelectedElementIndexChange}
+        />
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const newElement = createSimulationElement('resistor', elements.length, handles);
+            setElements(elements.concat(newElement));
+            onSelectedElementIndexChange(elements.length);
+          }}
+        >
+          {t('componentEditor.actions.addSimulationElement')}
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={deleteActiveElement}>
+          {t('componentEditor.actions.deleteSimulationElement')}
+        </Button>
+      </Flex>
+      {(() => {
+        const definition = SIMULATION_ELEMENT_DEFINITIONS[activeElement.type];
+        const parameters = activeElement.parameters ?? {};
 
         return (
           <Card
-            key={`${element.id}-${index}`}
+            key={`${activeElement.id}-${activeIndex}`}
             size="small"
-            title={element.id || t('componentEditor.labels.unnamed')}
-            extra={<Button icon={<DeleteOutlined />} onClick={() => setElements(removeArrayItem(elements, index))} />}
+            title={activeElement.id || t('componentEditor.labels.unnamed')}
           >
             <Form layout="vertical">
               <Flex gap={8} wrap="wrap">
                 <Form.Item label={t('componentEditor.fields.elementId')} style={{flex: '1 1 180px'}}>
                   <Input
-                    value={element.id}
-                    onChange={(event) => setElements(updateArrayItem(elements, index, (item) => ({
+                    value={activeElement.id}
+                    onChange={(event) => updateActiveElement((item) => ({
                       ...item,
                       id: event.target.value,
-                    })))}
+                    }))}
                   />
                 </Form.Item>
                 <Form.Item label={t('componentEditor.fields.elementType')} style={{width: 220}}>
                   <Select
-                    value={element.type}
+                    value={activeElement.type}
                     options={SIMULATION_ELEMENT_TYPES.map((value) => ({value, label: value}))}
-                    onChange={(type) => setElements(updateArrayItem(elements, index, (item) => ({
-                      ...createSimulationElement(type, index, handles),
+                    onChange={(type) => updateActiveElement((item) => ({
+                      ...createSimulationElement(type, activeIndex, handles),
                       id: item.id,
-                    })))}
+                    }))}
                   />
                 </Form.Item>
               </Flex>
@@ -1218,12 +1448,12 @@ const SimulationEditor = ({simulation, handles, fields, onChange}: SimulationEdi
                 {definition.terminals.map((terminal) => (
                   <Form.Item key={terminal} label={terminal} style={{width: 200}}>
                     <Select
-                      value={(element.terminals as Record<string, string>)[terminal]}
+                      value={(activeElement.terminals as Record<string, string>)[terminal]}
                       options={handleSelectOptions}
-                      onChange={(handleId) => setElements(updateArrayItem(elements, index, (item) => ({
+                      onChange={(handleId) => updateActiveElement((item) => ({
                         ...item,
                         terminals: {...item.terminals, [terminal]: handleId},
-                      } as ComponentSimulationElementUse)))}
+                      } as ComponentSimulationElementUse))}
                     />
                   </Form.Item>
                 ))}
@@ -1238,10 +1468,10 @@ const SimulationEditor = ({simulation, handles, fields, onChange}: SimulationEdi
                         <ParameterRefEditor
                           value={(parameters as Record<string, SimulationParameterRef>)[parameter] ?? defaultParameterValue(parameter)}
                           fields={fields}
-                          onChange={(value) => setElements(updateArrayItem(elements, index, (item) => ({
+                          onChange={(value) => updateActiveElement((item) => ({
                             ...item,
                             parameters: {...(item.parameters ?? {}), [parameter]: value},
-                          } as ComponentSimulationElementUse)))}
+                          } as ComponentSimulationElementUse))}
                         />
                       </Flex>
                     ))}
@@ -1251,7 +1481,7 @@ const SimulationEditor = ({simulation, handles, fields, onChange}: SimulationEdi
             </Form>
           </Card>
         );
-      })}
+      })()}
     </Flex>
   );
 };
@@ -1267,6 +1497,15 @@ const ComponentEditorContent = () => {
   const [activeEditorTab, setActiveEditorTab] = useState('basics');
   const [selectedHandleId, setSelectedHandleId] = useState<string | undefined>(
     () => componentPackage.component.handles[0]?.id,
+  );
+  const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | undefined>(
+    () => ((componentPackage.component.fields?.length ?? 0) > 0 ? 0 : undefined),
+  );
+  const [selectedConnectionIndex, setSelectedConnectionIndex] = useState<number | undefined>(
+    () => ((componentPackage.component.internalConnections?.length ?? 0) > 0 ? 0 : undefined),
+  );
+  const [selectedSimulationElementIndex, setSelectedSimulationElementIndex] = useState<number | undefined>(
+    () => ((componentPackage.component.simulation?.elements?.length ?? 0) > 0 ? 0 : undefined),
   );
 
   const coreDefinitions = useMemo(() => getAllComponentDefinitions(), []);
@@ -1339,6 +1578,10 @@ const ComponentEditorContent = () => {
 
   const replacePackage = (nextPackage: ComponentPackage) => {
     setComponentPackage(nextPackage);
+    setSelectedHandleId(nextPackage.component.handles[0]?.id);
+    setSelectedFieldIndex((nextPackage.component.fields?.length ?? 0) > 0 ? 0 : undefined);
+    setSelectedConnectionIndex((nextPackage.component.internalConnections?.length ?? 0) > 0 ? 0 : undefined);
+    setSelectedSimulationElementIndex((nextPackage.component.simulation?.elements?.length ?? 0) > 0 ? 0 : undefined);
     resetJsonSections(nextPackage);
   };
 
@@ -1786,6 +2029,8 @@ const ComponentEditorContent = () => {
                       ui={(
                         <FieldsEditor
                           fields={componentPackage.component.fields ?? []}
+                          selectedFieldIndex={selectedFieldIndex}
+                          onSelectedFieldIndexChange={setSelectedFieldIndex}
                           onChange={(fields) => {
                             updateComponent((component) => ({
                               ...component,
@@ -1817,6 +2062,8 @@ const ComponentEditorContent = () => {
                           connections={componentPackage.component.internalConnections ?? []}
                           handles={componentPackage.component.handles}
                           fields={componentPackage.component.fields ?? []}
+                          selectedConnectionIndex={selectedConnectionIndex}
+                          onSelectedConnectionIndexChange={setSelectedConnectionIndex}
                           onChange={(internalConnections) => {
                             updateComponent((component) => ({
                               ...component,
@@ -1848,6 +2095,8 @@ const ComponentEditorContent = () => {
                           simulation={componentPackage.component.simulation}
                           handles={componentPackage.component.handles}
                           fields={componentPackage.component.fields ?? []}
+                          selectedElementIndex={selectedSimulationElementIndex}
+                          onSelectedElementIndexChange={setSelectedSimulationElementIndex}
                           onChange={(simulation) => {
                             updateComponent((component) => ({...component, simulation}));
                           }}

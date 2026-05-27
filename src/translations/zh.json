@@ -98,7 +98,16 @@
       "saveLocal": "保存到本地",
       "importJson": "导入 JSON",
       "exportJson": "导出 JSON",
-      "backToDesigner": "返回设计器"
+      "backToDesigner": "返回设计器",
+      "addHandle": "添加连接点",
+      "deleteHandle": "删除连接点",
+      "addField": "添加字段",
+      "deleteField": "删除字段",
+      "addOption": "添加选项",
+      "addConnection": "添加连接",
+      "deleteConnection": "删除连接",
+      "addSimulationElement": "添加仿真元素",
+      "deleteSimulationElement": "删除仿真元素"
     },
     "tabs": {
       "basics": "基础",
@@ -151,7 +160,11 @@
       "savedLocal": "组件草稿已保存到本地。",
       "imported": "组件包已导入。",
       "importFailed": "无法导入组件包。",
-      "invalidJson": "JSON 无效"
+      "invalidJson": "JSON 无效",
+      "noHandles": "还没有连接点。添加一个连接点后即可编辑其属性。",
+      "noFields": "还没有字段。添加一个字段后即可编辑其属性。",
+      "noConnections": "还没有连接。添加一个连接后即可编辑其属性。",
+      "noSimulationElements": "还没有仿真元素。添加一个仿真元素后即可编辑其属性。"
     }
   },
   "popover": {

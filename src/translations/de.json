@@ -102,9 +102,12 @@
       "addHandle": "Anschluss hinzufuegen",
       "deleteHandle": "Anschluss loeschen",
       "addField": "Feld hinzufuegen",
+      "deleteField": "Feld loeschen",
       "addOption": "Option hinzufuegen",
       "addConnection": "Verbindung hinzufuegen",
-      "addSimulationElement": "Simulationselement hinzufuegen"
+      "deleteConnection": "Verbindung loeschen",
+      "addSimulationElement": "Simulationselement hinzufuegen",
+      "deleteSimulationElement": "Simulationselement loeschen"
     },
     "tabs": {
       "basics": "Stammdaten",
@@ -187,7 +190,10 @@
       "imported": "Komponentenpaket importiert.",
       "importFailed": "Komponentenpaket konnte nicht importiert werden.",
       "invalidJson": "Ungueltiges JSON",
-      "noHandles": "Noch keine Anschluesse vorhanden. Fuege einen Anschluss hinzu, um seine Eigenschaften zu bearbeiten."
+      "noHandles": "Noch keine Anschluesse vorhanden. Fuege einen Anschluss hinzu, um seine Eigenschaften zu bearbeiten.",
+      "noFields": "Noch keine Felder vorhanden. Fuege ein Feld hinzu, um seine Eigenschaften zu bearbeiten.",
+      "noConnections": "Noch keine Verbindungen vorhanden. Fuege eine Verbindung hinzu, um ihre Eigenschaften zu bearbeiten.",
+      "noSimulationElements": "Noch keine Simulationselemente vorhanden. Fuege ein Simulationselement hinzu, um seine Eigenschaften zu bearbeiten."
     }
   },
   "popover": {

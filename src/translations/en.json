@@ -102,9 +102,12 @@
       "addHandle": "Add handle",
       "deleteHandle": "Delete handle",
       "addField": "Add field",
+      "deleteField": "Delete field",
       "addOption": "Add option",
       "addConnection": "Add connection",
-      "addSimulationElement": "Add simulation element"
+      "deleteConnection": "Delete connection",
+      "addSimulationElement": "Add simulation element",
+      "deleteSimulationElement": "Delete simulation element"
     },
     "tabs": {
       "basics": "Basics",
@@ -187,7 +190,10 @@
       "imported": "Component package imported.",
       "importFailed": "Component package could not be imported.",
       "invalidJson": "Invalid JSON",
-      "noHandles": "No handles yet. Add one to edit its properties."
+      "noHandles": "No handles yet. Add one to edit its properties.",
+      "noFields": "No fields yet. Add one to edit its properties.",
+      "noConnections": "No connections yet. Add one to edit its properties.",
+      "noSimulationElements": "No simulation elements yet. Add one to edit its properties."
     }
   },
   "popover": {
