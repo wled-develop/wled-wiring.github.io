@@ -981,6 +981,11 @@
       "description": "A professional WLED controller for 5V, 12V or 24V addressable LEDs. Includes ESP32 microcontroller, SN74AHCT level shifter, fuse, capacitor, EMI filter. Optional accessories include Ethernet adapter, INMP441 microphone, line-in adapter, and USB adapter.",
       "descriptionShort": "ESP32 based"
     },
+	"MHC_V57": {
+      "name": "WLED PRO V57 Controller",
+      "description": "A professional WLED controller for 5V, 12V or 24V addressable LEDs. Includes ESP32 microcontroller (8MB Flash, 2MB PSRAM), SN74AHCT level shifter, fuse, capacitor, EMI filter, iMOSFET. Optional accessories include Ethernet adapter, INMP441 microphone, line-in adapter, and USB adapter.",
+      "descriptionShort": "ESP32 based"
+    },
     "MHC_V63": {
       "name": "WLED V63 Shield",
       "description": "A professional WLED shield for 5V or 12V addressable LEDs. Includes SN74AHCT level shifter, fuse, capacitor. Optional accessories include INMP441 microphone, line-in adapter, and USB adapter. Can be used with ESP8266, ESP32, ESP32-C3, or ESP32-S3 in D1 mini format.",

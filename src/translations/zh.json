@@ -945,6 +945,11 @@
       "description": "用于 5V、12V 或 24V 可寻址 LED 的专业 WLED 控制器。包括 ESP32 微控制器、SN74AHCT 电平转换器、保险丝、电容、EMI 滤波器。可选配件包括以太网适配器、INMP441 麦克风、线路输入适配器和 USB 适配器。",
       "descriptionShort": "基于 ESP32"
     },
+	"MHC_V57": {
+      "name": "WLED PRO V57 控制器",
+      "description": "用于 5V、12V 或 24V 可寻址 LED 的专业 WLED 控制器。包括 ESP32 微控制器、SN74AHCT 电平转换器、保险丝、电容、EMI 滤波器。可选配件包括以太网适配器、INMP441 麦克风、线路输入适配器和 USB 适配器。",
+      "descriptionShort": "基于 ESP32"
+    },
     "MHC_V63": {
       "name": "WLED V63 扩展板",
       "description": "用于 5V 或 12V 可寻址 LED 的专业 WLED 扩展板。包括 SN74AHCT 电平转换器、保险丝、电容。可选配件包括 INMP441 麦克风、线路输入适配器和 USB 适配器。可与 D1 mini 格式的 ESP8266、ESP32、ESP32-C3 或 ESP32-S3 一起使用。",
