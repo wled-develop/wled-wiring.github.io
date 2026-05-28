@@ -330,7 +330,7 @@ Beispiel:
 
 ### Digitales LED-Netzelement
 
-Das digitale LED-Netzelement modelliert genau eine logische LED eines digitalen LED-Streifens. Eine logische LED kann je nach Streifen aus einer oder mehreren physikalischen LEDs bestehen. Diese Gruppierung wird ueber `physLedsPerLogicLed` beschrieben.
+Das digitale LED-Netzelement modelliert genau eine logische LED eines digitalen LED-Streifens. Eine logische LED kann je nach Streifen aus einem oder mehreren physikalischen RGB- bzw. RGBW-LED-Paketen bestehen. Diese Gruppierung wird ueber `physLedsPerLogicLed` beschrieben.
 
 Terminals:
 
@@ -359,11 +359,11 @@ Parameter:
 - Stromkennlinienparameter fuer Farbe `Separate-White`: `I0`, `Ilim`, `k`, `V0`
 - Stromkennlinienparameter fuer Kombination `Separate-White + RGB-White`: `I0`, `Ilim`, `k`, `V0`
 
-`ledsPerMeter` beschreibt die Anzahl physikalischer LEDs pro Meter. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED zusammengefasst sind. `supplyResistanceOhm` und `gndResistanceOhm` werden als Widerstand pro Meter des Streifens angegeben. Fuer ein logisches LED-Netzelement wird daraus `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` berechnet. Nur der Strom aus der Kennlinie bleibt pro physikalischer LED angegeben; er wird mit der Helligkeit skaliert und danach fuer die logische LED mit `physLedsPerLogicLed` hochskaliert.
+`ledsPerMeter` beschreibt die Anzahl physikalischer RGB- bzw. RGBW-LED-Pakete pro Meter, nicht die Anzahl einzelner Farbchips innerhalb dieser Pakete. Ein RGBW-FCOB-Streifen mit 784 einzelnen Farbchips pro Meter hat daher `ledsPerMeter: 196`. `physLedsPerLogicLed` beschreibt, wie viele dieser physikalischen RGB/RGBW-LED-Pakete zu einer logischen LED zusammengefasst sind. `supplyResistanceOhm` und `gndResistanceOhm` werden als Widerstand pro Meter des Streifens angegeben. Fuer ein logisches LED-Netzelement wird daraus `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` berechnet. Nur der Strom aus der Kennlinie bleibt pro physikalischem RGB/RGBW-LED-Paket angegeben; er wird mit der Helligkeit skaliert und danach fuer die logische LED mit `physLedsPerLogicLed` hochskaliert.
 
 `RGB-White` bedeutet elektrisch: Die RGB-Kanaele werden so angesteuert, dass Weiss entsteht. `Separate-White` bedeutet: Nur der W-/WW-Kanal ist aktiv, RGB ist aus. Zusaetzlich soll ein Modus fuer `Separate-White + RGB-White` vorgesehen werden.
 
-Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus werden die Parameter `I0`, `Ilim`, `k`, `V0` und optional `kUI` gesetzt. Wenn `kUI` fehlt, gilt `0`. Die lokale LED-Spannung ist `V = V(supplyOut) - V(gndOut)`, und der Strom pro physikalischer LED wird berechnet als:
+Stromkennlinien fuer LED-Streifen werden pro LED-Typ in `src/simulation/ledCurrentLookups.ts` gepflegt. Fuer jeden Farbmodus werden die Parameter `I0`, `Ilim`, `k`, `V0` und optional `kUI` gesetzt. Wenn `kUI` fehlt, gilt `0`. Die lokale LED-Spannung ist `V = V(supplyOut) - V(gndOut)`, und der Strom pro physikalischem RGB/RGBW-LED-Paket wird berechnet als:
 
 ```text
 I = I0 + Ilim / (1 + exp(-k * (V - V0))) + kUI * V
@@ -431,8 +431,8 @@ Die konkrete Zuordnung eines PWM-Netzes zu einem LED-Streifen-Kanal kommt aus `s
 
 Digitale LED-Streifen:
 
-- Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType; der Wert beschreibt physikalische LEDs pro Meter
-- Parameter `physLedsPerLogicLed` beschreibt die Gruppierung physikalischer LEDs zu einer logischen LED
+- Parameter `ledsPerMeter` erstmal als festes Feld im ComponentType; der Wert beschreibt physikalische RGB- bzw. RGBW-LED-Pakete pro Meter, nicht einzelne Farbchips
+- Parameter `physLedsPerLogicLed` beschreibt die Gruppierung physikalischer RGB/RGBW-LED-Pakete zu einer logischen LED
 - `physLengths[i].length` ist verbindlich in Metern
 - pro Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet, wie viele logische LEDs der Abschnitt hat; `lengthM` ist dabei die Laenge dieses LED-Streifen-Abschnitts
 - fuer jede logische LED wird ein digitales LED-Netzelement in Reihe erzeugt
@@ -698,7 +698,7 @@ Fuer jedes intern erzeugte LED-Netzelement eines digitalen LED-Streifens wird na
 - `deltaVoltageV = V(supplyOut) - V(gndOut)` des jeweiligen expandierten LED-Netzelements.
 - `distanceM` beschreibt die Position dieses logischen LED-Netzelements entlang des physischen Streifens. Der Wert wird beim Modellaufbau aus `physLengths`, Abschnittslaenge und logischem LED-Index erzeugt und nicht spaeter aus Element-IDs geraten.
 - `sectionIndex` und `logicLedIndex` sind optionale Diagnose-/UI-Metadaten fuer Tooltips und fuer die Zuordnung zu `physLengths`-Abschnitten. `sectionIndex` ist die fortlaufende Abschnittsnummer im sortierten `physLengths`-Array, nicht `physLengths.startIndex`.
-- `physicalLedCount` beschreibt, wie viele physikalische LEDs durch dieses logische LED-Netzelement repraesentiert werden.
+- `physicalLedCount` beschreibt, wie viele physikalische RGB/RGBW-LED-Pakete durch dieses logische LED-Netzelement repraesentiert werden.
 - Die Werte werden als Simulationsergebnis gespeichert, aber noch nicht dauerhaft einzeln im Diagramm angezeigt.
 - Die spaetere Detailanzeige fuer einzelne LED-Netzelemente wird separat definiert.
 
@@ -725,7 +725,7 @@ Plot-Inhalt:
 - Y-Achse: lokale Differenzspannung `V_LED = V(supplyOut) - V(gndOut)` in Volt.
 - Der Plot zeigt ein Grid mit vertikalen und horizontalen Hilfslinien.
 - Die Kurve wird als Polyline durch die tatsaechlich berechneten logischen LED-Punkte gezeichnet. Zwischenwerte duerfen nur als visuelle Verbindung der Messpunkte erscheinen, nicht als zusaetzliche Simulationsdaten.
-- Unter dem Plot werden die Anzahl der logischen LEDs und die daraus repraesentierte Anzahl physikalischer LEDs getrennt angezeigt.
+- Unter dem Plot werden die Anzahl der logischen LEDs und die daraus repraesentierte Anzahl physikalischer RGB/RGBW-LED-Pakete getrennt angezeigt.
 - Der kleinste Punkt wird markiert und entspricht dem Wert aus `V_LED,min`.
 - Abschnittsgrenzen aus `physLengths` werden als vertikale Markierungen angezeigt. Einspeisepunkte an Start, Ende oder Middle-Pins sollen nur markiert werden, wenn sie aus den vorhandenen Pin-/Abschnittsdaten eindeutig bestimmbar sind.
 - Tooltips auf Punkten zeigen mindestens Laenge, `V_LED`, Abschnitt und logischen LED-Index.
@@ -839,7 +839,7 @@ Die Beziehung zu `_middle_N`-Handles ist:
 Fuer die Simulation:
 
 - Ein LED-Streifen wird erst in `physLengths`-Abschnitte aufgeteilt.
-- Je Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` die Anzahl logischer LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts, `ledsPerMeter` meint physikalische LEDs pro Meter.
+- Je Abschnitt wird aus `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` die Anzahl logischer LEDs berechnet; `lengthM` ist die Laenge dieses LED-Streifen-Abschnitts, `ledsPerMeter` meint physikalische RGB/RGBW-LED-Pakete pro Meter und nicht einzelne Farbchips.
 - Jede logische LED wird als ein digitales LED-Netzelement in Reihe modelliert.
 - Zwischen zwei benachbarten Abschnitten entstehen interne Supply- und GND-Circuit-Nodes. An diesen Knoten endet die LED-Kette des vorherigen Abschnitts und beginnt die LED-Kette des naechsten Abschnitts.
 - `_middle_N` liegt an der Abschnittsgrenze mit `startIndex === N` und muss elektrisch mit genau diesen internen Grenzknoten verbunden werden: `24V_middle_N`/`12V_middle_N`/`5V_middle_N` mit dem Supply-Grenzknoten, `GND_middle_N` mit dem GND-Grenzknoten.
@@ -1258,9 +1258,9 @@ Optional:
 32. PSU und DCDC verwenden optional `voltageDropPctAt150Current`; Default ist `50`.
 33. `voltageDropPctAt150Current = 50` bedeutet: Bei 150% des Stromlimits faellt die Ausgangsspannung auf 50% der Nominalspannung.
 34. Die Anzahl logischer LEDs pro LED-Streifen-Abschnitt wird mit `round(lengthM * ledsPerMeter / physLedsPerLogicLed)` berechnet; `lengthM` ist die Laenge dieses Abschnitts.
-35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische LEDs pro Meter.
-36. `physLedsPerLogicLed` beschreibt, wie viele physikalische LEDs zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`.
-37. Serienwiderstaende digitaler LED-Streifen werden pro Meter angegeben und fuer das logische LED-Netzelement mit `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` umgerechnet. LED-Kennlinien-Stroeme bleiben pro physikalischer LED angegeben und werden fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
+35. `ledsPerMeter` wird erstmal als festes Feld im ComponentType gepflegt und beschreibt physikalische RGB- bzw. RGBW-LED-Pakete pro Meter, nicht einzelne Farbchips.
+36. `physLedsPerLogicLed` beschreibt, wie viele physikalische RGB/RGBW-LED-Pakete zu einer logischen LED gruppiert sind; beim `WS2814_24V_60LPM` sind es `6`, beim `FCOB_24V_784LPM` sind es `14` bei `196` RGBW-LED-Paketen pro Meter.
+37. Serienwiderstaende digitaler LED-Streifen werden pro Meter angegeben und fuer das logische LED-Netzelement mit `resistanceOhmPerMeter * physLedsPerLogicLed / ledsPerMeter` umgerechnet. LED-Kennlinien-Stroeme bleiben pro physikalischem RGB/RGBW-LED-Paket angegeben und werden fuer das logische LED-Netzelement mit `physLedsPerLogicLed` multipliziert.
 38. LED-Stromkennlinien liefern pro LED-Typ und Farbmodus den Strom in Abhaengigkeit von der lokalen LED-Spannung. Sie werden als auswaehlbare Varianten in `src/simulation/ledStripSimulationOptions.ts` zentral gepflegt; `currentCurve` wird beim Modellaufbau aus `ledSimulationOptionValues.currentCurve` zu einer Kennlinien-ID aufgeloest.
 39. Analoge LED-Streifen werden in der ersten Simulation noch nicht umgesetzt, sondern spaeter ergaenzt.
 40. Eine Komponente ohne `simdata` gilt als im relevanten Pfad, sobald mindestens ein Pin an einem `gnd`-, `supply`- oder `pwm`-Netz angeschlossen ist.
