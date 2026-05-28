@@ -1040,11 +1040,6 @@
       "description": "Ein professioneller WLED-Controller für 5V, 12V oder 24V adressierbare LEDs. Beinhaltet ESP32 Mikrocontroller (mit 8MB Flash  + 2MB PSRAM), SN74AHCT Level Shifter, Sicherung, Kondensator, EMV Filter, iMOSFET. Als optionales Zubehör können Ethernet-Adapter, INMP441 Mikrofon, Line-In Adapter sowie USB Adapter angeschlossen werden.",
       "descriptionShort": "ESP32 basiert"
     },
-    "MHC_V63": {
-      "name": "WLED V63 Shield",
-      "description": "Ein professionelles WLED-Shield für 5V oder 12V adressierbare LEDs. Beinhaltet SN74AHCT Level Shifter, Sicherung, Kondensator. Als optionales Zubehör können INMP441 Mikrofon, Line-In Adapter sowie USB Adapter angeschlossen werden. Kann mit ESP8266, ESP32, ESP32-C3 oder EPS32-S3 in D1 mini Format betrieben werden.",
-      "descriptionShort": "für ESP32-xx, ESP8266"
-    },
     "MHC_SwitchBoard": {
       "name": "WLED Switch Board",
       "description": "Eine bessere/moderne Alternative für Relais Board um LEDs im OFF Zustand komplett auszuschalten. Beinhaltet Überstrom-, Übertemperatur-, Kurzschluss- und Verpolschutz.",

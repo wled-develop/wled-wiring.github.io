@@ -14,7 +14,9 @@ export const CORE_COMPONENT_ORDER = [
   'ESP8266D1mini',
   'ESP32C3D1mini',
   'ESP32S3D1mini',
+  'ESP32C3_supermini',
   'MHC_V43',
+  'MHC_V57',
   'miniOTOFuse',
   'FUSE_Board',
   'PSU_USB',
@@ -41,7 +43,6 @@ export const CORE_COMPONENT_ORDER = [
   'LineBoxNode',
   'Router',
   'AUDIO_SOURCE',
-  'MHC_V63',
   'MHC_SwitchBoard',
   'MHC_PWMBoard',
   'MHC_Relay12V',
@@ -63,7 +64,6 @@ export const CORE_COMPONENT_ORDER = [
   'AN_WHITE_24V_240LPM',
   'AN_RGB_24V_120LPM',
   'AN_RGB_CCT_48V_90LPM',
-  'ESP32C3_supermini',
 ] as const;
 
 const coreOrderIndex = new Map<string, number>(
