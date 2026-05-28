@@ -473,6 +473,51 @@ const isDigitalSource = (handle: CheckHandle) => (
 
 const isUsbFull = (handle: CheckHandle) => hasFunction(handle, 'usb_full');
 
+const usbPowerSources = (net: CheckNet) => handlesWithAnyFunction(net.handles, ['usb_power_out']);
+const usbPowerSinks = (net: CheckNet) => handlesWithAnyFunction(net.handles, ['usb_full']);
+
+const usbPowerPairInvalidReasons = (net: CheckNet) => {
+  if(!net.classifications.includes('usb_net_type')) return [];
+
+  const sources = usbPowerSources(net);
+  const sinks = usbPowerSinks(net);
+  const reasons: string[] = [];
+
+  if(sources.length !== 1) {
+    reasons.push(`expected exactly one USB power source, found ${sources.length}`);
+  }
+  if(sinks.length !== 1) {
+    reasons.push(`expected exactly one USB sink, found ${sinks.length}`);
+  }
+  if(net.edges.length !== 1) {
+    reasons.push(`expected exactly one visible USB wire, found ${net.edges.length}`);
+  }
+  if(net.handles.length !== sources.length + sinks.length) {
+    reasons.push('USB power net contains passive or non-USB terminals');
+  }
+  if(net.classifications.some((classification) => classification !== 'usb_net_type')) {
+    reasons.push('USB power net is mixed with another net classification');
+  }
+
+  return reasons;
+};
+
+const isValidUsbPowerPairNet = (net: CheckNet | undefined) => (
+  Boolean(net && usbPowerPairInvalidReasons(net).length === 0)
+);
+
+const nodeHasValidUsbPowerConnection = (
+  context: DiagramCheckContext,
+  nodeId: string,
+) => (
+  context.handles
+    .filter((handle) => handle.node.id === nodeId)
+    .some((handle) => (
+      hasFunction(handle, 'usb_full') &&
+      isValidUsbPowerPairNet(context.getNetByHandle(handle))
+    ))
+);
+
 const isPassiveSignalComponent = (handle: CheckHandle) => (
   ['Kerko', 'Resistor'].includes(handle.node.data.technicalID)
 );
@@ -622,10 +667,10 @@ const checkDuplicateParallelWires = (context: DiagramCheckContext) => {
 
 const checkWireWithoutPhysicalParameters = (context: DiagramCheckContext) => (
   context.componentLinkedNets
-    .filter((net) => netHasAnyClassification(net, ['suppl_net_type', 'gnd_net_type']))
+    .filter((net) => netHasAnyClassification(net, ['suppl_net_type', 'gnd_net_type', 'usb_net_type']))
     .flatMap((net) => net.edges.map((edge) => ({ net, edge })))
     .filter(({ edge }) => (
-      edge.data?.physType === 'single' &&
+      (edge.data?.physType === 'single' || edge.data?.physType === 'usb') &&
       (typeof edge.data?.physLength !== 'number' || edge.data.physLength <= 0 ||
         typeof edge.data?.physCrosssection !== 'number' || edge.data.physCrosssection <= 0)
     ))
@@ -1502,15 +1547,18 @@ const runNetworkRules = (context: DiagramCheckContext) => {
   const componentLinkedNets = context.componentLinkedNets;
   const gndHandles = context.handles.filter((handle) => hasFunction(handle, 'gnd'));
   const gndNets = componentLinkedNets.filter((net) => net.classifications.includes('gnd_net_type'));
+  const gndHandlesWithoutUsbPower = gndHandles.filter((handle) => (
+    !nodeHasValidUsbPowerConnection(context, handle.node.id)
+  ));
 
-  if (gndHandles.length > 0 && gndNets.length === 0) {
+  if (gndHandlesWithoutUsbPower.length > 0 && gndNets.length === 0) {
     issues.push(translatedIssue(
       'network-rules',
       'groundMissing',
       'network-ground-missing',
       'error',
       undefined,
-      gndHandles.flatMap(handleTargets),
+      gndHandlesWithoutUsbPower.flatMap(handleTargets),
       diagramIssueOptions('ground-missing', 50, 30),
     ));
   }
@@ -1599,6 +1647,28 @@ const runNetworkRules = (context: DiagramCheckContext) => {
     });
 
   componentLinkedNets
+    .filter((net) => net.classifications.includes('usb_net_type'))
+    .forEach((net) => {
+      const reasons = usbPowerPairInvalidReasons(net);
+      if(reasons.length === 0) return;
+
+      priorityBlockedNetIds.add(net.id);
+      issues.push(translatedIssue(
+        'network-rules',
+        'usbPowerPairInvalid',
+        `network-usb-power-pair-invalid-${net.id}`,
+        'error',
+        {
+          reason: reasons.join('; '),
+        },
+        netTargets(net),
+        netIssueOptions(net, 'usb-power-pair-invalid', 80, 39, {
+          suppresses: ['usb-sink-without-source', 'multiple-usb-sources', 'mixed-classification'],
+        }),
+      ));
+    });
+
+  componentLinkedNets
     .filter((net) => net.classifications.length > 1)
     .filter((net) => !priorityBlockedNetIds.has(net.id))
     .forEach((net) => {
@@ -1646,6 +1716,8 @@ const runNetworkRules = (context: DiagramCheckContext) => {
     .filter((net) => !priorityBlockedNetIds.has(net.id))
     .forEach((net) => {
       signalRuleDefinitions.forEach((definition) => {
+        if(definition.id === 'usb' && !net.classifications.includes('usb_net_type')) return;
+
         const sinks = handlesWithAnyFunction(net.handles, definition.sinkFunctions);
         const unresolvedSinks = definition.id === 'digital'
           ? sinks.filter((handle) => !hasResolvedDigitalSink(context, handle))
@@ -1839,6 +1911,38 @@ const runNetworkRules = (context: DiagramCheckContext) => {
     });
 
   componentLinkedNets
+    .filter((net) => net.classifications.includes('usb_net_type'))
+    .filter((net) => !priorityBlockedNetIds.has(net.id))
+    .filter(isValidUsbPowerPairNet)
+    .forEach((net) => {
+      const source = usbPowerSources(net)[0];
+      const sourceVoltage = context.resolveVoltageOut(source);
+      if(sourceVoltage === undefined) return;
+
+      const mismatchedInputs = usbPowerSinks(net)
+        .filter((handle) => hasVoltageTolerance(handle))
+        .filter((handle) => !voltageMatchesHandleTolerance(sourceVoltage, handle));
+      if(mismatchedInputs.length === 0) return;
+
+      issues.push(translatedIssue(
+        'network-rules',
+        'supplyVoltageMismatch',
+        `network-usb-supply-voltage-mismatch-${net.id}`,
+        'error',
+        {
+          voltage: sourceVoltage,
+          inputs: mismatchedInputs.map(describeHandle).join(', '),
+        },
+        [
+          ...netTargets(net),
+          ...handleTargets(source),
+          ...mismatchedInputs.flatMap(handleTargets),
+        ],
+        netIssueOptions(net, 'supply-voltage-mismatch', 75, 42),
+      ));
+    });
+
+  componentLinkedNets
     .filter((net) => net.classifications.includes('suppl_net_type'))
     .filter((net) => !priorityBlockedNetIds.has(net.id))
     .forEach((net) => {
@@ -1912,11 +2016,15 @@ const runComponentRules = (context: DiagramCheckContext) => {
     }
 
     const gndHandles = handlesWithAnyFunction(nodeHandles, ['gnd']);
+    const usbFullHandles = handlesWithAnyFunction(nodeHandles, ['usb_full']);
+    const hasUsbConnection = usbFullHandles.some((handle) => (
+      isValidUsbPowerPairNet(context.getNetByHandle(handle))
+    ));
     const hasGroundConnection = gndHandles.some((handle) => (
       handleNetHasClassification(context, handle, 'gnd_net_type')
     ));
 
-    if (gndHandles.length > 0 && !hasGroundConnection) {
+    if (gndHandles.length > 0 && !hasGroundConnection && !hasUsbConnection) {
       issues.push(translatedIssue(
         'component-rules',
         'groundMissing',
@@ -1934,13 +2042,9 @@ const runComponentRules = (context: DiagramCheckContext) => {
     const supplyInputHandles = nodeHandles.filter((handle) => (
       hasFunction(handle, 'suppl_in') && !hasFunction(handle, 'usb_full')
     ));
-    const usbFullHandles = handlesWithAnyFunction(nodeHandles, ['usb_full']);
     const hasSupplyNeed = supplyInputHandles.length > 0 || usbFullHandles.length > 0;
     const hasSupplyConnection = supplyInputHandles.some((handle) => (
       supplyInputHasExternalSource(context, handle)
-    ));
-    const hasUsbConnection = usbFullHandles.some((handle) => (
-      handleNetHasClassification(context, handle, 'usb_net_type')
     ));
     const connectedSupplyInputsWithoutSource = supplyInputHandles.filter((handle) => (
       handle.connectedEdges.length > 0 && !supplyInputHasExternalSource(context, handle)
@@ -2036,6 +2140,7 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'groundAndSupplyPolaritySwapped',
       'mixedClassifications',
       'multipleSupplySources',
+      'usbPowerPairInvalid',
       'supplyVoltageUnknown',
       'signalSinkWithoutSource',
       'digitalSignalVoltageMismatch',

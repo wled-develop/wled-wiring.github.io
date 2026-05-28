@@ -1,0 +1,58 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "PSU_USB",
+        "technicalVersion": 1,
+        "group": "psu",
+        "handles": [
+          {
+            "hid": "usb",
+            "name": "USB",
+            "functions": ["usb_power_out"],
+            "Vout": 5,
+            "tolVmin": 0,
+            "tolVmax": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "USB_DEVICE",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          {
+            "hid": "USB",
+            "name": "USB",
+            "functions": ["usb_full"],
+            "tolVmin": 0,
+            "tolVmax": 5.5
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "usb-wire",
+      "source": "psu",
+      "target": "controller",
+      "sourceHandle": "usb",
+      "targetHandle": "USB",
+      "data": {
+        "physType": "usb",
+        "physLength": 1,
+        "physCrosssection": 26,
+        "physCrosssectionUnit": "AWG"
+      }
+    }
+  ]
+}

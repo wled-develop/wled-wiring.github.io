@@ -1,0 +1,10 @@
+{
+  "case": "usb_voltage_mismatch",
+  "filterIssueIdIncludes": ["usb-supply-voltage-mismatch"],
+  "expectedIssues": [
+    {
+      "idIncludes": "usb-supply-voltage-mismatch",
+      "severity": "error"
+    }
+  ]
+}

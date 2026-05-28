@@ -21,6 +21,7 @@ import type {
   SimulationPinRole,
   SimulationSettings,
   SimulationVirtualPin,
+  UsbPowerPairSimulationPort,
 } from "./simulationTypes";
 
 export type BuildSimulationModelResult =
@@ -33,6 +34,9 @@ const DEFAULT_SIMULATION_SETTINGS: SimulationSettings = {
 };
 
 const pinId = (nodeId: string, handleId: string) => `${nodeId}::${handleId}`;
+const virtualTerminalPinId = (nodeId: string, portId: string, terminalName: string) => (
+  `${nodeId}::simulation-port:${portId}:${terminalName}`
+);
 
 class UnionFind {
   private parent = new Map<string, string>();
@@ -115,6 +119,18 @@ type DigitalLedElementPlan = {
   element: DigitalLedElementUse;
   parameters: Record<string, SimulationParameterPrimitive> | undefined;
   sections: DigitalLedSectionPlan[];
+};
+
+type UsbPowerPairPortRef = {
+  node: Node<ComponentDataType>;
+  port: UsbPowerPairSimulationPort;
+  positivePinId: string;
+  negativePinId: string;
+};
+
+type SimulationTerminalResolutionContext = {
+  handleByPinId: Map<string, CheckHandle>;
+  virtualTerminalPinByNodeId: Map<string, Map<string, string>>;
 };
 
 const isDigitalLedElement = (
@@ -370,7 +386,7 @@ const scaleDigitalLedParameters = (
 const terminalPinIds = (
   node: Node<ComponentDataType>,
   element: ComponentSimulationElementUse,
-  handleByPinId: Map<string, CheckHandle>,
+  resolutionContext: SimulationTerminalResolutionContext,
   issues: SimulationCheckIssue[],
 ): {status: "ok"; terminals: Record<string, string>} | {status: "ignored"} | {status: "invalid"} => {
   const terminals: Record<string, string> = {};
@@ -378,8 +394,14 @@ const terminalPinIds = (
   let hasHiddenTerminal = false;
 
   Object.entries(element.terminals).forEach(([terminalName, handleId]) => {
+    const virtualPinId = resolutionContext.virtualTerminalPinByNodeId.get(node.id)?.get(handleId);
+    if(virtualPinId) {
+      terminals[terminalName] = virtualPinId;
+      return;
+    }
+
     const id = pinId(node.id, handleId);
-    if(handleByPinId.has(id)) {
+    if(resolutionContext.handleByPinId.has(id)) {
       terminals[terminalName] = id;
       return;
     }
@@ -412,7 +434,7 @@ const terminalPinIds = (
 
 const unionShortBridgeTerminals = (
   nodes: Node<ComponentDataType>[],
-  handleByPinId: Map<string, CheckHandle>,
+  terminalResolutionContext: SimulationTerminalResolutionContext,
   unionFind: UnionFind,
   issues: SimulationCheckIssue[],
 ) => {
@@ -420,7 +442,7 @@ const unionShortBridgeTerminals = (
     node.data.simdata?.elements
       ?.filter((element) => element.type === "shortBridge")
       .forEach((element) => {
-        const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+        const terminalResolution = terminalPinIds(node, element, terminalResolutionContext, issues);
         if(terminalResolution.status !== "ok") return;
 
         const a = terminalResolution.terminals.a;
@@ -440,16 +462,97 @@ const createSimulationCheckNetRef = (net: CheckNet): SimulationCheckNetRef => ({
   wireIds: net.edges.map((edge) => edge.id),
 });
 
+const collectUsbPowerPairPorts = (
+  nodes: Node<ComponentDataType>[],
+  handleByPinId: Map<string, CheckHandle>,
+  unionFind: UnionFind,
+  issues: SimulationCheckIssue[],
+) => {
+  const ports: UsbPowerPairPortRef[] = [];
+  const virtualTerminalPinByNodeId = new Map<string, Map<string, string>>();
+  const portByNodeHandle = new Map<string, UsbPowerPairPortRef>();
+
+  nodes.forEach((node) => {
+    const terminalMap = new Map<string, string>();
+    const seenPortIds = new Set<string>();
+
+    node.data.simdata?.ports?.forEach((port) => {
+      if(port.type !== "usbPowerPair") return;
+
+      if(seenPortIds.has(port.id)) {
+        issues.push(issue(
+          `simulation-port:${node.id}:${port.id}:duplicate`,
+          "Duplicate simulation port id",
+          `Simulation port id ${port.id} is used more than once on this component.`,
+          [{type: "node", nodeId: node.id}],
+        ));
+        return;
+      }
+      seenPortIds.add(port.id);
+
+      const handle = handleByPinId.get(pinId(node.id, port.handle));
+      if(!handle) {
+        const rawHandle = allHandles(node).find((candidate) => candidate.hid === port.handle);
+        if(!rawHandle || !isHiddenByCondition(node, rawHandle)) {
+          issues.push(issue(
+            `simulation-port:${node.id}:${port.id}:handle`,
+            "Simulation port points to a missing pin",
+            `USB power-pair port ${port.id} references missing handle ${port.handle}.`,
+            [{type: "node", nodeId: node.id}],
+          ));
+        }
+        return;
+      }
+
+      if(port.positiveTerminal === port.negativeTerminal) {
+        issues.push(issue(
+          `simulation-port:${node.id}:${port.id}:terminals`,
+          "Simulation port terminals are invalid",
+          "USB power-pair positive and negative terminals must be different.",
+          [{type: "node", nodeId: node.id}],
+        ));
+        return;
+      }
+
+      const positivePinId = virtualTerminalPinId(node.id, port.id, "VBUS");
+      const negativePinId = virtualTerminalPinId(node.id, port.id, "GND");
+      unionFind.add(positivePinId);
+      unionFind.add(negativePinId);
+      terminalMap.set(port.positiveTerminal, positivePinId);
+      terminalMap.set(port.negativeTerminal, negativePinId);
+
+      const portRef = {
+        node,
+        port,
+        positivePinId,
+        negativePinId,
+      };
+      ports.push(portRef);
+      portByNodeHandle.set(`${node.id}:${port.handle}`, portRef);
+    });
+
+    if(terminalMap.size > 0) {
+      virtualTerminalPinByNodeId.set(node.id, terminalMap);
+    }
+  });
+
+  return {
+    ports,
+    portByNodeHandle,
+    virtualTerminalPinByNodeId,
+  };
+};
+
 const collectReferenceCandidate = (
   element: ComponentSimulationElementUse,
   node: Node<ComponentDataType>,
   settings: SimulationSettings,
-  handleByPinId: Map<string, CheckHandle>,
+  terminalResolutionContext: SimulationTerminalResolutionContext,
   issues: SimulationCheckIssue[],
 ) => {
   if(element.type !== "voltageSource") return undefined;
 
-  const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+  const terminalResolution = terminalPinIds(node, element, terminalResolutionContext, issues);
   if(terminalResolution.status !== "ok") return undefined;
 
   const currentLimit = resolveParameter(element.parameters.currentLimitA, node, settings);
@@ -629,7 +732,7 @@ const collectDigitalLedElementPlans = (
   nodes: Node<ComponentDataType>[],
   edges: Edge<EdgeDataType>[],
   settings: SimulationSettings,
-  handleByPinId: Map<string, CheckHandle>,
+  terminalResolutionContext: SimulationTerminalResolutionContext,
   unionFind: UnionFind,
   issues: SimulationCheckIssue[],
 ) => {
@@ -639,7 +742,7 @@ const collectDigitalLedElementPlans = (
     node.data.simdata?.elements
       ?.filter(isDigitalLedElement)
       .forEach((element) => {
-        const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+        const terminalResolution = terminalPinIds(node, element, terminalResolutionContext, issues);
         if(terminalResolution.status !== "ok") return;
 
         const resolvedParameters = resolveParameters(element, node, settings, issues);
@@ -875,6 +978,40 @@ const createDigitalLedVirtualPins = (
   return Array.from(virtualPins.values());
 };
 
+const createUsbPowerPairVirtualPins = (
+  usbPorts: UsbPowerPairPortRef[],
+  pinToCircuitNodeId: Map<string, string>,
+) => (
+  usbPorts.flatMap((portRef) => {
+    const handle = visibleHandles(portRef.node).find((candidate) => candidate.hid === portRef.port.handle);
+    const position = handle ? handlePosition(portRef.node, handle) : portRef.node.position;
+
+    return [
+      {
+        id: `${portRef.node.id}::virtual:${portRef.port.id}:VBUS`,
+        nodeId: portRef.node.id,
+        handleId: portRef.port.handle,
+        role: "supply" as const,
+        kind: "usbPowerPair" as const,
+        pairedHandleId: portRef.port.handle,
+        voltageLabel: "VUSB" as const,
+        circuitNodeId: pinToCircuitNodeId.get(portRef.positivePinId),
+        position,
+      },
+      {
+        id: `${portRef.node.id}::virtual:${portRef.port.id}:GND`,
+        nodeId: portRef.node.id,
+        handleId: portRef.port.handle,
+        role: "gnd" as const,
+        kind: "usbPowerPair" as const,
+        pairedHandleId: portRef.port.handle,
+        circuitNodeId: pinToCircuitNodeId.get(portRef.negativePinId),
+        position,
+      },
+    ];
+  })
+);
+
 export const buildSimulationModel = (
   nodes: Node<ComponentDataType>[],
   edges: Edge<EdgeDataType>[],
@@ -897,12 +1034,18 @@ export const buildSimulationModel = (
     }
   });
 
-  unionShortBridgeTerminals(nodes, handleByPinId, unionFind, issues);
+  const usbPowerPairPorts = collectUsbPowerPairPorts(nodes, handleByPinId, unionFind, issues);
+  const terminalResolutionContext = {
+    handleByPinId,
+    virtualTerminalPinByNodeId: usbPowerPairPorts.virtualTerminalPinByNodeId,
+  };
+
+  unionShortBridgeTerminals(nodes, terminalResolutionContext, unionFind, issues);
   const digitalLedElementPlans = collectDigitalLedElementPlans(
     nodes,
     edges,
     settings,
-    handleByPinId,
+    terminalResolutionContext,
     unionFind,
     issues,
   );
@@ -996,6 +1139,20 @@ export const buildSimulationModel = (
       return [];
     }
 
+    const sourceHandle = handleByPinId.get(pinId(edge.source, edge.sourceHandle));
+    const targetHandle = handleByPinId.get(pinId(edge.target, edge.targetHandle));
+    const sourceUsbPort = usbPowerPairPorts.portByNodeHandle.get(`${edge.source}:${edge.sourceHandle}`);
+    const targetUsbPort = usbPowerPairPorts.portByNodeHandle.get(`${edge.target}:${edge.targetHandle}`);
+    const sourceIsUsbPowerOut = sourceHandle?.functions.includes("usb_power_out" as never) ?? false;
+    const targetIsUsbPowerOut = targetHandle?.functions.includes("usb_power_out" as never) ?? false;
+    const sourceIsUsbFull = sourceHandle?.functions.includes("usb_full" as never) ?? false;
+    const targetIsUsbFull = targetHandle?.functions.includes("usb_full" as never) ?? false;
+    const isUsbPowerPairWire = (
+      sourceUsbPort &&
+      targetUsbPort &&
+      ((sourceIsUsbPowerOut && targetIsUsbFull) || (targetIsUsbPowerOut && sourceIsUsbFull))
+    );
+
     const sourcePinId = pinId(edge.source, edge.sourceHandle);
     const targetPinId = pinId(edge.target, edge.targetHandle);
     const sourceCircuitNodeId = pinToCircuitNodeId.get(sourcePinId);
@@ -1033,6 +1190,58 @@ export const buildSimulationModel = (
       return [];
     }
 
+    if(isUsbPowerPairWire) {
+      const powerPort = sourceIsUsbPowerOut ? sourceUsbPort : targetUsbPort;
+      const fullPort = sourceIsUsbPowerOut ? targetUsbPort : sourceUsbPort;
+      const vbusSourceCircuitNodeId = pinToCircuitNodeId.get(powerPort.positivePinId);
+      const vbusTargetCircuitNodeId = pinToCircuitNodeId.get(fullPort.positivePinId);
+      const gndSourceCircuitNodeId = pinToCircuitNodeId.get(fullPort.negativePinId);
+      const gndTargetCircuitNodeId = pinToCircuitNodeId.get(powerPort.negativePinId);
+
+      if(!vbusSourceCircuitNodeId || !vbusTargetCircuitNodeId || !gndSourceCircuitNodeId || !gndTargetCircuitNodeId) {
+        issues.push(issue(
+          `simulation-wire:${edge.id}:usb-port-node`,
+          "USB wire endpoint is not part of the simulation model",
+          "USB power-pair wire references a virtual terminal that was not found in the simulation model.",
+          [{type: "wire", edgeId: edge.id}],
+        ));
+        return [];
+      }
+
+      return [
+        {
+          id: `wire:${edge.id}:usb-vbus`,
+          edgeId: edge.id,
+          sourceCircuitNodeId: vbusSourceCircuitNodeId,
+          targetCircuitNodeId: vbusTargetCircuitNodeId,
+          resistanceOhm: resistance.resistanceOhm,
+          lengthM: resistance.lengthM,
+          crosssectionMm2: resistance.crosssectionMm2,
+          material: resistance.material,
+          aggregate: {
+            kind: "usbPowerPair" as const,
+            conductor: "vbus" as const,
+            displayDirection: "sourceToTarget" as const,
+          },
+        },
+        {
+          id: `wire:${edge.id}:usb-gnd`,
+          edgeId: edge.id,
+          sourceCircuitNodeId: gndSourceCircuitNodeId,
+          targetCircuitNodeId: gndTargetCircuitNodeId,
+          resistanceOhm: resistance.resistanceOhm,
+          lengthM: resistance.lengthM,
+          crosssectionMm2: resistance.crosssectionMm2,
+          material: resistance.material,
+          aggregate: {
+            kind: "usbPowerPair" as const,
+            conductor: "gnd" as const,
+            displayDirection: "targetToSource" as const,
+          },
+        },
+      ];
+    }
+
     return [{
       id: `wire:${edge.id}`,
       edgeId: edge.id,
@@ -1047,7 +1256,7 @@ export const buildSimulationModel = (
 
   const referenceCandidates = nodes.flatMap((node) => (
     node.data.simdata?.elements
-      ?.map((element) => collectReferenceCandidate(element, node, settings, handleByPinId, issues))
+      ?.map((element) => collectReferenceCandidate(element, node, settings, terminalResolutionContext, issues))
       .filter((candidate) => candidate !== undefined) || []
   ));
   const referenceCandidate = referenceCandidates
@@ -1120,7 +1329,7 @@ export const buildSimulationModel = (
 
       if(element.type === "digitalLed") return;
 
-      const terminalResolution = terminalPinIds(node, element, handleByPinId, issues);
+      const terminalResolution = terminalPinIds(node, element, terminalResolutionContext, issues);
       if(terminalResolution.status !== "ok") return;
 
       const terminalPins = terminalResolution.terminals;
@@ -1154,11 +1363,17 @@ export const buildSimulationModel = (
       pinIds: nodePinIds,
     };
   });
-  const virtualPins = createDigitalLedVirtualPins(
-    nodes,
-    digitalLedElementPlans,
-    pinToCircuitNodeId,
-  );
+  const virtualPins = [
+    ...createDigitalLedVirtualPins(
+      nodes,
+      digitalLedElementPlans,
+      pinToCircuitNodeId,
+    ),
+    ...createUsbPowerPairVirtualPins(
+      usbPowerPairPorts.ports,
+      pinToCircuitNodeId,
+    ),
+  ];
 
   addVoltageSourceConflictIssues(elements, issues);
 

@@ -460,6 +460,8 @@ Ein bloss verbundenes `usb_full` ohne erreichbares `usb_power_out` gilt nicht al
 
 Wenn mindestens ein Nicht-USB-`suppl_in` bereits angeschlossen ist, aber keine externe Quelle erreicht, wird `powerMissing` im normalen Nutzer-Modus nicht zusaetzlich erzeugt. Dann ist `supplyInputWithoutSource` die bessere Meldung, weil sie das betroffene Netz und die angeschlossenen Versorgungseingaenge zusammenfasst. `powerMissing` bleibt fuer Faelle zustaendig, in denen eine Komponente Versorgung braucht, aber gar kein passender Versorgungspfad angeschlossen ist.
 
+Eine gueltige Point-to-Point-USB-Power-Verbindung zaehlt fuer die direkt angeschlossene Verbraucherkomponente auch als lokaler GND-/Versorgungsbezug. `groundMissing` auf Diagramm- oder Komponentenebene soll fuer diese reine USB-Versorgung nicht ausgeloest werden. USB wird dadurch nicht als normales externes `gnd_net_type` oder `suppl_net_type` umklassifiziert; die Ausnahme gilt nur fuer die betroffene USB-Verbraucherkomponente und die interne `USB.GND`-/`USB.VBUS`-Modellierung.
+
 ### `mainsInputMissing`
 
 Fehler, wenn eine Komponente Netzspannungs-Eingaenge hat, diese aber nicht mit dem passenden Netztyp verbunden sind.

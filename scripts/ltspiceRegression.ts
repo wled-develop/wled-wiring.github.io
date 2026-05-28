@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import i18next from "../src/i18n";
+import { runDiagramCheck } from "../src/check/runDiagramCheck";
 import { runSimulation } from "../src/simulation/runSimulation";
 import type {
   LedSimulationColorMode,
@@ -76,10 +77,12 @@ type LtspiceExpected = {
     voltageDropV?: number;
   };
   expected?: {
+    simulationFailure?: boolean;
     pins?: ExpectedPin[];
     wires?: ExpectedWire[];
     ledStrips?: ExpectedLedStrip[];
     checkIssues?: ExpectedCheckIssue[];
+    diagramCheckIssues?: ExpectedCheckIssue[];
   };
 };
 
@@ -96,7 +99,7 @@ const defaultSettings: SimulationSettings = {
 };
 
 const readJson = <T>(filePath: string): T => (
-  JSON.parse(readFileSync(filePath, "utf8")) as T
+  JSON.parse(readFileSync(filePath, "utf8").replace(/^\uFEFF/, "")) as T
 );
 
 const isColorMode = (value: unknown): value is LedSimulationColorMode => (
@@ -455,15 +458,42 @@ const compareCase = (casePath: string) => {
   const diagram = readJson<DiagramExport>(path.join(casePath, "diagram.json"));
   const expected = readJson<LtspiceExpected>(path.join(casePath, "expected.json"));
   const settings = settingsFromExpected(expected);
+  const diagramCheckIssues = runDiagramCheck(JSON.stringify(diagram));
   const simulation = runSimulation(diagram.nodes, diagram.edges, settings);
   const failures: Failure[] = [];
 
+  compareCheckIssues(
+    failures,
+    caseName,
+    {
+      checkIssues: diagramCheckIssues,
+    } as SimulationResult,
+    expected.expected?.diagramCheckIssues,
+  );
+
   if(!simulation.ok) {
+    if(expected.expected?.simulationFailure) {
+      compareCheckIssues(
+        failures,
+        caseName,
+        {
+          checkIssues: simulation.issues,
+        } as SimulationResult,
+        expected.expected?.checkIssues,
+      );
+      return failures;
+    }
+
     failures.push(fail(
       caseName,
       "simulation",
       `simulation failed: ${simulation.issues.map((item) => item.description).join(" | ")}`,
     ));
+    return failures;
+  }
+
+  if(expected.expected?.simulationFailure) {
+    failures.push(fail(caseName, "simulation", "simulation succeeded, but failure was expected"));
     return failures;
   }
 

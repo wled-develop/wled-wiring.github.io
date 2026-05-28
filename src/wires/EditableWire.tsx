@@ -38,6 +38,11 @@ import { createDiagramCheckContext } from "../check/checkContext.ts";
 import { useZustandStore } from "../utils/pathfinder_functions.ts";
 import { routeWireWithPathfinder } from "../utils/rotateWireRouting.ts";
 import { useSimulationResultStore } from "../simulation/simulationResultStore.ts";
+import {
+  DEFAULT_USB_WIRE_AWG,
+  GENERAL_WIRE_AWG_PRESETS,
+  USB_WIRE_AWG_PRESETS,
+} from "./wireDefaults.ts";
 
 const ROUNDN=1;
 const SEGMENT_DRAG_THRESHOLD = 4;
@@ -1642,7 +1647,8 @@ export default function EditableWire ({
   );
 
   const crosssectionsMM2=[0.25, 0.34, 0.5, 0.75, 1, 1.5, 2.5, 4, 6];
-  const crosssectionsAWG=[24, 22, 20, 18, 16, 14, 12, 10, 8];
+  const isUsbWire = edgeData.physType === "usb";
+  const crosssectionsAWG = isUsbWire ? [...USB_WIRE_AWG_PRESETS] : [...GENERAL_WIRE_AWG_PRESETS];
 
   const contentPhysLineCrosssection = (
     <>
@@ -1671,7 +1677,11 @@ export default function EditableWire ({
       ]}
       style={{width:70}}
       onChange={(value)=>{
-        const physCrosssectionvalue=(value==="mm2"?crosssectionsMM2[3]:crosssectionsAWG[3]);
+        const physCrosssectionvalue = value === "mm2"
+          ? crosssectionsMM2[3]
+          : isUsbWire
+            ? DEFAULT_USB_WIRE_AWG
+            : crosssectionsAWG[3];
         updateActiveWireScope(
           {physCrosssection: physCrosssectionvalue, physCrosssectionUnit: value},
           {wireInfo_crosssectionUnit: value, wireInfo_crosssection: physCrosssectionvalue},

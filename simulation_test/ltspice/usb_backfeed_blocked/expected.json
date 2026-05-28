@@ -1,0 +1,31 @@
+{
+  "source": "Analytical",
+  "case": "usb_backfeed_blocked",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.0001,
+    "currentA": 0.0001,
+    "voltageDropV": 0.0001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "USB_Test_Controller",
+        "handleId": "VIN",
+        "voltageV": 5.9971
+      }
+    ],
+    "wires": [
+      {
+        "edgeId": "usb_cable",
+        "currentA": 0,
+        "voltageDropV": 0
+      }
+    ],
+    "diagramCheckIssues": [],
+    "checkIssues": []
+  }
+}

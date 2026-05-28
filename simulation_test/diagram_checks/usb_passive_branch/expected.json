@@ -1,0 +1,11 @@
+{
+  "case": "usb_passive_branch",
+  "filterIssueIdIncludes": ["usb-power-pair-invalid"],
+  "expectedIssues": [
+    {
+      "idIncludes": "usb-power-pair-invalid",
+      "severity": "error",
+      "descriptionIncludes": "USB power net contains passive or non-USB terminals"
+    }
+  ]
+}

@@ -12,7 +12,8 @@ import type { SimulationPinResult, SimulationResult } from "./simulationTypes";
 
 type OverlayValueLine =
   | {kind: "text"; text: string}
-  | {kind: "ledVoltage"; value: string; qualifier?: "min"};
+  | {kind: "ledVoltage"; value: string; qualifier?: "min"}
+  | {kind: "usbVoltage"; value: string};
 
 type OverlayLabel = {
   id: string;
@@ -103,12 +104,14 @@ const ledVoltageLine = (value: number, qualifier?: "min"): OverlayValueLine => (
 });
 
 const formatVoltage = (value: number) => textLine(`${value >= 0 ? "+" : ""}${value.toFixed(2)} V`);
+const formatUsbVoltage = (value: number): OverlayValueLine => ({kind: "usbVoltage", value: `${value.toFixed(2)} V`});
 const formatDeltaVoltage = (value: number) => ledVoltageLine(value);
 const formatMinDeltaVoltage = (value: number) => ledVoltageLine(value, "min");
 const formatCurrent = (value: number) => textLine(`${Math.abs(value).toFixed(2)} A`);
 
 const overlayValueLineText = (line: OverlayValueLine) => {
   if(line.kind === "text") return line.text;
+  if(line.kind === "usbVoltage") return `VUSB=${line.value}`;
   return line.qualifier === "min"
     ? `VLED,min=${line.value}`
     : `VLED=${line.value}`;
@@ -116,6 +119,13 @@ const overlayValueLineText = (line: OverlayValueLine) => {
 
 const renderOverlayValueLine = (line: OverlayValueLine): ReactNode => {
   if(line.kind === "text") return line.text;
+  if(line.kind === "usbVoltage") {
+    return (
+      <>
+        V<sub>USB</sub>={line.value}
+      </>
+    );
+  }
 
   return (
     <>
@@ -561,6 +571,31 @@ const createVoltageLabel = (
   };
 };
 
+const createUsbVoltageLabel = (
+  id: string,
+  value: number,
+  anchor: XYPoint,
+  scale: number,
+  existingLabels: OverlayLabel[],
+  obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
+): OverlayLabel => {
+  const valueLines = [formatUsbVoltage(value)];
+  const size = estimateLabelSize(valueLines, scale);
+  const position = chooseVoltageLabelPosition(anchor, size, existingLabels, obstacles);
+
+  return {
+    id,
+    kind: "voltage",
+    valueLines,
+    x: position.x,
+    y: position.y,
+    anchorX: anchor.x,
+    anchorY: anchor.y,
+    width: size.width,
+    height: size.height,
+  };
+};
+
 const isLedNode = (node: Node<ComponentDataType>) => node.data.group === "led";
 
 const ledPairedGndHandleId = (handleId: string) => {
@@ -867,10 +902,11 @@ const createWireCurrentOverlay = (
   existingLabels: OverlayLabel[],
   obstacles: Array<{left: number; right: number; top: number; bottom: number}>,
   blockingRects: Array<{left: number; right: number; top: number; bottom: number}>,
+  forceBidirectional = false,
   preferredNormal?: XYPoint,
   labelGapPx = WIRE_LABEL_GAP,
 ) => {
-  const bidirectional = roundedCurrentIsZero(currentA);
+  const bidirectional = forceBidirectional || roundedCurrentIsZero(currentA);
   const currentDirection = currentA >= 0
     ? point.direction
     : {x: -point.direction.x, y: -point.direction.y};
@@ -1293,6 +1329,7 @@ export const SimulationOverlay = () => {
         labels,
         obstacles,
         wireArrowBlockingRects(edges, nodeById, viewport, edge.id),
+        wireResult.displayBidirectional === true,
       );
       arrows.push(overlay.arrow);
       labels.push(overlay.label);
@@ -1318,6 +1355,37 @@ export const SimulationOverlay = () => {
           obstacles,
         );
         labels.push(label);
+      });
+
+    simulationResult.virtualPinResults
+      .filter((virtualPin) => (
+        virtualPin.kind === "usbPowerPair" &&
+        virtualPin.role === "supply" &&
+        virtualPin.voltageLabel === "VUSB" &&
+        virtualPin.voltageV !== undefined
+      ))
+      .forEach((supplyResult) => {
+        const gndResult = simulationResult.virtualPinResults.find((candidate) => (
+          candidate.kind === "usbPowerPair" &&
+          candidate.role === "gnd" &&
+          candidate.nodeId === supplyResult.nodeId &&
+          candidate.handleId === supplyResult.handleId
+        ));
+        if(supplyResult.voltageV === undefined || gndResult?.voltageV === undefined) return;
+
+        const node = nodeById.get(supplyResult.nodeId);
+        const endpoint = getRenderedWireEndpoint(node, supplyResult.handleId);
+        if(!node || !endpoint) return;
+        if(!pinHasConnectedWire(edges, supplyResult.nodeId, supplyResult.handleId)) return;
+
+        labels.push(createUsbVoltageLabel(
+          `virtual-usb:${supplyResult.virtualPinId}`,
+          supplyResult.voltageV - gndResult.voltageV,
+          screenPoint(endpoint, viewport),
+          scale,
+          labels,
+          obstacles,
+        ));
       });
 
     nodes
@@ -1393,6 +1461,7 @@ export const SimulationOverlay = () => {
               labels,
               obstacles,
               wireArrowBlockingRects(edges, nodeById, viewport, wireHover.edgeId),
+              hoverWireResult.displayBidirectional === true,
               hoverNormal,
               hoverLabelGap,
             );

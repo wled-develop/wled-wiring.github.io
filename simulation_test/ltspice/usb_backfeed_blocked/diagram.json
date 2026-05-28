@@ -1,0 +1,81 @@
+{
+  "nodes": [
+    {
+      "id": "usb_psu",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 0},
+      "data": {
+        "technicalID": "PSU_USB",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_current", "type": "number_input", "value": 5}
+        ],
+        "simdata": {
+          "version": 1,
+          "ports": [
+            {"id": "usb-power", "type": "usbPowerPair", "handle": "usb", "positiveTerminal": "USB.VBUS", "negativeTerminal": "USB.GND"}
+          ],
+          "elements": [
+            {"id": "source", "type": "voltageSource", "terminals": {"positive": "USB.VBUS", "negative": "USB.GND"}, "parameters": {"voltageV": 5, "currentLimitA": {"field": "source_current"}, "voltageDropPctAt150Current": 50}}
+          ]
+        },
+        "handles": [
+          {"hid": "usb", "functions": ["usb_power_out"], "x": 0, "y": 0}
+        ]
+      }
+    },
+    {
+      "id": "vin_psu",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 120},
+      "data": {
+        "technicalID": "PSU_HP",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 6},
+          {"technicalID": "source_current", "type": "number_input", "value": 5}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {"id": "source", "type": "voltageSource", "terminals": {"positive": "VOUT", "negative": "GND"}, "parameters": {"voltageV": {"field": "source_voltage"}, "currentLimitA": {"field": "source_current"}, "voltageDropPctAt150Current": 50}}
+          ]
+        },
+        "handles": [
+          {"hid": "VOUT", "functions": ["suppl_out"], "x": 0, "y": 0},
+          {"hid": "GND", "functions": ["gnd"], "x": 0, "y": 20}
+        ]
+      }
+    },
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": {"x": 240, "y": 0},
+      "data": {
+        "technicalID": "USB_Test_Controller",
+        "technicalVersion": 1,
+        "simdata": {
+          "version": 1,
+          "ports": [
+            {"id": "usb-power", "type": "usbPowerPair", "handle": "USB", "positiveTerminal": "USB.VBUS", "negativeTerminal": "USB.GND"}
+          ],
+          "elements": [
+            {"id": "usb-gnd-bridge", "type": "shortBridge", "terminals": {"a": "USB.GND", "b": "GND"}},
+            {"id": "usb-vbus-diode", "type": "diode", "terminals": {"anode": "USB.VBUS", "cathode": "VIN"}, "parameters": {"forwardVoltageV": 0.4}},
+            {"id": "load", "type": "resistor", "terminals": {"a": "VIN", "b": "GND"}, "parameters": {"resistanceOhm": 10}}
+          ]
+        },
+        "handles": [
+          {"hid": "USB", "functions": ["usb_full"], "x": 0, "y": 0},
+          {"hid": "VIN", "functions": ["suppl_in"], "x": 0, "y": 20, "tolVmin": 4.5, "tolVmax": 12},
+          {"hid": "GND", "functions": ["gnd"], "x": 0, "y": 40}
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {"id": "usb_cable", "source": "usb_psu", "target": "controller", "sourceHandle": "usb", "targetHandle": "USB", "type": "editable-wire-type", "data": {"testLabel": "usb_cable", "edgePoints": [], "color": "#000000", "color_selected": "#000000", "width": 1, "physLength": 0.1, "physCrosssection": 26, "physCrosssectionUnit": "AWG", "physType": "usb"}},
+    {"id": "vin_plus", "source": "vin_psu", "target": "controller", "sourceHandle": "VOUT", "targetHandle": "VIN", "type": "editable-wire-type", "data": {"testLabel": "vin_plus", "edgePoints": [], "color": "#ff0000", "color_selected": "#ff0000", "width": 1, "physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}},
+    {"id": "vin_gnd", "source": "vin_psu", "target": "controller", "sourceHandle": "GND", "targetHandle": "GND", "type": "editable-wire-type", "data": {"testLabel": "vin_gnd", "edgePoints": [], "color": "#000000", "color_selected": "#000000", "width": 1, "physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}}
+  ]
+}

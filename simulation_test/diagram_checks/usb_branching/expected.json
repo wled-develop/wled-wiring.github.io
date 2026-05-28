@@ -1,0 +1,11 @@
+{
+  "case": "usb_branching",
+  "filterIssueIdIncludes": ["usb-power-pair-invalid"],
+  "expectedIssues": [
+    {
+      "idIncludes": "usb-power-pair-invalid",
+      "severity": "error",
+      "descriptionIncludes": "expected exactly one USB sink"
+    }
+  ]
+}

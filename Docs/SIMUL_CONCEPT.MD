@@ -1319,40 +1319,42 @@ Offene Implementierungsrisiken:
 ### Implementierungsplan fuer USB-Power-Pair
 
 1. Typen und Metadaten erweitern:
-   - `ComponentSimulationDefinition` um `ports?: UsbPowerPairSimulationPort[]` erweitern.
-   - `ComponentSimulationElementType` und Element-Typen um `diode` mit Terminals `anode`/`cathode` und Parameter `forwardVoltageV` erweitern.
-   - `elementaryElements.ts` um Metadaten fuer `diode` ergaenzen.
+   - [x] `ComponentSimulationDefinition` um `ports?: UsbPowerPairSimulationPort[]` erweitern.
+   - [x] `ComponentSimulationElementType` und Element-Typen um `diode` mit Terminals `anode`/`cathode` und Parameter `forwardVoltageV` erweitern.
+   - [x] `elementaryElements.ts` um Metadaten fuer `diode` ergaenzen.
 2. Komponentenmodell vorbereiten:
-   - `PSU_USB` auf `simdata.ports` mit `usbPowerPair` umstellen und eine 5-V-`voltageSource` zwischen `USB.VBUS` und `USB.GND` definieren.
-   - Alle Komponenten mit `usb_full` identifizieren und je Komponente den lokalen V+- und GND-Knoten festlegen.
-   - Fuer diese Komponenten `usbPowerPair`, `shortBridge` von `USB.GND` nach lokalem GND und `diode` von `USB.VBUS` nach lokalem V+ ergaenzen.
+   - [x] `PSU_USB` auf `simdata.ports` mit `usbPowerPair` umstellen und eine 5-V-`voltageSource` zwischen `USB.VBUS` und `USB.GND` definieren.
+   - [x] Alle Komponenten mit `usb_full` identifizieren und je Komponente den lokalen V+- und GND-Knoten festlegen.
+   - [x] Fuer diese Komponenten `usbPowerPair`, `shortBridge` von `USB.GND` nach lokalem GND und `diode` von `USB.VBUS` nach lokalem V+ ergaenzen.
 3. Modellaufbau erweitern:
-   - Port-Validierung fuer sichtbare Handles, doppelte Port-IDs und virtuelle Terminalnamen einbauen.
-   - USB-Wires zwischen `usb_power_out` und `usb_full` in zwei Wire-Elemente expandieren: VBUS-Hinleiter und GND-Rueckleiter.
-   - Normale Wire-Erzeugung fuer diese sichtbare Edge unterdruecken und die beiden Leiter mit Aggregationsmetadaten auf die sichtbare Edge verweisen lassen.
+   - [x] Port-Validierung fuer sichtbare Handles und virtuelle Terminalnamen einbauen.
+   - [x] Port-Validierung fuer doppelte Port-IDs einbauen.
+   - [x] USB-Wires zwischen `usb_power_out` und `usb_full` in zwei Wire-Elemente expandieren: VBUS-Hinleiter und GND-Rueckleiter.
+   - [x] Normale Wire-Erzeugung fuer diese sichtbare Edge unterdruecken und die beiden Leiter mit Aggregationsmetadaten auf die sichtbare Edge verweisen lassen.
 4. Solver erweitern:
-   - Iteratives ideales Diodenmodell implementieren.
-   - Konvergenz-/Abbruchkriterien fuer Dioden-Zustandswechsel definieren und Debug-Ausgaben ergaenzen.
-   - Tests fuer leitende USB-Diode, gesperrte Rueckspeisung und gleichzeitige VIN-/USB-Versorgung ergaenzen.
+   - [x] Iteratives ideales Diodenmodell implementieren.
+   - [x] Konvergenz-/Abbruchkriterien fuer Dioden-Zustandswechsel definieren.
+   - [x] Debug-Ausgaben fuer Dioden-Zustandswechsel ergaenzen.
+   - [x] Tests fuer leitende USB-Diode, gesperrte Rueckspeisung und gleichzeitige VIN-/USB-Versorgung ergaenzen.
 5. Diagramm-Checks umsetzen:
-   - `signalSinkWithoutSource`: `usb_full` ohne erreichbares `usb_power_out` weiterhin ignorieren.
-   - Neue bzw. angepasste USB-Point-to-Point-Pruefung: genau ein `usb_power_out`, genau ein `usb_full`, keine passiven Verteiler oder Mehrfachsenken in einem aktiven USB-Power-Netz.
-   - `supplyInputWithoutSource`: `usb_full` weiter ausschliessen; separate `suppl_in`-Pins derselben Komponente bleiben normal pruefpflichtig.
-   - `powerMissing`: `usb_full` nur als Versorgung zaehlen, wenn ein erreichbares `usb_power_out` im passenden USB-Netz liegt.
-   - `wireWithoutPhysicalParameters`: `usb_net_type` einbeziehen.
-   - USB-Spannungsvertraeglichkeit gegen `tolVmin`/`tolVmax` der `usb_full`-Senke pruefen, sobald eine gueltige Point-to-Point-USB-Power-Verbindung existiert.
+   - [x] `signalSinkWithoutSource`: `usb_full` ohne erreichbares `usb_power_out` weiterhin ignorieren.
+   - [x] Neue bzw. angepasste USB-Point-to-Point-Pruefung: genau ein `usb_power_out`, genau ein `usb_full`, keine passiven Verteiler oder Mehrfachsenken in einem aktiven USB-Power-Netz.
+   - [x] `supplyInputWithoutSource`: `usb_full` weiter ausschliessen; separate `suppl_in`-Pins derselben Komponente bleiben normal pruefpflichtig.
+   - [x] `powerMissing`: `usb_full` nur als Versorgung zaehlen, wenn ein erreichbares `usb_power_out` im passenden USB-Netz liegt.
+   - [x] `wireWithoutPhysicalParameters`: `usb_net_type` einbeziehen.
+   - [x] USB-Spannungsvertraeglichkeit gegen `tolVmin`/`tolVmax` der `usb_full`-Senke pruefen, sobald eine gueltige Point-to-Point-USB-Power-Verbindung existiert.
 6. Wire-UI und Daten:
-   - Querschnitts-Presets `AWG24`, `AWG26` und `AWG28` fuer USB-Wires anbieten.
-   - `AWG26` als UI-Default fuer neue USB-Wires setzen, aber fehlende Daten in alten Diagrammen weiterhin melden, bis sie gespeichert oder migriert wurden.
+   - [x] Querschnitts-Presets `AWG24`, `AWG26` und `AWG28` fuer USB-Wires anbieten.
+   - [x] `AWG26` als UI-Default fuer neue USB-Wires setzen, aber fehlende Daten in alten Diagrammen weiterhin melden, bis sie gespeichert oder migriert wurden.
 7. Ergebnisdarstellung:
-   - `SimulationWireResult` um aggregierte USB-Anzeigeinformationen erweitern, z.B. `displayCurrentA`, `displayBidirectional` und `conductorResults`.
-   - Sichtbare USB-Wire mit bidirektionalem Pfeil und Hinstromwert anzeigen.
-   - `usb_full`-Spannungslabel als `VUSB` gegen `USB.GND` ausgeben.
-   - Info-Issue erzeugen, wenn VBUS- und GND-Leiterstroeme betragsmaessig relevant abweichen.
+   - [x] `SimulationWireResult` um aggregierte USB-Anzeigeinformationen erweitern, z.B. `displayCurrentA`, `displayBidirectional` und `conductorResults`.
+   - [x] Sichtbare USB-Wire mit bidirektionalem Pfeil und Hinstromwert anzeigen.
+   - [x] `usb_full`-Spannungslabel als `VUSB` gegen `USB.GND` ausgeben.
+   - [x] Info-Issue erzeugen, wenn VBUS- und GND-Leiterstroeme betragsmaessig relevant abweichen.
 8. Regressionstests:
-   - Diagramm-Check-Fixtures fuer ungenutztes `usb_full`, gueltige Point-to-Point-USB-Versorgung, Verzweigung, mehrere Quellen, mehrere Senken, fehlende Wire-Daten und USB-Spannungsmismatch anlegen.
-   - Simulation-Fixtures fuer `PSU_USB -> Controller`, USB mit zusaetzlichem `VIN`, Rueckspeisungsversuch in USB und fehlende USB-Wire-Parameter ergaenzen.
-   - Bestehende LTspice-/Analyse-Regressionen weiter laufen lassen, damit Dioden- und Portlogik keine bestehenden Supply/GND-Faelle veraendert.
+   - [x] Diagramm-Check-Fixtures fuer ungenutztes `usb_full`, gueltige Point-to-Point-USB-Versorgung, Verzweigung, mehrere Quellen, mehrere Senken, fehlende Wire-Daten und USB-Spannungsmismatch anlegen. Umgesetzt unter `simulation_test/diagram_checks/` mit `npm run test:diagram-check`.
+   - [x] Simulation-Fixtures fuer `PSU_USB -> Controller`, USB mit zusaetzlichem `VIN`, Rueckspeisungsversuch in USB und fehlende USB-Wire-Parameter ergaenzen.
+   - [x] Bestehende LTspice-/Analyse-Regressionen weiter laufen lassen, damit Dioden- und Portlogik keine bestehenden Supply/GND-Faelle veraendert. Verifiziert mit `npm run test:ltspice`.
 
 ## Empfohlene Modulstruktur
 
@@ -1451,11 +1453,11 @@ Optional:
 17. [x] Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen. Umgesetzt mit `npm run test:ltspice`, `scripts/ltspiceRegression.ts` und `scripts/runLtspiceRegression.mjs`.
 18. [x] DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen. Umgesetzt in `src/simulation/dcdcSimulation.ts` und `src/simulation/runSimulation.ts`, inklusive LTspice-/Analyse-Fixtures fuer Grundfall, festes Ausgangslimit, begrenzte Eingangsleistung, mehrdeutige Mehrquellen-Eingangsleistung und zwei DCDC-Wandler an einer PSU.
 19. [x] Sparse-Solver fuer groessere LED-Streifen ergaenzen. Umgesetzt in `src/simulation/sparseLinearSystemSolver.ts`; `runSimulation()` nutzt diesen Solver fuer die MNA-Systeme.
-20. [ ] USB-Power-Pair-Typen, `usbPowerPair`-Ports und das allgemeine `diode`-Element ergaenzen.
-21. [ ] `PSU_USB` und alle Komponenten mit `usb_full` um explizite USB-Port- und USB-Versorgungs-`simdata` erweitern.
-22. [ ] USB-Wires im Modellaufbau in VBUS- und GND-Leiter expandieren und aggregierte Wire-Ergebnisse erzeugen.
-23. [ ] Ideales Diodenmodell im Solver implementieren und Regressionstests fuer USB-Versorgung, VIN-Prioritaet und Rueckspeisung ergaenzen.
-24. [ ] USB-Wire-Presets `AWG24`, `AWG26` und `AWG28` in der Wire-UI anbieten; `AWG26` als Default fuer neue USB-Wires verwenden.
+20. [x] USB-Power-Pair-Typen, `usbPowerPair`-Ports und das allgemeine `diode`-Element ergaenzen. Umgesetzt in `src/simulation/simulationTypes.ts`, `src/simulation/elementaryElements.ts`, `src/components/catalog/validateComponent.ts` und `src/simulation/runSimulation.ts`.
+21. [x] `PSU_USB` und alle Komponenten mit `usb_full` um explizite USB-Port- und USB-Versorgungs-`simdata` erweitern. Umgesetzt fuer `PSU_USB`, ESP8266-/ESP32-Controller und MHC-V43/V57.
+22. [x] USB-Wires im Modellaufbau in VBUS- und GND-Leiter expandieren und aggregierte Wire-Ergebnisse erzeugen. Umgesetzt in `src/simulation/buildSimulationModel.ts`, `src/simulation/runSimulation.ts` und `src/simulation/SimulationOverlay.tsx`.
+23. [x] Ideales Diodenmodell im Solver implementieren und Regressionstests fuer USB-Versorgung, VIN-Prioritaet und Rueckspeisung ergaenzen. Umgesetzt in `src/simulation/runSimulation.ts` und mit analytischen Fixtures unter `simulation_test/ltspice/usb_power_pair_controller`, `simulation_test/ltspice/usb_backfeed_blocked` und `simulation_test/ltspice/usb_missing_wire_parameters` abgesichert.
+24. [x] USB-Wire-Presets `AWG24`, `AWG26` und `AWG28` in der Wire-UI anbieten; `AWG26` als Default fuer neue USB-Wires verwenden. Umgesetzt in `src/wires/wireDefaults.ts`, `src/App.tsx`, `src/components/GeneralComponent.tsx`, `src/wires/EditableWire.tsx` und `src/simulation/awgToMm2.ts`.
 
 ## Geklaerte Entscheidungen
 

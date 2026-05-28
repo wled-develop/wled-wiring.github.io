@@ -543,7 +543,35 @@ export default defineComponent({
     ],
     "simulation": {
       "version": 1,
+      "ports": [
+        {
+          "id": "usb-power",
+          "type": "usbPowerPair",
+          "handle": "USB",
+          "positiveTerminal": "USB.VBUS",
+          "negativeTerminal": "USB.GND"
+        }
+      ],
       "elements": [
+        {
+          "id": "usb-gnd-bridge",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "USB.GND",
+            "b": "GND"
+          }
+        },
+        {
+          "id": "usb-vbus-diode",
+          "type": "diode",
+          "terminals": {
+            "anode": "USB.VBUS",
+            "cathode": "5V"
+          },
+          "parameters": {
+            "forwardVoltageV": 0.4
+          }
+        },
         {
           "id": "idle-load-5V",
           "type": "constantPowerSink",

@@ -2260,7 +2260,35 @@ export default defineComponent({
     ],
     "simulation": {
       "version": 1,
+      "ports": [
+        {
+          "id": "usb-power",
+          "type": "usbPowerPair",
+          "handle": "usb",
+          "positiveTerminal": "USB.VBUS",
+          "negativeTerminal": "USB.GND"
+        }
+      ],
       "elements": [
+        {
+          "id": "usb-gnd-bridge",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "USB.GND",
+            "b": "GND1"
+          }
+        },
+        {
+          "id": "usb-vbus-diode",
+          "type": "diode",
+          "terminals": {
+            "anode": "USB.VBUS",
+            "cathode": "VIN"
+          },
+          "parameters": {
+            "forwardVoltageV": 0.4
+          }
+        },
         {
           "id": "vin-vout-fuse",
           "type": "fuse",

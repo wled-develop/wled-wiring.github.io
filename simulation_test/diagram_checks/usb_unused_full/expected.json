@@ -1,0 +1,11 @@
+{
+  "case": "usb_unused_full",
+  "filterIssueIdIncludes": [
+    "usbPowerPairInvalid",
+    "wireWithoutPhysicalParameters",
+    "supplyVoltageMismatch",
+    "signalSinkWithoutSource",
+    "powerMissing"
+  ],
+  "expectedIssues": []
+}

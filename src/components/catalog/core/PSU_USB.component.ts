@@ -78,6 +78,35 @@ export default defineComponent({
         }
       }
     ],
+    "simulation": {
+      "version": 1,
+      "ports": [
+        {
+          "id": "usb-power",
+          "type": "usbPowerPair",
+          "handle": "usb",
+          "positiveTerminal": "USB.VBUS",
+          "negativeTerminal": "USB.GND"
+        }
+      ],
+      "elements": [
+        {
+          "id": "source",
+          "type": "voltageSource",
+          "terminals": {
+            "positive": "USB.VBUS",
+            "negative": "USB.GND"
+          },
+          "parameters": {
+            "voltageV": 5,
+            "currentLimitA": {
+              "field": "source_current"
+            },
+            "voltageDropPctAt150Current": 50
+          }
+        }
+      ]
+    },
     "runtime": {
       "inputFieldsBox": {
         "x": 104,

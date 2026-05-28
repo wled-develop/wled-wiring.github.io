@@ -530,10 +530,16 @@
               "description": "Both sides of the fuse in {{component}} are externally in the same net. The protection function is bypassed.",
               "recommendation": "Remove the external bridge across the fuse."
             },
+            "usbPowerPairInvalid": {
+              "title": "USB power connection is invalid",
+              "shortDescription": "USB power must connect exactly one USB source to exactly one USB device.",
+              "description": "This USB power net is not point-to-point: {{reason}}.",
+              "recommendation": "Use one direct USB wire from one USB power output to one USB device, without splitters or extra terminals."
+            },
             "wireWithoutPhysicalParameters": {
               "title": "Power wire has no physical data",
-              "shortDescription": "A power/GND wire has no length or cross section.",
-              "description": "This wire is in a supply or GND net, but length or cross section is missing.",
+              "shortDescription": "A power, GND, or USB wire has no length or cross section.",
+              "description": "This wire is in a supply, GND, or USB net, but length or cross section is missing.",
               "recommendation": "Set length and cross section for this wire."
             },
             "duplicateParallelWire": {

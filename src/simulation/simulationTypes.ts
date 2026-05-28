@@ -43,7 +43,8 @@ export type ComponentSimulationElementType =
   | "constantPowerSink"
   | "fuse"
   | "digitalLed"
-  | "dcdcConverter";
+  | "dcdcConverter"
+  | "diode";
 
 type ComponentSimulationElementBase<
   TypeName extends ComponentSimulationElementType,
@@ -130,6 +131,12 @@ export type DcdcConverterSimulationElementUse = ComponentSimulationElementBase<
   }
 >;
 
+export type DiodeSimulationElementUse = ComponentSimulationElementBase<
+  "diode",
+  {anode: string; cathode: string},
+  {forwardVoltageV: SimulationParameterRef}
+>;
+
 export type ComponentSimulationElementUse =
   | ResistorSimulationElementUse
   | ShortBridgeSimulationElementUse
@@ -138,7 +145,8 @@ export type ComponentSimulationElementUse =
   | ConstantPowerSinkSimulationElementUse
   | FuseSimulationElementUse
   | DigitalLedSimulationElementUse
-  | DcdcConverterSimulationElementUse;
+  | DcdcConverterSimulationElementUse
+  | DiodeSimulationElementUse;
 
 export type ComponentSimulationElementTerminalMap = ComponentSimulationElementUse["terminals"];
 
@@ -150,8 +158,19 @@ export type ComponentSimulationElementUseByType = {
   [ElementUse in ComponentSimulationElementUse as ElementUse["type"]]: ElementUse;
 };
 
+export type UsbPowerPairSimulationPort = {
+  id: string;
+  type: "usbPowerPair";
+  handle: string;
+  positiveTerminal: string;
+  negativeTerminal: string;
+};
+
+export type ComponentSimulationPort = UsbPowerPairSimulationPort;
+
 export type ComponentSimulationDefinition = {
   version: 1;
+  ports?: ComponentSimulationPort[];
   elements?: ComponentSimulationElementUse[];
 };
 
@@ -184,6 +203,11 @@ export type SimulationWireElement = {
   lengthM: number;
   crosssectionMm2: number;
   material: "copper";
+  aggregate?: {
+    kind: "usbPowerPair";
+    conductor: "vbus" | "gnd";
+    displayDirection: "sourceToTarget" | "targetToSource";
+  };
 };
 
 export type SimulationComponent = {
@@ -229,8 +253,10 @@ export type SimulationVirtualPin = {
   nodeId: string;
   handleId: string;
   role: "gnd" | "supply";
-  segmentBoundaryIndex: number;
+  kind?: "ledBoundary" | "usbPowerPair";
+  segmentBoundaryIndex?: number;
   pairedHandleId?: string;
+  voltageLabel?: "VUSB";
   circuitNodeId?: string;
   position: SimulationPoint;
 };
@@ -261,6 +287,10 @@ export type SimulationVirtualPinResult = {
   virtualPinId: string;
   nodeId: string;
   handleId: string;
+  role?: "gnd" | "supply";
+  kind?: "ledBoundary" | "usbPowerPair";
+  pairedHandleId?: string;
+  voltageLabel?: "VUSB";
   voltageV?: number;
 };
 
@@ -270,6 +300,15 @@ export type SimulationWireResult = {
   currentA?: number;
   voltageDropV?: number;
   resistanceOhm?: number;
+  displayCurrentA?: number;
+  displayBidirectional?: boolean;
+  conductorResults?: {
+    wireId: string;
+    conductor: "vbus" | "gnd";
+    currentA?: number;
+    voltageDropV?: number;
+    resistanceOhm?: number;
+  }[];
 };
 
 export type SimulationLedElementVoltageResult = {

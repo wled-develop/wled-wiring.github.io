@@ -1,0 +1,62 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "PSU_USB",
+        "technicalVersion": 1,
+        "group": "psu",
+        "handles": [
+          { "hid": "usb", "name": "USB", "functions": ["usb_power_out"], "Vout": 5 }
+        ]
+      }
+    },
+    {
+      "id": "join",
+      "type": "general-component-type",
+      "position": { "x": 100, "y": 0 },
+      "data": {
+        "technicalID": "WAGO_2X",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "A", "name": "A", "functions": ["general_conn"] },
+          { "hid": "B", "name": "B", "functions": ["general_conn"] }
+        ]
+      }
+    },
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "USB_DEVICE",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "USB", "name": "USB", "functions": ["usb_full"], "tolVmin": 0, "tolVmax": 5.5 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "usb-wire-a",
+      "source": "psu",
+      "target": "join",
+      "sourceHandle": "usb",
+      "targetHandle": "A",
+      "data": { "physType": "usb", "physLength": 1, "physCrosssection": 26, "physCrosssectionUnit": "AWG" }
+    },
+    {
+      "id": "usb-wire-b",
+      "source": "join",
+      "target": "controller",
+      "sourceHandle": "B",
+      "targetHandle": "USB",
+      "data": { "physType": "usb", "physLength": 1, "physCrosssection": 26, "physCrosssectionUnit": "AWG" }
+    }
+  ]
+}

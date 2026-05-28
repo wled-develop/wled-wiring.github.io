@@ -63,6 +63,12 @@ export const ELEMENTARY_ELEMENT_METADATA = {
     requiredParameters: ["outputVoltageV", "efficiency"],
     optionalParameters: ["outputCurrentLimitA", "voltageDropPctAt150Current"],
   },
+  diode: {
+    type: "diode",
+    terminals: ["anode", "cathode"],
+    requiredParameters: ["forwardVoltageV"],
+    optionalParameters: [],
+  },
 } as const satisfies Record<ComponentSimulationElementType, ElementaryElementMetadata>;
 
 export const ELEMENTARY_ELEMENT_TYPES = Object.keys(

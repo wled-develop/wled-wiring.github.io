@@ -1,0 +1,10 @@
+{
+  "case": "usb_missing_wire_data",
+  "filterIssueIdIncludes": ["wire-without-physical-parameters"],
+  "expectedIssues": [
+    {
+      "idIncludes": "wire-without-physical-parameters",
+      "severity": "warning"
+    }
+  ]
+}

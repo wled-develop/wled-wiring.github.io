@@ -1,0 +1,11 @@
+{
+  "case": "usb_valid_point_to_point",
+  "filterIssueIdIncludes": [
+    "usbPowerPairInvalid",
+    "wireWithoutPhysicalParameters",
+    "supplyVoltageMismatch",
+    "signalSinkWithoutSource",
+    "powerMissing"
+  ],
+  "expectedIssues": []
+}

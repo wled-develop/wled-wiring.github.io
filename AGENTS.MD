@@ -21,3 +21,4 @@
 - **Never do:** read or write anything outside of wled-wiring.github.io directory
 - **Always do:** Keep concept files up to date
 - **Take care of:** Correct translations in src/translations/
+- **Always do:** For bigger task setup a detailed plan and after single step/substep is implemented, mark it as completed. Also mark what are you currently working on.

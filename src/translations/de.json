@@ -530,10 +530,16 @@
               "description": "Bei {{component}} sind beide Seiten der Sicherung extern im selben Netz. Die Schutzfunktion ist damit aufgehoben.",
               "recommendation": "Entferne die externe Bruecke ueber die Sicherung."
             },
+            "usbPowerPairInvalid": {
+              "title": "USB-Power-Verbindung ist ungueltig",
+              "shortDescription": "USB-Power muss genau eine USB-Quelle direkt mit genau einem USB-Geraet verbinden.",
+              "description": "Dieses USB-Power-Netz ist nicht Point-to-Point: {{reason}}.",
+              "recommendation": "Verwende eine direkte USB-Wire von genau einem USB-Power-Ausgang zu genau einem USB-Geraet, ohne Verteiler oder zusaetzliche Anschluesse."
+            },
             "wireWithoutPhysicalParameters": {
               "title": "Power-Wire ohne physikalische Daten",
-              "shortDescription": "Eine Power/GND-Leitung hat keine Laenge oder keinen Querschnitt.",
-              "description": "Diese Leitung liegt in einem Versorgungs- oder GND-Netz, aber Laenge oder Querschnitt fehlen.",
+              "shortDescription": "Eine Power-, GND- oder USB-Leitung hat keine Laenge oder keinen Querschnitt.",
+              "description": "Diese Leitung liegt in einem Versorgungs-, GND- oder USB-Netz, aber Laenge oder Querschnitt fehlen.",
               "recommendation": "Setze Laenge und Querschnitt fuer diese Leitung."
             },
             "duplicateParallelWire": {

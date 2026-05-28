@@ -71,7 +71,10 @@ const KNOWN_SIMULATION_ELEMENT_TYPES: readonly ComponentSimulationElementUse['ty
   'fuse',
   'digitalLed',
   'dcdcConverter',
+  'diode',
 ];
+
+const KNOWN_SIMULATION_PORT_TYPES = ['usbPowerPair'] as const;
 
 const addIssue = (
   issues: ComponentValidationIssue[],
@@ -187,12 +190,28 @@ export const validateComponentPackage = (componentPackage: ComponentPackage): Co
     }
   });
 
+  const simulationVirtualTerminals = new Set<string>();
+
+  definition.simulation?.ports?.forEach((port, index) => {
+    if (!KNOWN_SIMULATION_PORT_TYPES.includes(port.type)) {
+      addIssue(issues, 'error', `component.simulation.ports[${index}].type`, `Unknown simulation port type "${port.type}".`);
+    }
+    if (!handleIdSet.has(port.handle)) {
+      addIssue(issues, 'error', `component.simulation.ports[${index}].handle`, `Unknown handle "${port.handle}".`);
+    }
+    if (port.positiveTerminal === port.negativeTerminal) {
+      addIssue(issues, 'error', `component.simulation.ports[${index}]`, 'Port terminals must be different.');
+    }
+    simulationVirtualTerminals.add(port.positiveTerminal);
+    simulationVirtualTerminals.add(port.negativeTerminal);
+  });
+
   definition.simulation?.elements?.forEach((element, index) => {
     if (!KNOWN_SIMULATION_ELEMENT_TYPES.includes(element.type)) {
       addIssue(issues, 'error', `component.simulation.elements[${index}].type`, `Unknown simulation element type "${element.type}".`);
     }
     Object.values(element.terminals).forEach((handleId) => {
-      if (!handleIdSet.has(handleId)) {
+      if (!handleIdSet.has(handleId) && !simulationVirtualTerminals.has(handleId)) {
         addIssue(issues, 'error', `component.simulation.elements[${index}].terminals`, `Unknown handle "${handleId}".`);
       }
     });

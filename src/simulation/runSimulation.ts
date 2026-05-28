@@ -13,6 +13,7 @@ import {
   updateDcdcInputStates,
 } from "./dcdcSimulation";
 import { getLedCurrentA } from "./ledCurrentLookups";
+import { logSimulationDiodeStateChanges } from "./simulationDebug";
 import type {
   LinearSystem,
   SimulationCheckIssue,
@@ -40,6 +41,7 @@ const MAX_NONLINEAR_ITERATIONS = 100;
 const LED_CURRENT_CONVERGENCE_A = 0.000005;
 const CONSTANT_POWER_CURRENT_CONVERGENCE_A = 0.000005;
 const SOURCE_VOLTAGE_CONVERGENCE_V = 0.00005;
+const DIODE_VOLTAGE_TOLERANCE_V = 0.0005;
 const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
 const VOLTAGE_TOLERANCE_V = 0.0005;
 const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
@@ -69,6 +71,7 @@ type VoltageSourceState = {
 };
 
 type VoltageSourceStateByElementId = Map<string, VoltageSourceState>;
+type DiodeStateByElementId = Map<string, boolean>;
 
 const numberParameter = (
   parameters: Record<string, string | number | boolean> | undefined,
@@ -413,6 +416,18 @@ const createInitialVoltageSourceStates = (model: SimulationModel): VoltageSource
   return states;
 };
 
+const createInitialDiodeStates = (model: SimulationModel): DiodeStateByElementId => {
+  const states: DiodeStateByElementId = new Map();
+
+  model.elements.forEach((element) => {
+    if(element.type === "diode") {
+      states.set(element.id, true);
+    }
+  });
+
+  return states;
+};
+
 const degradedVoltageForCurrent = (
   nominalVoltageV: number,
   currentA: number,
@@ -536,6 +551,62 @@ const updateVoltageSourceStates = (
   };
 };
 
+const updateDiodeStates = (
+  model: SimulationModel,
+  linearModel: LinearDcModel,
+  values: number[],
+  circuitVoltages: Map<string, number>,
+  currentStates: DiodeStateByElementId,
+  iteration: number,
+) => {
+  const nextStates: DiodeStateByElementId = new Map(currentStates);
+  let changed = false;
+  const changes: Parameters<typeof logSimulationDiodeStateChanges>[0] = [];
+  const sourceByElementId = new Map(linearModel.voltageSources.map((source) => [source.elementId, source]));
+
+  model.elements.forEach((element) => {
+    if(element.type !== "diode") return;
+
+    const forwardVoltageV = numberParameter(element.parameters, "forwardVoltageV");
+    const anodeVoltage = circuitVoltages.get(element.terminals.anode);
+    const cathodeVoltage = circuitVoltages.get(element.terminals.cathode);
+    if(forwardVoltageV === undefined || anodeVoltage === undefined || cathodeVoltage === undefined) return;
+
+    const wasConducting = currentStates.get(element.id) ?? true;
+    const source = sourceByElementId.get(element.id);
+    const sourceCurrentA = source?.currentVariableIndex !== undefined
+      ? values[source.currentVariableIndex]
+      : undefined;
+    const shouldConduct = wasConducting
+      ? (sourceCurrentA === undefined || sourceCurrentA >= -CURRENT_LIMIT_TOLERANCE_A)
+      : anodeVoltage - cathodeVoltage >= forwardVoltageV - DIODE_VOLTAGE_TOLERANCE_V;
+
+    if(shouldConduct !== wasConducting) {
+      changed = true;
+      changes.push({
+        iteration,
+        elementId: element.id,
+        sourceElementId: element.sourceElementId,
+        componentId: element.componentId,
+        anodeVoltageV: anodeVoltage,
+        cathodeVoltageV: cathodeVoltage,
+        forwardVoltageV,
+        sourceCurrentA,
+        wasConducting,
+        isConducting: shouldConduct,
+      });
+    }
+    nextStates.set(element.id, shouldConduct);
+  });
+
+  logSimulationDiodeStateChanges(changes);
+
+  return {
+    nextStates,
+    changed,
+  };
+};
+
 const createExtremeVoltageSourceOverloadIssues = (
   model: SimulationModel,
   linearModel: LinearDcModel,
@@ -572,6 +643,7 @@ const createExtremeVoltageSourceOverloadIssues = (
 const voltageSourcesFromElements = (
   model: SimulationModel,
   voltageSourceStates: VoltageSourceStateByElementId = new Map(),
+  diodeStates: DiodeStateByElementId = new Map(),
 ): VoltageSourceStamp[] => {
   const sources = model.elements.flatMap((element) => {
     if(element.type === "voltageSource") {
@@ -596,6 +668,17 @@ const voltageSourcesFromElements = (
       }];
     }
 
+    if(element.type === "diode" && diodeStates.get(element.id)) {
+      const voltageV = numberParameter(element.parameters, "forwardVoltageV");
+      if(voltageV === undefined) return [];
+      return [{
+        elementId: element.id,
+        positiveCircuitNodeId: element.terminals.anode,
+        negativeCircuitNodeId: element.terminals.cathode,
+        voltageV,
+      }];
+    }
+
     return [];
   });
   const uniqueSources = new Map<string, VoltageSourceStamp>();
@@ -614,7 +697,10 @@ const voltageSourcesFromElements = (
   return Array.from(uniqueSources.values());
 };
 
-const collectActiveCircuitNodeIds = (model: SimulationModel) => {
+const collectActiveCircuitNodeIds = (
+  model: SimulationModel,
+  diodeStates: DiodeStateByElementId = new Map(),
+) => {
   const activeCircuitNodeIds = new Set<string>();
   const adjacency = new Map<string, string[]>();
   const addActive = (circuitNodeId: string | undefined) => {
@@ -636,6 +722,12 @@ const collectActiveCircuitNodeIds = (model: SimulationModel) => {
     if(element.type === "dcdcConverter") {
       addActive(element.terminals.outPositive);
       addActive(element.terminals.outNegative);
+    }
+
+    if(element.type === "diode" && diodeStates.get(element.id)) {
+      addActive(element.terminals.anode);
+      addActive(element.terminals.cathode);
+      addPassiveConnection(element.terminals.anode, element.terminals.cathode);
     }
 
     if(element.type === "resistor" || element.type === "fuse") {
@@ -684,13 +776,14 @@ const buildLinearDcModel = (
   constantPowerCurrentByElementId: ConstantPowerCurrentByElementId = new Map(),
   voltageSourceStates: VoltageSourceStateByElementId = new Map(),
   dcdcInputStates: DcdcInputStateByElementId = new Map(),
+  diodeStates: DiodeStateByElementId = new Map(),
 ): LinearDcModel => {
-  const activeCircuitNodeIds = collectActiveCircuitNodeIds(model);
+  const activeCircuitNodeIds = collectActiveCircuitNodeIds(model, diodeStates);
   const circuitNodeIndexById = createCircuitNodeIndexById({
     ...model,
     circuitNodes: model.circuitNodes.filter((node) => activeCircuitNodeIds.has(node.id)),
   });
-  const voltageSources = voltageSourcesFromElements(model, voltageSourceStates).map((source, index) => ({
+  const voltageSources = voltageSourcesFromElements(model, voltageSourceStates, diodeStates).map((source, index) => ({
     ...source,
     currentVariableIndex: circuitNodeIndexById.size + index,
   }));
@@ -1256,7 +1349,7 @@ const createSimulationResult = (
     pinIdsByCircuitNodeId.set(pin.circuitNodeId, pinIds);
   });
 
-  const wireResults = model.wires.map((wire) => {
+  const rawWireResults = model.wires.map((wire) => {
     const sourceVoltage = circuitVoltages.get(wire.sourceCircuitNodeId);
     const targetVoltage = circuitVoltages.get(wire.targetCircuitNodeId);
     const voltageDropV = sourceVoltage !== undefined && targetVoltage !== undefined
@@ -1283,8 +1376,65 @@ const createSimulationResult = (
       resistanceOhm: wire.resistanceOhm,
     };
   });
+  const wireById = new Map(model.wires.map((wire) => [wire.id, wire]));
+  const usbWireResultsByEdgeId = new Map<string, typeof rawWireResults>();
+  rawWireResults.forEach((wireResult) => {
+    const wire = wireById.get(wireResult.wireId);
+    if(wire?.aggregate?.kind !== "usbPowerPair") return;
+
+    const group = usbWireResultsByEdgeId.get(wire.edgeId) ?? [];
+    group.push(wireResult);
+    usbWireResultsByEdgeId.set(wire.edgeId, group);
+  });
+  const usbAggregatedEdgeIds = new Set(usbWireResultsByEdgeId.keys());
+  const usbConsistencyIssues: SimulationCheckIssue[] = [];
+  const usbAggregatedWireResults = Array.from(usbWireResultsByEdgeId.entries()).flatMap(([
+    edgeId,
+    group,
+  ]) => {
+    const vbus = group.find((result) => wireById.get(result.wireId)?.aggregate?.conductor === "vbus");
+    const gnd = group.find((result) => wireById.get(result.wireId)?.aggregate?.conductor === "gnd");
+    const displayCurrentA = vbus?.currentA !== undefined ? Math.abs(vbus.currentA) : undefined;
+    const vbusAbs = vbus?.currentA !== undefined ? Math.abs(vbus.currentA) : undefined;
+    const gndAbs = gnd?.currentA !== undefined ? Math.abs(gnd.currentA) : undefined;
+
+    if(
+      vbusAbs !== undefined &&
+      gndAbs !== undefined &&
+      Math.abs(vbusAbs - gndAbs) > CURRENT_LIMIT_TOLERANCE_A
+    ) {
+      usbConsistencyIssues.push(issue(
+        `simulation-usb-current-pair-mismatch:${edgeId}`,
+        "USB current pair mismatch",
+        "VBUS and GND currents in this USB cable differ. This usually means there is another return path or inconsistent USB modelling.",
+        [{type: "wire", edgeId}],
+        "info",
+      ));
+    }
+
+    return [{
+      wireId: `wire:${edgeId}:usb-pair`,
+      edgeId,
+      currentA: displayCurrentA,
+      displayCurrentA,
+      displayBidirectional: true,
+      voltageDropV: vbus?.voltageDropV,
+      resistanceOhm: vbus?.resistanceOhm,
+      conductorResults: group.map((result) => ({
+        wireId: result.wireId,
+        conductor: wireById.get(result.wireId)?.aggregate?.conductor ?? "vbus",
+        currentA: result.currentA,
+        voltageDropV: result.voltageDropV,
+        resistanceOhm: result.resistanceOhm,
+      })),
+    }];
+  });
+  const wireResults = [
+    ...rawWireResults.filter((result) => !usbAggregatedEdgeIds.has(result.edgeId)),
+    ...usbAggregatedWireResults,
+  ];
   const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages, voltageSourceStates, dcdcInputStates);
-  const allCheckIssues = [...checkIssues, ...solvedCheckIssues];
+  const allCheckIssues = [...checkIssues, ...solvedCheckIssues, ...usbConsistencyIssues];
 
   return {
     modelVersion: 1,
@@ -1302,6 +1452,10 @@ const createSimulationResult = (
       virtualPinId: pin.id,
       nodeId: pin.nodeId,
       handleId: pin.handleId,
+      role: pin.role,
+      kind: pin.kind,
+      pairedHandleId: pin.pairedHandleId,
+      voltageLabel: pin.voltageLabel,
       voltageV: voltageForCircuitNode(model, linearModel.circuitNodeIndexById, values, pin.circuitNodeId),
     })),
     wireResults,
@@ -1336,12 +1490,14 @@ export const runSimulation = (
   let constantPowerCurrentByElementId = createInitialConstantPowerCurrents(modelResult.model);
   let voltageSourceStates = createInitialVoltageSourceStates(modelResult.model);
   let dcdcInputStates = createInitialDcdcInputStates(modelResult.model);
+  let diodeStates = createInitialDiodeStates(modelResult.model);
   let linearModel = buildLinearDcModel(
     modelResult.model,
     ledCurrentByElementId,
     constantPowerCurrentByElementId,
     voltageSourceStates,
     dcdcInputStates,
+    diodeStates,
   );
   let solverResult = sparseLinearSystemSolver.solve(linearModel.system);
   let converged = false;
@@ -1391,6 +1547,14 @@ export const runSimulation = (
       voltageSourceStates,
       dcdcInputUpdate.nextStates,
     );
+    const diodeUpdate = updateDiodeStates(
+      modelResult.model,
+      linearModel,
+      solverResult.values,
+      circuitVoltages,
+      diodeStates,
+      iteration,
+    );
 
     if(
       maxLedCurrentDeltaA(ledCurrentByElementId, rawNextLedCurrentByElementId) <= LED_CURRENT_CONVERGENCE_A &&
@@ -1399,12 +1563,14 @@ export const runSimulation = (
         rawNextConstantPowerCurrentByElementId,
       ) <= CONSTANT_POWER_CURRENT_CONVERGENCE_A &&
       sourceUpdate.maxVoltageDeltaV <= SOURCE_VOLTAGE_CONVERGENCE_V &&
-      dcdcInputUpdate.maxCurrentDeltaA <= DCDC_INPUT_CURRENT_CONVERGENCE_A
+      dcdcInputUpdate.maxCurrentDeltaA <= DCDC_INPUT_CURRENT_CONVERGENCE_A &&
+      !diodeUpdate.changed
     ) {
       ledCurrentByElementId = rawNextLedCurrentByElementId;
       constantPowerCurrentByElementId = rawNextConstantPowerCurrentByElementId;
       voltageSourceStates = sourceUpdate.nextStates;
       dcdcInputStates = dcdcInputUpdate.nextStates;
+      diodeStates = diodeUpdate.nextStates;
       converged = true;
       break;
     }
@@ -1413,12 +1579,14 @@ export const runSimulation = (
     constantPowerCurrentByElementId = nextConstantPowerCurrentByElementId;
     voltageSourceStates = sourceUpdate.nextStates;
     dcdcInputStates = dcdcInputUpdate.nextStates;
+    diodeStates = diodeUpdate.nextStates;
     linearModel = buildLinearDcModel(
       modelResult.model,
       ledCurrentByElementId,
       constantPowerCurrentByElementId,
       voltageSourceStates,
       dcdcInputStates,
+      diodeStates,
     );
     solverResult = sparseLinearSystemSolver.solve(linearModel.system);
   }

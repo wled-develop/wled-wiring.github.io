@@ -1,6 +1,25 @@
 import type { RunSimulationResult } from "./runSimulation";
 
-export const SIMULATION_DEBUG = true;
+export const SIMULATION_DEBUG = false;
+
+export type SimulationDiodeDebugChange = {
+  iteration: number;
+  elementId: string;
+  sourceElementId?: string;
+  componentId?: string;
+  anodeVoltageV?: number;
+  cathodeVoltageV?: number;
+  forwardVoltageV?: number;
+  sourceCurrentA?: number;
+  wasConducting: boolean;
+  isConducting: boolean;
+};
+
+export const logSimulationDiodeStateChanges = (changes: SimulationDiodeDebugChange[]) => {
+  if(!SIMULATION_DEBUG || changes.length === 0) return;
+
+  console.info("[simulation] diode state changes", changes);
+};
 
 export const logSimulationDebug = (simulation: RunSimulationResult) => {
   if(!SIMULATION_DEBUG) return;

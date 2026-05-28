@@ -79,6 +79,7 @@ import {edgeTypes} from './wires';
 import { SimulationOverlay } from './simulation/SimulationOverlay.tsx';
 import { initializeLedSimulationOptionValues } from './simulation/ledStripSimulationOptions.ts';
 import { ENABLE_COMPONENT_EDITOR_FOOTER_LINK } from './editor/componentEditorFeatureFlags.ts';
+import { wirePhysicalDefaultsForConnection } from './wires/wireDefaults.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -352,9 +353,7 @@ const FlowApp = () => {
               color, 
               width: width,
               physLength: 0.1,
-              physCrosssection: 0.75,
-              physCrosssectionUnit: "mm2",
-              physType: "single",
+              ...wirePhysicalDefaultsForConnection(nodes as Node<ComponentDataType>[], params),
           }}, edges);
           SetTriggerState((value) => value + 1);
           return edg;

@@ -22,6 +22,7 @@ import { useUndoRedo } from '../utils/undoRedo.tsx';
 import { useSelectedElementsCount } from '../utils/useSelectedElementsCount.ts';
 import { rotateComponentWires } from '../utils/rotateWireRouting.ts';
 import { ENABLE_SIMULATION_CONTROLS } from '../simulation/simulationFeatureFlags.ts';
+import { wirePhysicalDefaultsForConnection } from '../wires/wireDefaults.ts';
 import {
     LED_STRIP_CURRENT_CURVE_OPTIONS,
     LED_STRIP_RESISTANCE_OPTIONS,
@@ -772,9 +773,15 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                         color_selected: color, 
                         width: 1,
                         physLength: 0.1,
-                        physCrosssection: 0.75,
-                        physCrosssectionUnit: "mm2",
-                        physType: "single",
+                        ...wirePhysicalDefaultsForConnection(
+                            reactFlowInstance.getNodes() as GeneralComponent[],
+                            {
+                                source: startNodeID,
+                                sourceHandle: startNodeHid as string,
+                                target: id,
+                                targetHandle: value as string,
+                            },
+                        ),
                     },
                     type: "editable-wire-type",
                     source: startNodeID,

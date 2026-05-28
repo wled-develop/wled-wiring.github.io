@@ -93,6 +93,7 @@ const SIMULATION_ELEMENT_TYPES: ComponentSimulationElementType[] = [
   'fuse',
   'digitalLed',
   'dcdcConverter',
+  'diode',
 ];
 
 const SIMULATION_ELEMENT_DEFINITIONS: Record<
@@ -123,6 +124,7 @@ const SIMULATION_ELEMENT_DEFINITIONS: Record<
     terminals: ['inPositive', 'inNegative', 'outPositive', 'outNegative'],
     parameters: ['outputVoltageV', 'efficiency', 'outputCurrentLimitA', 'voltageDropPctAt150Current'],
   },
+  diode: {terminals: ['anode', 'cathode'], parameters: ['forwardVoltageV']},
 };
 
 type DraftEntry = {
