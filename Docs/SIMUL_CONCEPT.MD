@@ -73,6 +73,7 @@ Konzeptionelle Struktur:
 ```ts
 type ComponentSimulationDefinition = {
   version: 1;
+  ports?: UsbPowerPairSimulationPort[];
   elements?: ComponentSimulationElementUse[];
 };
 ```
@@ -92,7 +93,8 @@ type ComponentSimulationElementUse = {
     | 'constantPowerSink'
     | 'fuse'
     | 'digitalLed'
-    | 'dcdcConverter';
+    | 'dcdcConverter'
+    | 'diode';
   terminals: Record<string, string>;
   parameters?: Record<string, SimulationParameterRef>;
 };
@@ -101,7 +103,8 @@ type ComponentSimulationElementUse = {
 Dabei gilt:
 
 - `type` ist der elementare Elementtyp.
-- `terminals` mappt Elementterminals auf `hid`s der Komponente.
+- `terminals` mappt Elementterminals auf `hid`s der Komponente oder auf virtuelle Terminalnamen aus `simdata.ports`, z.B. `USB.VBUS`.
+- `ports` beschreibt zusammengesetzte sichtbare Anschluesse, die im Simulationsmodell in mehrere elektrische Knoten expandiert werden. Die erste Port-Art ist `usbPowerPair`.
 - `parameters` enthaelt Parameter, feste Werte, Field-Referenzen, Select-Referenzen oder lokale Tabellen.
 
 Beispiele:
@@ -183,6 +186,28 @@ Die Simulation sollte nicht aus `technicalID` allein raten muessen. `technicalID
 ## Elementare elektrische Elemente
 
 Die Simulation wird aus elementaren elektrischen Elementen aufgebaut. Komponenten verwenden diese Elemente in ihrer `data.simdata`-Struktur. Dadurch koennen viele Komponenten ohne Spezialcode beschrieben werden.
+
+### Diode
+
+Eine Diode besteht aus zwei Terminals und leitet ideal nur von `anode` nach `cathode`, sobald die Vorwaertsspannung erreicht ist. In Sperrrichtung wird kein Strom modelliert.
+
+Terminals:
+
+- `anode`
+- `cathode`
+
+Parameter:
+
+- `forwardVoltageV`
+
+Der erste konkrete Einsatz ist der USB-Versorgungspfad von `USB.VBUS` nach lokalem `VIN` bzw. lokalem V+. Dort gilt `forwardVoltageV = 0.4`. Das Element bleibt bewusst allgemein, damit spaeter auch andere ideale Diodenpfade ohne Sondertyp modelliert werden koennen.
+
+Solver-Verhalten:
+
+- Im leitenden Zustand wird die Diode wie eine ideale Spannungsquelle mit festem Spannungsabfall zwischen Anode und Kathode behandelt.
+- Im sperrenden Zustand wird sie offen geschaltet.
+- Der aktive Zustand wird iterativ bestimmt. Wenn eine Diode im geloesten Arbeitspunkt rueckwaerts bestromt wuerde oder die Vorwaertsspannung nicht erreicht, wird sie in der naechsten Iteration gesperrt; wenn `V(anode) - V(cathode) >= forwardVoltageV` erreicht wird, wird sie leitend.
+- Ein kleiner Leckstrom oder Diagnose-Sperrstrom wird nicht gestempelt.
 
 ### Elementarer Widerstand
 
@@ -1131,6 +1156,204 @@ Debug-Modus:
 - Diese Informationen sind nur fuer Entwicklung und Tests gedacht und duerfen normale Nutzer nicht in der UI verwirren.
 - Zusaetzlich gibt es `DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK` in `simulationFeatureFlags.ts`. Dieser Schalter ist standardmaessig `false` und darf nur fuer Entwicklung/Regressionstests aktiviert werden. Bei `true` startet die Simulation auch ohne aktuelles fehlerfreies Diagramm-Check-Ergebnis; die UI zeigt dann einen Warnhinweis zum Debug-Bypass.
 
+## USB-Power-Pair-Simulation
+
+`PSU_USB` besitzt nur einen sichtbaren USB-Handle. Elektrisch besteht eine USB-Versorgung aber aus mindestens zwei Leitern: `VBUS` bzw. `V+` und `GND`. Fuer die Simulation darf dieser Handle deshalb nicht als einzelner Circuit-Node behandelt werden. Er muss im Modellaufbau explizit in zwei virtuelle elektrische Pins aufgespalten werden.
+
+Ziel fuer `PSU_USB`:
+
+- Die Komponente liefert dieselbe 5-V-Spannungsquelle wie `PSU_USB_WIRES`: `voltageV = 5`, `currentLimitA` aus `source_current`, `voltageDropPctAt150Current = 50`.
+- Der sichtbare Handle `usb` mit Funktion `usb_power_out` erzeugt intern einen virtuellen `VBUS`-Pin und einen virtuellen `GND`-Pin.
+- Ein angeschlossener `usb_full`-Handle erzeugt ebenfalls intern einen virtuellen `VBUS`-Pin und einen virtuellen `GND`-Pin.
+- Eine USB-Wire zwischen `usb_power_out` und `usb_full` wird im Simulationsmodell als zwei parallele Leiter modelliert: ein VBUS-Leiter von Quelle zu Verbraucher und ein GND-Rueckleiter von Verbraucher zur Quelle.
+- Die Wire-Laenge und der Wire-Querschnitt gelten jeweils fuer einen einzelnen Leiter. Deshalb erhalten VBUS- und GND-Leiter denselben berechneten Widerstand, nicht den halben oder doppelten Wert.
+
+### Datenmodell
+
+Das Konzept soll ohne Heuristik umgesetzt werden. Der Modellaufbau soll nicht aus Handle-Namen wie `usb` ableiten, dass zwei Leiter existieren, sondern eine explizite Simulation-Port-Definition verwenden.
+
+Vorschlag:
+
+```ts
+type UsbPowerPairSimulationPort = {
+  id: string;
+  type: "usbPowerPair";
+  handle: string;
+  positiveTerminal: string;
+  negativeTerminal: string;
+};
+```
+
+Beispiel fuer `PSU_USB`:
+
+```json
+"simdata": {
+  "version": 1,
+  "ports": [
+    {
+      "id": "usb-power",
+      "type": "usbPowerPair",
+      "handle": "usb",
+      "positiveTerminal": "usb.VBUS",
+      "negativeTerminal": "usb.GND"
+    }
+  ],
+  "elements": [
+    {
+      "id": "source",
+      "type": "voltageSource",
+      "terminals": {
+        "positive": "usb.VBUS",
+        "negative": "usb.GND"
+      },
+      "parameters": {
+        "voltageV": 5,
+        "currentLimitA": { "field": "source_current" },
+        "voltageDropPctAt150Current": 50
+      }
+    }
+  ]
+}
+```
+
+Komponenten mit `usb_full` benoetigen ebenfalls einen `usbPowerPair`-Port. Alle Komponenten mit `usb_full` duerfen grundsaetzlich ueber USB versorgt werden; sie haben zugleich einen separaten V+-Eingang. Dafuer gilt:
+
+- `USB.GND` wird ueber eine explizite `shortBridge` mit dem lokalen GND-Knoten der Komponente verbunden.
+- `USB.VBUS` wird nicht direkt mit `VIN` oder `5V` kurzgeschlossen, sondern ueber ein allgemeines `diode`-Element auf den lokalen V+-Knoten gefuehrt.
+- Diese Diode leitet ideal nur in Vorwaertsrichtung und erzeugt ca. `0.4 V` Spannungsabfall. Rueckspeisung von lokalem V+ nach `USB.VBUS` wird ideal gesperrt; ein Sperrstrom wird nicht modelliert.
+- Wenn der separate V+-Eingang versorgt ist, speist sich die Komponente aus diesem Eingang; USB ist dann nicht die primaere Versorgung.
+- Wenn der separate V+-Eingang nicht versorgt ist, aber `usb_full` mit einem erreichbaren `usb_power_out` verbunden ist, speist USB die Komponente ueber die Diode.
+
+Damit werden per USB versorgte Controller auch an ihren internen 5-V- und 3.3-V-Pins als versorgt bzw. weiterleitend modelliert. USB ist also keine reine interne Controller-Last, sondern kann die bestehenden Versorgungs- und Reglerpfade der Komponente aktivieren.
+
+Falls eine konkrete Komponente USB nur als Datenanschluss nutzen soll, darf sie keinen `usbPowerPair`-Port definieren. Ein `usb_full` ohne erreichbares `usb_power_out` ist kein Diagrammfehler und kein Simulationsfehler; der USB-Port wird dann fuer die Versorgung einfach nicht verwendet.
+
+Beispiel fuer eine USB-versorgbare Verbraucherkomponente:
+
+```json
+"simdata": {
+  "version": 1,
+  "ports": [
+    {
+      "id": "usb-power",
+      "type": "usbPowerPair",
+      "handle": "USB",
+      "positiveTerminal": "USB.VBUS",
+      "negativeTerminal": "USB.GND"
+    }
+  ],
+  "elements": [
+    {"id": "usb-gnd-bridge", "type": "shortBridge", "terminals": {"a": "USB.GND", "b": "GND"}},
+    {
+      "id": "usb-vbus-diode",
+      "type": "diode",
+      "terminals": {"anode": "USB.VBUS", "cathode": "VIN"},
+      "parameters": {"forwardVoltageV": 0.4}
+    }
+  ]
+}
+```
+
+### Modellaufbau
+
+Der Modellaufbau erweitert `buildSimulationModel()` um virtuelle Pins fuer zusammengesetzte Ports:
+
+1. Sichtbare Handles bleiben fuer Diagramm-Checks, Targets und UI erhalten.
+2. Fuer jeden `usbPowerPair`-Port werden zwei interne Pin-IDs erzeugt, z.B. `node::usb::VBUS` und `node::usb::GND`.
+3. Element-Terminals duerfen diese virtuellen Terminal-IDs referenzieren.
+4. USB-Wires werden nicht als ein normaler Wire-Widerstand erzeugt. Stattdessen entstehen zwei `SimulationWireElement`-Eintraege mit derselben Laenge und demselben Querschnitt:
+   - `edge:<id>:usb-vbus`
+   - `edge:<id>:usb-gnd`
+5. Beide Wire-Elemente behalten eine Referenz auf dieselbe sichtbare Edge-ID, muessen aber fuer Ergebnisaggregation als USB-Paar markiert werden.
+6. Bei USB-Verbraucherkomponenten werden die Port-Terminals mit den internen Versorgungsknoten verbunden: `USB.GND` per `shortBridge`, `USB.VBUS` ueber eine Diode mit ca. `0.4 V` Vorwaertsspannung zum lokalen V+-Knoten.
+
+Der Solver sieht fuer die USB-Wire weiterhin normale Widerstands-Wires und fuer `PSU_USB` eine normale Spannungsquelle. Neu benoetigt wird aber ein gerichtetes Dioden-/Forward-Drop-Element fuer den Verbraucherpfad von `USB.VBUS` nach lokalem `VIN` bzw. `5V`.
+
+### Ergebnisdarstellung fuer USB-Wires
+
+Eine sichtbare USB-Wire hat zwei elektrische Strangstromwerte. Im Normalfall ist der Betrag des VBUS-Stroms gleich dem Betrag des GND-Rueckstroms, die Richtungen sind entgegengesetzt. Die UI soll deshalb:
+
+- als Zahlenwert nur den Hinstrom anzeigen, also den Betrag des VBUS-Stroms von `usb_power_out` zu `usb_full`;
+- den Strompfeil fuer USB-Wires bidirektional darstellen, auch wenn der Wert nicht 0 A ist;
+- den Hover-/Detailwert als USB-Paar kennzeichnen, damit klar bleibt, dass Hin- und Rueckstrom in derselben sichtbaren Wire laufen;
+- bei Abweichung zwischen VBUS- und GND-Strom ein Simulations-Issue (Info) erzeugen, weil dann ein zusaetzlicher Rueckstrompfad oder eine Modellierungsinkonsistenz vorliegt.
+
+Technisch sollte `SimulationWireResult` dafuer nicht nur einen einzelnen `currentA`-Wert kennen, sondern optional Metadaten fuer aggregierte sichtbare Wires bekommen, z.B. `displayCurrentA`, `displayBidirectional` und `conductorResults`.
+
+### Diagramm-Checks fuer USB-Versorgung
+
+Die Check-Regeln behandeln USB als optionalen Power-Pair-Steckverbinder. Ein `usb_full` ist nur dann eine Versorgung, wenn im selben USB-Netz ein erreichbares `usb_power_out` liegt. Ohne erreichbares `usb_power_out` gilt der USB-Port als ungenutzt fuer die Versorgung, z.B. weil darueber nur Daten laufen.
+
+- `wireWithoutPhysicalParameters` muss auch USB-Netze betrachten, weil eine USB-Wire fuer die Simulation Laenge und Querschnitt pro Leiter braucht.
+- Ein `usb_full`-Eingang ohne erreichbares `usb_power_out` ist kein Fehler und darf `powerMissing` nicht verhindern oder ausloesen. Der Port wird fuer die Versorgung ignoriert.
+- USB-Power-Verbindungen muessen Point-to-Point sein: genau ein `usb_power_out` darf genau einen `usb_full` versorgen. Verzweigungen, passive Verteiler, mehrere `usb_full`-Senken oder mehrere `usb_power_out`-Quellen in einem USB-Power-Netz sind Diagrammfehler.
+- Spannungsvertraeglichkeit von `usb_full` soll gegen die aufgeloeste USB-Quellspannung geprueft werden, wenn tatsaechlich eine Point-to-Point-USB-Power-Verbindung vorhanden ist. Fuer `PSU_USB` ist das 5 V.
+- Mischungen von USB-Power mit normalen `suppl_out`/`gnd`-Netzen sollen bewusst bewertet werden: Entweder als harte Mixed-Classification-Fehler oder als erlaubte interne Bruecke nur dann, wenn sie in der Komponente explizit als USB-Power-Pair-Port modelliert ist.
+
+### Geklaerte Entscheidungen
+
+1. Alle Komponenten mit `usb_full` koennen ueber USB versorgt werden.
+2. Diese Komponenten besitzen zusaetzlich einen separaten V+-Eingang. Dieser Eingang hat fachlich hoehere Prioritaet als USB.
+3. USB versorgt die Komponente ueber ein allgemeines `diode`-Element von `USB.VBUS` nach lokalem V+ mit ca. `0.4 V` Spannungsabfall. `USB.GND` wird mit lokalem GND gebrueckt.
+4. Per USB versorgte Komponenten duerfen ihre internen 5-V-/3.3-V-Pfade als versorgt bzw. weiterleitend modellieren.
+5. Die Stromgrenze fuer die USB-Versorgung kommt aus der Quelle, bei `PSU_USB` also aus `source_current`.
+6. Die USB-Diode leitet ideal in Vorwaertsrichtung und sperrt ideal gegen Rueckspeisung. Es wird kein Sperrstrom modelliert.
+7. USB-Wires bieten als erste Querschnitts-Presets `AWG24`, `AWG26` und `AWG28`; Default fuer neue und migrierte USB-Wires ist `AWG26`.
+8. Bis diese Preset-UI umgesetzt ist, muss der Modellaufbau weiterhin explizite Wire-Parameter verlangen. Ein stiller Modellaufbau-Default ohne gespeicherte Wire-Daten ist nicht zulaessig, weil sonst alte Diagramme unbemerkt andere Simulationsergebnisse liefern.
+9. Die Spannungsanzeige am `usb_full`-Handle zeigt nur `USB.VBUS` gegen `USB.GND`, nicht zusaetzlich interne 5-V/GND-Pins. Die Anzeige soll als `VUSB=5V` erscheinen, wobei `USB` als Index tiefgestellt wird.
+
+### Konzeptpruefung
+
+Das Konzept ist in sich stimmig, wenn drei Grenzen strikt eingehalten werden:
+
+- USB-Power wird nur ueber explizite `simdata.ports` modelliert. Weder Handle-Name noch `usb_full` allein duerfen virtuelle VBUS/GND-Knoten erzeugen.
+- Diagramm-Checks bleiben verantwortlich fuer Point-to-Point-Struktur und fehlende Wire-Parameter. Der Solver soll keine verzweigten USB-Power-Netze interpretieren muessen.
+- Die interne Versorgung eines USB-Verbrauchers wird ausschliesslich ueber die explizite `shortBridge` fuer GND und das `diode`-Element fuer VBUS aktiviert. Dadurch bleibt klar, warum USB die Komponente versorgen kann, aber nicht rueckwaerts in das USB-Kabel einspeist.
+
+Offene Implementierungsrisiken:
+
+- Prioritaet zwischen separatem V+-Eingang und USB entsteht elektrisch ueber die Diode und die vorhandenen Spannungsquellen, nicht ueber eine Sonderregel. Tests muessen pruefen, dass ein versorgter `VIN` den USB-Pfad nicht rueckspeist.
+- `powerMissing` darf ein bloss verbundenes, aber quellloses `usb_full` nicht als Versorgung zaehlen.
+- Bestehende Diagramme mit USB-Wires ohne physikalische Daten brauchen eine klare Nutzer-Meldung; der Default `AWG26` soll erst greifen, wenn die Wire-Daten gespeichert oder bewusst migriert werden.
+
+### Implementierungsplan fuer USB-Power-Pair
+
+1. Typen und Metadaten erweitern:
+   - `ComponentSimulationDefinition` um `ports?: UsbPowerPairSimulationPort[]` erweitern.
+   - `ComponentSimulationElementType` und Element-Typen um `diode` mit Terminals `anode`/`cathode` und Parameter `forwardVoltageV` erweitern.
+   - `elementaryElements.ts` um Metadaten fuer `diode` ergaenzen.
+2. Komponentenmodell vorbereiten:
+   - `PSU_USB` auf `simdata.ports` mit `usbPowerPair` umstellen und eine 5-V-`voltageSource` zwischen `USB.VBUS` und `USB.GND` definieren.
+   - Alle Komponenten mit `usb_full` identifizieren und je Komponente den lokalen V+- und GND-Knoten festlegen.
+   - Fuer diese Komponenten `usbPowerPair`, `shortBridge` von `USB.GND` nach lokalem GND und `diode` von `USB.VBUS` nach lokalem V+ ergaenzen.
+3. Modellaufbau erweitern:
+   - Port-Validierung fuer sichtbare Handles, doppelte Port-IDs und virtuelle Terminalnamen einbauen.
+   - USB-Wires zwischen `usb_power_out` und `usb_full` in zwei Wire-Elemente expandieren: VBUS-Hinleiter und GND-Rueckleiter.
+   - Normale Wire-Erzeugung fuer diese sichtbare Edge unterdruecken und die beiden Leiter mit Aggregationsmetadaten auf die sichtbare Edge verweisen lassen.
+4. Solver erweitern:
+   - Iteratives ideales Diodenmodell implementieren.
+   - Konvergenz-/Abbruchkriterien fuer Dioden-Zustandswechsel definieren und Debug-Ausgaben ergaenzen.
+   - Tests fuer leitende USB-Diode, gesperrte Rueckspeisung und gleichzeitige VIN-/USB-Versorgung ergaenzen.
+5. Diagramm-Checks umsetzen:
+   - `signalSinkWithoutSource`: `usb_full` ohne erreichbares `usb_power_out` weiterhin ignorieren.
+   - Neue bzw. angepasste USB-Point-to-Point-Pruefung: genau ein `usb_power_out`, genau ein `usb_full`, keine passiven Verteiler oder Mehrfachsenken in einem aktiven USB-Power-Netz.
+   - `supplyInputWithoutSource`: `usb_full` weiter ausschliessen; separate `suppl_in`-Pins derselben Komponente bleiben normal pruefpflichtig.
+   - `powerMissing`: `usb_full` nur als Versorgung zaehlen, wenn ein erreichbares `usb_power_out` im passenden USB-Netz liegt.
+   - `wireWithoutPhysicalParameters`: `usb_net_type` einbeziehen.
+   - USB-Spannungsvertraeglichkeit gegen `tolVmin`/`tolVmax` der `usb_full`-Senke pruefen, sobald eine gueltige Point-to-Point-USB-Power-Verbindung existiert.
+6. Wire-UI und Daten:
+   - Querschnitts-Presets `AWG24`, `AWG26` und `AWG28` fuer USB-Wires anbieten.
+   - `AWG26` als UI-Default fuer neue USB-Wires setzen, aber fehlende Daten in alten Diagrammen weiterhin melden, bis sie gespeichert oder migriert wurden.
+7. Ergebnisdarstellung:
+   - `SimulationWireResult` um aggregierte USB-Anzeigeinformationen erweitern, z.B. `displayCurrentA`, `displayBidirectional` und `conductorResults`.
+   - Sichtbare USB-Wire mit bidirektionalem Pfeil und Hinstromwert anzeigen.
+   - `usb_full`-Spannungslabel als `VUSB` gegen `USB.GND` ausgeben.
+   - Info-Issue erzeugen, wenn VBUS- und GND-Leiterstroeme betragsmaessig relevant abweichen.
+8. Regressionstests:
+   - Diagramm-Check-Fixtures fuer ungenutztes `usb_full`, gueltige Point-to-Point-USB-Versorgung, Verzweigung, mehrere Quellen, mehrere Senken, fehlende Wire-Daten und USB-Spannungsmismatch anlegen.
+   - Simulation-Fixtures fuer `PSU_USB -> Controller`, USB mit zusaetzlichem `VIN`, Rueckspeisungsversuch in USB und fehlende USB-Wire-Parameter ergaenzen.
+   - Bestehende LTspice-/Analyse-Regressionen weiter laufen lassen, damit Dioden- und Portlogik keine bestehenden Supply/GND-Faelle veraendert.
+
 ## Empfohlene Modulstruktur
 
 Vorschlag:
@@ -1228,6 +1451,11 @@ Optional:
 17. [x] Automatische Regressionstests fuer die LTspice-Referenzfaelle ergaenzen. Umgesetzt mit `npm run test:ltspice`, `scripts/ltspiceRegression.ts` und `scripts/runLtspiceRegression.mjs`.
 18. [x] DCDC-Ueberlastmodell mit Eingangsleistungsmodell und degradierter Ausgangsspannung ergaenzen. Umgesetzt in `src/simulation/dcdcSimulation.ts` und `src/simulation/runSimulation.ts`, inklusive LTspice-/Analyse-Fixtures fuer Grundfall, festes Ausgangslimit, begrenzte Eingangsleistung, mehrdeutige Mehrquellen-Eingangsleistung und zwei DCDC-Wandler an einer PSU.
 19. [x] Sparse-Solver fuer groessere LED-Streifen ergaenzen. Umgesetzt in `src/simulation/sparseLinearSystemSolver.ts`; `runSimulation()` nutzt diesen Solver fuer die MNA-Systeme.
+20. [ ] USB-Power-Pair-Typen, `usbPowerPair`-Ports und das allgemeine `diode`-Element ergaenzen.
+21. [ ] `PSU_USB` und alle Komponenten mit `usb_full` um explizite USB-Port- und USB-Versorgungs-`simdata` erweitern.
+22. [ ] USB-Wires im Modellaufbau in VBUS- und GND-Leiter expandieren und aggregierte Wire-Ergebnisse erzeugen.
+23. [ ] Ideales Diodenmodell im Solver implementieren und Regressionstests fuer USB-Versorgung, VIN-Prioritaet und Rueckspeisung ergaenzen.
+24. [ ] USB-Wire-Presets `AWG24`, `AWG26` und `AWG28` in der Wire-UI anbieten; `AWG26` als Default fuer neue USB-Wires verwenden.
 
 ## Geklaerte Entscheidungen
 
@@ -1280,3 +1508,6 @@ Optional:
 47. Bei Strom ueber 150% des PSU- oder DCDC-Limits bricht die Simulation ab und zeigt einen Fehler.
 48. Erste Simulation-Fixtures werden in `simulation_test/` gebaut, sobald die relevanten Komponenten um `simdata` ergaenzt sind.
 49. Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet.
+50. USB-Power wird nicht aus Handle-Namen abgeleitet. Ein sichtbarer USB-Handle kann nur dann als VBUS/GND-Paar simuliert werden, wenn die Komponente einen expliziten `usbPowerPair`-Simulationsport definiert.
+51. USB-Verbraucher werden ueber ein allgemeines ideales `diode`-Element mit `forwardVoltageV = 0.4` von `USB.VBUS` nach lokalem V+ versorgt; Rueckspeisung wird ideal gesperrt.
+52. USB-Wire-Presets sind `AWG24`, `AWG26` und `AWG28`; `AWG26` ist der Default fuer neue bzw. bewusst migrierte USB-Wires.

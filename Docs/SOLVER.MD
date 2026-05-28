@@ -90,6 +90,19 @@ Der Solver iteriert, bis sich die Spannung und der Strom nur noch gering aendern
 
 Die Implementierung loest den degradierenden Quellen-Arbeitspunkt stabilisiert: Aus dem geloesten Quellenstrom und der aktuellen Quellenspannung wird fuer die lineare Degradationskennlinie eine aequivalente Lastleitfaehigkeit abgeleitet. Daraus wird die naechste Zielspannung direkt auf der Kennlinie berechnet. Nichtlineare Zustaende wie PSU-Zielspannung und LED-Stromsenken werden mit Relaxation aktualisiert; die Konvergenzpruefung vergleicht weiterhin gegen die ungeglaetteten Zielwerte, damit der Solver nicht nur wegen kleiner Relaxationsschritte vorzeitig abbricht.
 
+### USB-Power-Pair
+
+USB-Power wird im Solver nicht als neues Bauelement gestempelt. Der Modellaufbau expandiert einen explizit deklarierten `usbPowerPair`-Port in zwei normale elektrische Knoten: `VBUS` und `GND`.
+
+Eine sichtbare USB-Wire wird als zwei normale Wire-Widerstaende in das MNA-System gegeben:
+
+- VBUS-Leiter: von `usb_power_out.VBUS` nach `usb_full.VBUS`
+- GND-Leiter: von `usb_full.GND` nach `usb_power_out.GND`
+
+Beide Leiter verwenden den Widerstand, der aus Laenge und Querschnitt der sichtbaren USB-Wire berechnet wird. Diese Angaben beziehen sich auf jeweils einen Leiter. Der Solver rechnet damit zwei Strangstromwerte. Fuer die Nutzeranzeige wird der VBUS-Hinstrom als Zahlenwert verwendet; die sichtbare USB-Wire bekommt aber einen bidirektionalen Strompfeil, weil im selben Kabel gleichzeitig Hin- und Rueckstrom fliessen.
+
+`PSU_USB` verwendet danach dieselbe Spannungsquellenlogik wie `PSU_USB_WIRES`: 5 V zwischen virtuellem `VBUS` und virtuellem `GND`, Stromlimit aus `source_current` und `voltageDropPctAt150Current = 50`.
+
 ### DCDC-Wandler
 
 Der DCDC-Wandler wird als Ausgangsspannungsquelle plus Eingangsleistungsmodell behandelt.
@@ -282,6 +295,7 @@ Weitere Checks muessen noch ausgebaut werden:
 - Mehrere getrennte GND-Inseln robust erkennen.
 - Nicht simulierbare Komponenten in relevanten Strompfaden erkennen.
 - Wire-/Elementstroeme fuer alle relevanten Elementtypen als Pin-Stroeme konsistent aufsummieren.
+- USB-Power-Pair-Ergebnisse aggregieren: VBUS- und GND-Leiter getrennt rechnen, sichtbare USB-Wire aber mit Hinstromwert und bidirektionalem Pfeil anzeigen.
 
 ### Tests und Fixtures
 

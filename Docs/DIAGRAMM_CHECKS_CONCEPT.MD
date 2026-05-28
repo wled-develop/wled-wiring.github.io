@@ -347,6 +347,8 @@ Aktuelle Signaldefinitionen:
 - Audio: Quelle `audio_out`; Senke `audio_in`
 - USB: Quelle `usb_power_out`; Senke `usb_full`
 
+USB ist dabei ein optionaler Power-Pair-Steckverbinder. Ein verdrahtetes oder unverdrahtetes `usb_full` ohne erreichbares `usb_power_out` erzeugt keinen `signalSinkWithoutSource`-Fehler; der USB-Port gilt dann fuer die Versorgung als nicht verwendet, z.B. weil dort nur Daten laufen. Wenn ein `usb_power_out` erreichbar ist, wird die Verbindung nicht als normales Signal, sondern als USB-Power-Sonderfall bewertet. Strukturfehler wie Verzweigungen oder mehrere USB-Senken sollen deshalb nicht als `signalSinkWithoutSource`, sondern als eigene USB-Power-Meldung erscheinen.
+
 Hinweis zu analogen LED-Streifen: `pwm_in_R`, `pwm_in_G`, `pwm_in_B`, `pwm_in_W` und `pwm_in_WW` werden dort aktuell als negativ geschaltete Lastanschluesse verwendet, nicht als klassische Logiksignal-Eingaenge. Fuer diese Handles sollten Spannungs-/Signalchecks perspektivisch anders arbeiten als bei reinen PWM-Logikpins, z.B. ueber eine eigene Lastanschluss-Funktion oder ueber Komponentenmetadaten, die Common-Anode-LED-Lasten von Signalinputs unterscheiden. Bis dahin sollten fehlende `tolVmin`/`tolVmax` an diesen analogen Strip-Pins nicht automatisch als Definitionsfehler bewertet werden.
 
 Digitale Senken haben eine Sonderbehandlung: Sie gelten auch dann als aufgeloest, wenn ueber `signalReachableHandles()` eine digitale Quelle erreichbar ist oder eine gueltige Bias-Verbindung existiert.
@@ -378,11 +380,35 @@ Fehler, wenn ein klassifiziertes Signalnetz mehr als eine passende Quelle enthae
 
 Geprueft wird fuer dieselben Signaldefinitionen wie bei `signalSinkWithoutSource`. Es werden nur `sourceHandles` des Netzes betrachtet.
 
+### USB-Power-Sonderfall
+
+USB-Netze sind fachlich gleichzeitig Signal-/Steckverbinder-Netze und potenzielle 5-V-Versorgungsnetze. Fuer Diagramm-Checks bleibt die Klassifikation `usb_net_type` bestehen: Quelle ist `usb_power_out`, Senke ist `usb_full`. Zusaetzlich gelten fuer simulierbare USB-Versorgung diese Regeln:
+
+- Eine USB-Wire braucht fuer die Simulation physikalische Wire-Daten. `wireWithoutPhysicalParameters` soll deshalb neben `suppl_net_type` und `gnd_net_type` auch `usb_net_type` betrachten. Laenge und Querschnitt gelten pro USB-Leiter.
+- Ein `usb_full` ohne erreichbares `usb_power_out` ist kein Fehler. Der USB-Port wird dann fuer Versorgung und Simulation ignoriert.
+- USB-Power ist Point-to-Point: In einem aktiven USB-Power-Netz darf genau ein `usb_power_out` mit genau einem `usb_full` verbunden sein. Verzweigungen, passive Verteiler, mehrere `usb_full`-Senken oder mehrere `usb_power_out`-Quellen sind Diagrammfehler.
+- Wenn die USB-Quellspannung aufloesbar ist, soll sie gegen `tolVmin`/`tolVmax` der `usb_full`-Senke geprueft werden. Fuer `PSU_USB` ist die Quelle 5 V.
+- USB darf nicht still in normale `suppl_out`/`gnd`-Netze umgedeutet werden. Eine Verbindung zwischen USB-Power und normalen Supply/GND-Anschluessen ist nur dann als interne Komponentenbeziehung erlaubt, wenn die Komponentendefinition dies explizit ueber einen USB-Power-Pair-Simulationsport und konkrete Simulationselemente modelliert: `USB.GND` per `shortBridge` nach lokalem GND und `USB.VBUS` per ideal sperrender `diode` mit ca. `0.4 V` Vorwaertsspannung nach lokalem V+.
+- Die Check-Logik selbst soll aus dieser internen USB-Diode keine normale externe Supply-Quelle fuer andere USB-Netze ableiten. Fuer Diagramm-Checks bleibt `usb_full` ein USB-Senkenhandle; die elektrische Aktivierung lokaler V+-Pfade ist Aufgabe des Simulationsmodells.
+
+Vorgeschlagene eigene Meldung: `usbPowerPairInvalid`.
+
+Ausloeser:
+
+- aktives USB-Power-Netz mit mehr oder weniger als genau einem `usb_power_out`;
+- aktives USB-Power-Netz mit mehr oder weniger als genau einem `usb_full`;
+- passive Verzweigungskomponenten oder mehr als eine sichtbare USB-Wire im Pfad zwischen Quelle und Senke;
+- Kombination aus USB-Power und normalen Supply/GND-Handles, die nicht als explizite interne `usbPowerPair`-Modellierung derselben Verbraucherkomponente beschrieben ist.
+
+Severity: `error`, weil der Simulationssolver nur eine eindeutige Punkt-zu-Punkt-USB-Versorgung modellieren soll.
+
 ### `supplyInputWithoutSource`
 
 Fehler, wenn ein Netz `suppl_in`-Handles enthaelt, aber keine unabhaengige Supply-Quelle erkannt wird.
 
 `usb_full` wird hier explizit aus den Supply-Inputs herausgefiltert, weil USB separat als USB-Netz behandelt wird.
+
+Wenn eine Komponente zusaetzlich zu `usb_full` einen separaten V+-Eingang besitzt, bleibt dieser V+-Eingang ein normaler `suppl_in` und wird weiterhin durch `supplyInputWithoutSource` geprueft. Ein vorhandenes, aber quellloses oder ungenutztes USB-Kabel darf diese Meldung nicht unterdruecken. Eine gueltige Point-to-Point-USB-Power-Verbindung wird ebenfalls nicht als Quelle fuer ein externes normales Supply-Netz gewertet; die USB-Versorgung wirkt nur innerhalb der explizit modellierten Verbraucherkomponente.
 
 Diese Netzmeldung hat Vorrang vor der komponentenbezogenen Meldung `powerMissing`, wenn ein Versorgungseingang bereits verdrahtet ist, der angeschlossene Versorgungspfad aber keine echte Quelle erreicht. In diesem Fall beschreibt `supplyInputWithoutSource` die Ursache praeziser: Nicht die Komponente an sich ist unverdrahtet, sondern das konkrete Supply-Netz hat keine Quelle.
 
@@ -428,7 +454,9 @@ Eine Komponente hat Versorgungsbedarf, wenn sie mindestens einen dieser Anschlue
 Als versorgt gilt sie, wenn:
 
 - mindestens ein `suppl_in` in einem Supply-Netz liegt, das einen `suppl_out` einer anderen Komponente enthaelt, oder
-- mindestens ein `usb_full` in einem USB-Netz liegt.
+- mindestens ein `usb_full` in einem aktiven USB-Power-Netz liegt, in dem genau ein erreichbares `usb_power_out` vorhanden ist.
+
+Ein bloss verbundenes `usb_full` ohne erreichbares `usb_power_out` gilt nicht als Versorgung und unterdrueckt `powerMissing` nicht. Wenn die Komponente parallel einen normalen V+-Eingang besitzt und dieser nicht angeschlossen ist, aber eine gueltige USB-Power-Verbindung vorhanden ist, gilt die Komponente fuer `powerMissing` als versorgt; die Bewertung des nicht genutzten separaten V+-Eingangs bleibt dann Aufgabe von Pflichtpin- oder componentspezifischen Regeln, nicht von `supplyInputWithoutSource`.
 
 Wenn mindestens ein Nicht-USB-`suppl_in` bereits angeschlossen ist, aber keine externe Quelle erreicht, wird `powerMissing` im normalen Nutzer-Modus nicht zusaetzlich erzeugt. Dann ist `supplyInputWithoutSource` die bessere Meldung, weil sie das betroffene Netz und die angeschlossenen Versorgungseingaenge zusammenfasst. `powerMissing` bleibt fuer Faelle zustaendig, in denen eine Komponente Versorgung braucht, aber gar kein passender Versorgungspfad angeschlossen ist.
 
@@ -502,6 +530,7 @@ Empfohlene Bedeutung:
 | `rs485Mixed` | `error` | 80 | 25 | `net` | Spezifischer als `mixedClassifications`; soll diese fuer dasselbe Netz unterdruecken. |
 | `mixedClassifications` | `error` | 20 | 80 | `net` | Fallback-Regel. Nur anzeigen, wenn kein spezifischer Mischfehler fuer dasselbe Netz existiert. |
 | `multipleSupplySources` | `error` | 70 | 35 | `net` | Konkreter Supply-Fehler. Sollte vor `supplyVoltageMismatch` stehen, weil bei mehreren Quellen die eindeutige Spannung nicht bestimmbar ist. Deckt auch mehrere unabhaengige PSU-/Spannungsquellen am selben DCDC-Eingang ab. |
+| `usbPowerPairInvalid` | `error` | 80 | 39 | `net`/`edge`/`handle` | USB-Power ist nur als genau eine Quelle zu genau einer Senke zulaessig. Gewinnt vor generischen USB-`signalSinkWithoutSource`- oder `multipleSignalSources`-Meldungen. |
 | `signalSinkWithoutSource` | `error` | 60 | 50 | `net`/`handle` | Sollte pro betroffenem Signaltyp und Netz erscheinen. Kann durch spezifischere Signalfehler wie `mixedDigitalSignalTypes` oder `dataDirectionWrong` unterdrueckt werden. |
 | `digitalSignalVoltageMismatch` | `error` | 75 | 45 | `handle` | Konkreter als allgemeine Signalquellen-Regeln. Sollte nicht durch `signalSinkWithoutSource` verdeckt werden. |
 | `multipleSignalSources` | `error` | 65 | 55 | `net` | Wichtig, aber nach sicherheits- und versorgungsbezogenen Fehlern. Kann durch spezifischere Direction-/Subtype-Regeln unterdrueckt werden. |
@@ -522,7 +551,7 @@ Empfohlene Reihenfolge im normalen Nutzer-Modus:
 1. Diagrammweite Blocker, z.B. `diagram-empty`.
 2. Sicherheitskritische Netzspannungsfehler: `mainsLowVoltageMixed`, `peActiveMixed`, `mainsInputMissing`.
 3. Kritische Basisnetze: `groundMultiple`, `groundMissing`.
-4. Versorgungsstruktur: `multipleSupplySources`, `supplyInputWithoutSource`, `supplyVoltageMismatch`.
+4. Versorgungsstruktur: `multipleSupplySources`, `usbPowerPairInvalid`, `supplyInputWithoutSource`, `supplyVoltageMismatch`.
 5. Pflichtpins und komponentenspezifische harte Fehler: `requiredPinUnconnected`, `sn74Ahct125nUsedChannelInputMissing`, `powerMissing`.
 6. Signalintegritaet: `digitalSignalVoltageMismatch`, `signalSinkWithoutSource`, `multipleSignalSources`, `rs485Mixed`.
 7. Fallbacks und Warnungen: `mixedClassifications`, `supplySourceWithoutConsumer`.
@@ -1275,7 +1304,8 @@ Fuer reine logische Signalverbindungen ist das oft egal. Fuer Versorgung und spa
 
 Moegliche Logik:
 
-- Wires in Netzen mit `suppl_net_type` oder `gnd_net_type` betrachten.
+- Wires in Netzen mit `suppl_net_type`, `gnd_net_type` oder `usb_net_type` betrachten.
+- Bei USB-Wires gelten Laenge und Querschnitt pro Leiter. Fuer neue USB-Wires sollen `AWG24`, `AWG26` und `AWG28` als Presets angeboten werden; `AWG26` ist der Default fuer neue bzw. bewusst migrierte USB-Wires.
 - Edge-Daten auf physikalische Laenge und Querschnitt pruefen.
 - Severity `warning`
 
