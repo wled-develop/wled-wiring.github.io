@@ -209,6 +209,7 @@ Beispiele:
 - `Resistor`: ein elementarer Widerstand zwischen den beiden Pins.
 - `miniOTOFuse`: ein elementarer Widerstand, dessen Wert aus einer lokalen Tabelle anhand des Sicherungs-Nominalwerts bestimmt wird.
 - `MHC_V43`: ein Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren.
+- `FUSE_Board`: vier getrennte Sicherungspfade `IN1 -> OUT1`, `IN1 -> OUT2`, `IN2 -> OUT3` und `IN2 -> OUT4`; Widerstandswert und Nennstrom kommen jeweils aus dem passenden `Fuse1`..`Fuse4`-Select.
 
 ### Konstante Spannungsquelle mit Stromlimit und Spannungsdegradation
 
@@ -449,6 +450,12 @@ Digitale LED-Streifen:
 - Widerstandswert und Sicherungsgrenzwert per lokaler Tabelle direkt in `simdata`
 - Kurzschlussbruecken zwischen den GND-Pins
 - Konstantleistungssenke zwischen `VIN` und `GND1` mit `0.5 W` fuer kleinen Controller-Nebenverbrauch
+
+`FUSE_Board`:
+
+- vier unabhaengige Sicherungselemente fuer `IN1 -> OUT1`, `IN1 -> OUT2`, `IN2 -> OUT3` und `IN2 -> OUT4`
+- Widerstandswert und Sicherungsgrenzwert je Pfad aus `Fuse1`, `Fuse2`, `Fuse3` bzw. `Fuse4`
+- die vorhandenen `internalConnections` bleiben Diagramm-/Check-Information; die elektrische Simulation nutzt die expliziten `fuse`-Elemente in `simdata`
 
 `DCDC`:
 

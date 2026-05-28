@@ -487,6 +487,111 @@ export default defineComponent({
         "nominalCurrentField": "Fuse4"
       }
     ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "in1-out1-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "IN1",
+            "b": "OUT1"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse1"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse1"
+            }
+          }
+        },
+        {
+          "id": "in1-out2-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "IN1",
+            "b": "OUT2"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse2"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse2"
+            }
+          }
+        },
+        {
+          "id": "in2-out3-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "IN2",
+            "b": "OUT3"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse3"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse3"
+            }
+          }
+        },
+        {
+          "id": "in2-out4-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "IN2",
+            "b": "OUT4"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse4"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse4"
+            }
+          }
+        }
+      ]
+    },
     "runtime": {
       "inputFieldsBox": {
         "x": 110,
