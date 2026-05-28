@@ -300,6 +300,68 @@ export default defineComponent({
           "repeatAtFirst": false
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "strip-led",
+          "type": "digitalLed",
+          "terminals": {
+            "supplyIn": "5V_start",
+            "supplyOut": "5V_end",
+            "gndIn": "GND_start",
+            "gndOut": "GND_end"
+          },
+          "parameters": {
+            "supplyResistanceOhm": {
+              "ledSimulationOption": "supplyResistance"
+            },
+            "gndResistanceOhm": {
+              "ledSimulationOption": "gndResistance"
+            },
+            "ledType": "WS2812B_5V",
+            "ledsPerMeter": 30,
+            "physLedsPerLogicLed": 1,
+            "currentCurve": {
+              "ledSimulationOption": "currentCurve"
+            }
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "ledSimulationOptions": {
+        "supplyResistance": {
+          "options": [
+            "typical_5mm",
+            "good_5mm",
+            "poor_5mm"
+          ],
+          "recommended": "typical_5mm"
+        },
+        "gndResistance": {
+          "options": [
+            "typical_5mm",
+            "good_5mm",
+            "poor_5mm"
+          ],
+          "recommended": "typical_5mm"
+        },
+        "currentCurve": {
+          "options": [
+            "ws2812b_5v_typical",
+            "ws2812b_5v_good",
+            "ws2812b_eco_5v_typical"
+          ],
+          "recommended": "ws2812b_5v_typical"
+        }
+      },
+      "ledSimulationOptionValues": {
+        "supplyResistance": "typical_5mm",
+        "gndResistance": "typical_5mm",
+        "currentCurve": "ws2812b_5v_typical"
+      }
+    }
   }
 });

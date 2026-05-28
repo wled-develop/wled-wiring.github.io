@@ -350,9 +350,7 @@ export default defineComponent({
         },
         "currentCurve": {
           "options": [
-            "ws2814_24v_typical",
-            "ws2814_24v_conservative",
-            "ws2814_24v_low_current"
+            "ws2814_24v_typical"
           ],
           "recommended": "ws2814_24v_typical"
         }

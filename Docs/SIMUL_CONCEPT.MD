@@ -380,6 +380,8 @@ Die zentralen Varianten liegen in `src/simulation/ledStripSimulationOptions.ts`:
 - Widerstandsvarianten beschreiben den positiven oder negativen Kupferpfad pro Meter, z.B. typischer, guter oder schlechter 5-mm-Streifen.
 - Current-Curve-Varianten enthalten die vollstaendige `LedCurrentCurve` mit `LedCurrentCurveParameters` fuer alle Farbmodi.
 
+Die Current-Curve-Varianten decken mehrere digitale LED-Streifenfamilien ab, z.B. WS2812B/WS2812B ECO 5 V, WS2811 24 V, WS2814 12 V/24 V sowie WS28xx/SK6812 FCOB-Varianten. Bei RGB-only-Kennlinien ohne eigene `Separate+RGB White`-Messwerte wird `SEPARATE_AND_RGB_WHITE` identisch zu `RGB_WHITE` gepflegt.
+
 `simdata` verweist bei umgestellten digitalen LED-Komponenten ueber `{ledSimulationOption: "supplyResistance"}`, `{ledSimulationOption: "gndResistance"}` und `{ledSimulationOption: "currentCurve"}` auf diese Auswahl. Der Modellaufbau loest diese Referenzen in primitive Simulationsparameter auf. Der Solver erhaelt weiterhin numerische Widerstaende und eine Kennlinien-ID; die elektrische Modellierung aendert sich dadurch nicht.
 
 Fuer alte gespeicherte LED-Komponenten gibt es keine stille Abwaertskompatibilitaet. Wenn eine digitale LED-Komponente noch direkte LED-Widerstandswerte oder alte `{ledCurve: ...}`-Parameter verwendet, erzeugt die Simulation ein Fehler-Issue mit dem Hinweis, dass die Komponentendaten aus der aktuellen Vorlage aktualisiert werden muessen. Erst ein explizites Komponentenupdate setzt fehlende oder nicht mehr erlaubte LED-Optionswerte auf die empfohlenen Defaults.

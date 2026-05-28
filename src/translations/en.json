@@ -67,9 +67,29 @@
         "name": "Poor 5 mm strip",
         "description": "Higher-resistance copper path for a weak 5 mm LED strip: 0.24 Ohm per meter."
       },
-      "narrow_fcob_path": {
-        "name": "Narrow FCOB path",
-        "description": "Narrow FCOB strip path: 0.12 Ohm per meter."
+      "narrow_fcob_path_good": {
+        "name": "Good narrow FCOB path",
+        "description": "Good copper path for an FCOB strip (narrow side, shared with the data path): 0.12 Ohm per meter."
+      },
+      "narrow_fcob_path_typical": {
+        "name": "Typical narrow FCOB path",
+        "description": "Typical copper path for an FCOB strip (narrow side, shared with the data path): 0.16 Ohm per meter."
+      },
+      "narrow_fcob_path_bad": {
+        "name": "Poor narrow FCOB path",
+        "description": "Higher-resistance copper path for an FCOB strip (narrow side, shared with the data path): 0.22 Ohm per meter."
+      },
+      "bright_fcob_path_good": {
+        "name": "Good high-power FCOB path",
+        "description": "Good copper path for an FCOB strip (wide, fully used side): 0.06 Ohm per meter."
+      },
+      "bright_fcob_path_typical": {
+        "name": "Typical high-power FCOB path",
+        "description": "Typical copper path for an FCOB strip (wide, fully used side): 0.08 Ohm per meter."
+      },
+      "bright_fcob_path_bad": {
+        "name": "Poor high-power FCOB path",
+        "description": "Higher-resistance copper path for an FCOB strip (wide, fully used side): 0.20 Ohm per meter."
       }
     },
     "currentCurve": {
@@ -77,13 +97,41 @@
         "name": "Typical WS2814 24 V",
         "description": "Typical voltage-dependent WS2814 24 V current curve."
       },
-      "ws2814_24v_conservative": {
-        "name": "Conservative WS2814 24 V",
-        "description": "Higher-current WS2814 24 V curve for conservative voltage-drop estimates."
+      "ws2812b_5v_typical": {
+        "name": "WS2812B 5 V (typical)",
+        "description": "WS2812B RGB 5 V, 5050 LED size, typical version."
       },
-      "ws2814_24v_low_current": {
-        "name": "Low-current WS2814 24 V",
-        "description": "Lower-current WS2814 24 V curve for strips that draw less current."
+      "ws2812b_5v_good": {
+        "name": "WS2812B 5 V (good)",
+        "description": "WS2812B RGB 5 V, 5050 LED size, good/new version (improved color stability)."
+      },
+      "ws2812b_eco_5v_typical": {
+        "name": "WS2812B ECO 5 V (typical)",
+        "description": "WS2812B RGB ECO 5 V, 5050 LED size, typical version."
+      },
+      "ws2811_24v_typical": {
+        "name": "WS2811 24 V (typical)",
+        "description": "WS2811 RGB 24 V, 5050 LED size, typical version."
+      },
+      "ws2814_12v_typical": {
+        "name": "WS2814 12 V (typical)",
+        "description": "WS2812B RGBW 12 V, 5050 LED size, typical version."
+      },
+      "ws28xx_fcob_rgb_24v_720lpm_typical": {
+        "name": "WS28xx FCOB RGB 24 V, 720 LEDs/m (typical)",
+        "description": "WS28xx FCOB RGB 24 V, 720 LEDs/m, 20 logical LEDs/m, typical version."
+      },
+      "ws28xx_fcob_rgb_12v_720lpm_typical": {
+        "name": "WS28xx FCOB RGB 12 V, 720 LEDs/m (typical)",
+        "description": "WS28xx FCOB RGB 12 V, 720 LEDs/m, 20 logical LEDs/m, typical version."
+      },
+      "ws28xx_fcob_rgbw_24v_784lpm_typical": {
+        "name": "WS28xx FCOB RGBW 24 V, 784 LEDs/m (typical)",
+        "description": "WS28xx FCOB RGB 24 V, 784 LEDs/m, 14 logical LEDs/m, typical version."
+      },
+      "sk6812_fcob_rgb_5v_240lpm_typical": {
+        "name": "SK6812 FCOB RGB 5 V, 240 LEDs/m (typical)",
+        "description": "SK6812 FCOB RGB 5 V, 240 LEDs/m, 80 logical LEDs/m, typical version."
       }
     }
   },

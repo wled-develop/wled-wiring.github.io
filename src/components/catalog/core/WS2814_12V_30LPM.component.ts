@@ -300,6 +300,66 @@ export default defineComponent({
           "repeatAtFirst": false
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "strip-led",
+          "type": "digitalLed",
+          "terminals": {
+            "supplyIn": "12V_start",
+            "supplyOut": "12V_end",
+            "gndIn": "GND_start",
+            "gndOut": "GND_end"
+          },
+          "parameters": {
+            "supplyResistanceOhm": {
+              "ledSimulationOption": "supplyResistance"
+            },
+            "gndResistanceOhm": {
+              "ledSimulationOption": "gndResistance"
+            },
+            "ledType": "WS2814_12V",
+            "ledsPerMeter": 30,
+            "physLedsPerLogicLed": 3,
+            "currentCurve": {
+              "ledSimulationOption": "currentCurve"
+            }
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "ledSimulationOptions": {
+        "supplyResistance": {
+          "options": [
+            "typical_5mm",
+            "good_5mm",
+            "poor_5mm"
+          ],
+          "recommended": "typical_5mm"
+        },
+        "gndResistance": {
+          "options": [
+            "typical_5mm",
+            "good_5mm",
+            "poor_5mm"
+          ],
+          "recommended": "typical_5mm"
+        },
+        "currentCurve": {
+          "options": [
+            "ws2814_12v_typical"
+          ],
+          "recommended": "ws2814_12v_typical"
+        }
+      },
+      "ledSimulationOptionValues": {
+        "supplyResistance": "typical_5mm",
+        "gndResistance": "typical_5mm",
+        "currentCurve": "ws2814_12v_typical"
+      }
+    }
   }
 });
