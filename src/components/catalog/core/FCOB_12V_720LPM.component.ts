@@ -300,6 +300,72 @@ export default defineComponent({
           "repeatAtFirst": false
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "strip-led",
+          "type": "digitalLed",
+          "terminals": {
+            "supplyIn": "12V_start",
+            "supplyOut": "12V_end",
+            "gndIn": "GND_start",
+            "gndOut": "GND_end"
+          },
+          "parameters": {
+            "supplyResistanceOhm": {
+              "ledSimulationOption": "supplyResistance"
+            },
+            "gndResistanceOhm": {
+              "ledSimulationOption": "gndResistance"
+            },
+            "ledType": "FCOB_12V_RGB",
+            "ledsPerMeter": 240,
+            "physLedsPerLogicLed": 12,
+            "currentCurve": {
+              "ledSimulationOption": "currentCurve"
+            }
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "ledSimulationOptions": {
+        "supplyResistance": {
+          "options": [
+            "narrow_fcob_path_good",
+            "narrow_fcob_path_typical",
+            "narrow_fcob_path_bad",
+            "bright_fcob_path_good",
+            "bright_fcob_path_typical",
+            "bright_fcob_path_bad"
+          ],
+          "recommended": "bright_fcob_path_good"
+        },
+        "gndResistance": {
+          "options": [
+            "narrow_fcob_path_good",
+            "narrow_fcob_path_typical",
+            "narrow_fcob_path_bad",
+            "bright_fcob_path_good",
+            "bright_fcob_path_typical",
+            "bright_fcob_path_bad"
+          ],
+          "recommended": "narrow_fcob_path_good"
+        },
+        "currentCurve": {
+          "options": [
+            "ws28xx_fcob_rgb_12v_720lpm_typical"
+          ],
+          "recommended": "ws28xx_fcob_rgb_12v_720lpm_typical"
+        }
+      },
+      "ledSimulationOptionValues": {
+        "supplyResistance": "bright_fcob_path_good",
+        "gndResistance": "narrow_fcob_path_good",
+        "currentCurve": "ws28xx_fcob_rgb_12v_720lpm_typical"
+      }
+    }
   }
 });
