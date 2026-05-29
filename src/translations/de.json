@@ -686,6 +686,13 @@
       "brightness": "Helligkeit: {{value}}%",
       "buttonRun": "Simulieren",
       "buttonDelete": "Ergebnisse löschen",
+      "displayMode": {
+        "label": "Ergebnisanzeige",
+        "default": "Standard",
+        "extended": "Erweitert",
+        "defaultDescription": "Zeigt relevante Ströme, Versorgungsausgänge, USB-Versorgung und LED-Spannungen.",
+        "extendedDescription": "Zeigt alle verfügbaren Simulationslabels."
+      },
       "notRun": "Noch keine Simulation ausgeführt.",
       "running": "Simulation wird ausgeführt...",
       "invalidated": "Simulationsergebnisse wurden entfernt, weil sich das Diagramm geändert hat.",

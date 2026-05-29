@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeleteOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/react";
-import { Alert, Button, Empty, Flex, List, Select, Slider, Space, Tag, Typography } from "antd";
+import { Alert, Button, Empty, Flex, List, Segmented, Select, Slider, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { createSimulationFingerprint } from "./simulationFingerprint";
 import { logSimulationDebug } from "./simulationDebug";
 import { runSimulationInWorker, type SimulationWorkerRun } from "./runSimulationInWorker";
-import { useSimulationResultStore } from "./simulationResultStore";
+import { useSimulationResultStore, type SimulationDisplayMode } from "./simulationResultStore";
 import { DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK } from "./simulationFeatureFlags";
 import type {
   LedSimulationColorMode,
@@ -74,6 +74,8 @@ export const SimulationPage = () => {
   const reactFlow = useReactFlow<Node<ComponentDataType>, Edge<EdgeDataType>>();
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
+  const displayMode = useSimulationResultStore((state) => state.displayMode);
+  const setDisplayMode = useSimulationResultStore((state) => state.setDisplayMode);
   const setSimulationOverlayResult = useSimulationResultStore((state) => state.setResult);
   const diagramCheckResult = useDiagramCheckResultStore((state) => state.result);
   const [settings, setSettings] = useState<SimulationSettings>({
@@ -438,6 +440,28 @@ export const SimulationPage = () => {
           {t("sidebar.simulation.buttonDelete")}
         </Button>
       </Space.Compact>
+
+      <Flex gap={4} vertical>
+        <Typography.Text>{t("sidebar.simulation.displayMode.label")}</Typography.Text>
+        <Segmented
+          block
+          value={displayMode}
+          options={[
+            {
+              value: "default",
+              label: t("sidebar.simulation.displayMode.default"),
+            },
+            {
+              value: "extended",
+              label: t("sidebar.simulation.displayMode.extended"),
+            },
+          ]}
+          onChange={(value) => setDisplayMode(value as SimulationDisplayMode)}
+        />
+        <Typography.Text type="secondary">
+          {t(`sidebar.simulation.displayMode.${displayMode}Description`)}
+        </Typography.Text>
+      </Flex>
 
       {simulationGate.state === "debug-bypass" &&
         <Alert

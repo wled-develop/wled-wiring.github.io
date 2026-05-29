@@ -657,6 +657,13 @@
       "brightness": "亮度：{{value}}%",
       "buttonRun": "开始模拟",
       "buttonDelete": "删除结果",
+      "displayMode": {
+        "label": "结果显示",
+        "default": "默认",
+        "extended": "扩展",
+        "defaultDescription": "显示相关电流、供电输出、USB 供电电压和 LED 电压。",
+        "extendedDescription": "显示所有可用的模拟标签。"
+      },
       "notRun": "尚未运行模拟。",
       "running": "正在运行模拟...",
       "invalidated": "图纸已更改，模拟结果已移除。",

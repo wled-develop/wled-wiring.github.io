@@ -497,6 +497,127 @@ export default defineComponent({
         "nominalCurrentField": "Fuse2"
       }
     ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "vin-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "VIN1",
+            "b": "VIN2"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND2"
+          }
+        },
+        {
+          "id": "vin1-vout1-nc-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN1",
+            "b": "VOUT1"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse1"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse1"
+            }
+          }
+        },
+        {
+          "id": "vin1-vout2-no-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN1",
+            "b": "VOUT2"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse1"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse1"
+            }
+          }
+        },
+        {
+          "id": "vin2-vout3-nc-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN2",
+            "b": "VOUT3"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse2"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse2"
+            }
+          }
+        },
+        {
+          "id": "vin2-vout4-no-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN2",
+            "b": "VOUT4"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "4": 0.04,
+                "5": 0.035,
+                "10": 0.0208,
+                "7.5": 0.028
+              },
+              "by": {
+                "select": "Fuse2"
+              },
+              "default": 0.0208
+            },
+            "nominalCurrentA": {
+              "select": "Fuse2"
+            }
+          }
+        }
+      ]
+    },
     "runtime": {
       "inputFieldsBox": {
         "x": 120,

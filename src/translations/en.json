@@ -686,6 +686,13 @@
       "brightness": "Brightness: {{value}}%",
       "buttonRun": "Simulate",
       "buttonDelete": "Delete results",
+      "displayMode": {
+        "label": "Result display",
+        "default": "Default",
+        "extended": "Extended",
+        "defaultDescription": "Shows relevant currents, supply outputs, USB supply voltage and LED voltages.",
+        "extendedDescription": "Shows all available simulation labels."
+      },
       "notRun": "No simulation has been run yet.",
       "running": "Simulation is running...",
       "invalidated": "Simulation results were removed because the diagram changed.",

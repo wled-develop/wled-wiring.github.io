@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ComponentDataType, EdgeDataType, XYPoint } from "../types";
 import { getRenderedWireEndpoint } from "../utils/utils_functions";
-import { useSimulationResultStore } from "./simulationResultStore";
+import { useSimulationResultStore, type SimulationDisplayMode } from "./simulationResultStore";
 import type { SimulationPinResult, SimulationResult } from "./simulationTypes";
 
 type OverlayValueLine =
@@ -96,6 +96,7 @@ const HOVER_HORIZONTAL_LABEL_EXTRA_GAP_PX = 16;
 const COMPONENT_OBSTACLE_PADDING = 3;
 const WIRE_OBSTACLE_PADDING = 5;
 const LED_PLOT_BUTTON_WIDTH = 22;
+const DEFAULT_WIRE_CURRENT_DISPLAY_THRESHOLD_A = 0.02;
 
 const textLine = (text: string): OverlayValueLine => ({kind: "text", text});
 const ledVoltageLine = (value: number, qualifier?: "min"): OverlayValueLine => ({
@@ -136,6 +137,38 @@ const renderOverlayValueLine = (line: OverlayValueLine): ReactNode => {
 };
 
 const pinResultHasVoltage = (result: SimulationPinResult) => result.voltageV !== undefined;
+
+const allNodeHandles = (node: Node<ComponentDataType>) => [
+  ...(node.data.handles ?? []),
+  ...(node.data.repeatedHandleArray ?? []),
+];
+
+const nodeHandleHasAnyFunction = (
+  node: Node<ComponentDataType> | undefined,
+  handleId: string,
+  functions: string[],
+) => {
+  const handle = node ? allNodeHandles(node).find((candidate) => candidate.hid === handleId) : undefined;
+  return handle?.functions?.some((fn) => functions.includes(fn)) ?? false;
+};
+
+const showWireCurrentInDisplayMode = (
+  currentA: number,
+  displayMode: SimulationDisplayMode,
+) => (
+  displayMode === "extended" ||
+  currentA < -DEFAULT_WIRE_CURRENT_DISPLAY_THRESHOLD_A ||
+  currentA > DEFAULT_WIRE_CURRENT_DISPLAY_THRESHOLD_A
+);
+
+const showPinVoltageInDisplayMode = (
+  node: Node<ComponentDataType> | undefined,
+  handleId: string,
+  displayMode: SimulationDisplayMode,
+) => (
+  displayMode === "extended" ||
+  nodeHandleHasAnyFunction(node, handleId, ["suppl_out", "usb_power_out"])
+);
 
 const screenPoint = (point: XYPoint, viewport: {x: number; y: number; zoom: number}) => ({
   x: (point.x * viewport.zoom) + viewport.x,
@@ -1287,6 +1320,7 @@ const LedVoltagePlot = ({
 export const SimulationOverlay = () => {
   const {t} = useTranslation(["main"]);
   const simulationResult = useSimulationResultStore((state) => state.result);
+  const displayMode = useSimulationResultStore((state) => state.displayMode);
   const wireHover = useSimulationResultStore((state) => state.wireHover);
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
@@ -1324,6 +1358,7 @@ export const SimulationOverlay = () => {
     edges.forEach((edge) => {
       const wireResult = wireResultByEdgeId.get(edge.id);
       if(!wireResult || wireResult.currentA === undefined) return;
+      if(!showWireCurrentInDisplayMode(wireResult.currentA, displayMode)) return;
 
       const normalPoint = longestSegmentMidpoint(wirePoints(nodeById, edge));
       if(!normalPoint) return;
@@ -1359,6 +1394,7 @@ export const SimulationOverlay = () => {
 
         const connected = pinHasConnectedWire(edges, pinResult.nodeId, pinResult.handleId);
         if(!connected) return;
+        if(!showPinVoltageInDisplayMode(node, pinResult.handleId, displayMode)) return;
 
         const anchor = screenPoint(endpoint, viewport);
         const label = createVoltageLabel(
@@ -1516,7 +1552,7 @@ export const SimulationOverlay = () => {
       labels: updateTargetBoundaryAnchors(resolveLabelOverlaps(labels)),
       arrows,
     };
-  }, [edges, ledPlotDataByKey, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
+  }, [displayMode, edges, ledPlotDataByKey, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
 
   if(!simulationResult || (selectedWireActive && !activePlotData) || (
     overlayData.labels.length === 0 &&

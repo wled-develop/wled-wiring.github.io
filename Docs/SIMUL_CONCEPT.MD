@@ -238,6 +238,7 @@ Beispiele:
 - `MHC_V43`: ein Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren.
 - `MHC_SwitchBoard`: drei getrennte Sicherungspfade `VIN -> VOUT1`, `VIN -> VOUT2` und `VIN -> VOUT3`; Widerstandswert und Nennstrom kommen jeweils aus `Fuse1`..`Fuse3`. Die Widerstandstabellen verwenden die Werte des `MHC_V43` plus `0.01 Ohm` fuer die zusaetzlichen Schalter auf dem Board.
 - `FUSE_Board`: vier getrennte Sicherungspfade `IN1 -> OUT1`, `IN1 -> OUT2`, `IN2 -> OUT3` und `IN2 -> OUT4`; Widerstandswert und Nennstrom kommen jeweils aus dem passenden `Fuse1`..`Fuse4`-Select.
+- `MHC_Relay5V`, `MHC_Relay12V`, `MHC_Relay24V`: zwei reale Sicherungspfade werden als vier Fuse-Elemente modelliert, weil NC und NO eines Relais real nie gleichzeitig leiten. `VIN1 -> VOUT1` und `VIN1 -> VOUT2` verwenden `Fuse1`; `VIN2 -> VOUT3` und `VIN2 -> VOUT4` verwenden `Fuse2`. Zusaetzlich werden `VIN1`/`VIN2` und `GND1`/`GND2` per `shortBridge` verbunden.
 
 Die Handle-Funktion `passive` ist ein Diagramm-Check- und Komponentenmetadatum. Sie fuehrt kein eigenes Simulationselement ein. Fuer den generischen `Resistor` bleiben die `simdata.elements` mit `type: "resistor"` zwischen Pin `1` und Pin `2` die elektrische Wahrheit; `passive` verhindert nur, dass die Anschluesse in Diagramm-Checks als digitale Eingange oder andere aktive Rollen bewertet werden.
 
@@ -494,6 +495,13 @@ Digitale LED-Streifen:
 - vier unabhaengige Sicherungselemente fuer `IN1 -> OUT1`, `IN1 -> OUT2`, `IN2 -> OUT3` und `IN2 -> OUT4`
 - Widerstandswert und Sicherungsgrenzwert je Pfad aus `Fuse1`, `Fuse2`, `Fuse3` bzw. `Fuse4`
 - die vorhandenen `internalConnections` bleiben Diagramm-/Check-Information; die elektrische Simulation nutzt die expliziten `fuse`-Elemente in `simdata`
+
+`MHC_Relay5V`, `MHC_Relay12V`, `MHC_Relay24V`:
+
+- die beiden realen abgesicherten Relaispfade werden je als NC- und NO-Fuse-Element modelliert: `VIN1 -> VOUT1`, `VIN1 -> VOUT2`, `VIN2 -> VOUT3`, `VIN2 -> VOUT4`
+- `Fuse1` definiert Widerstandswert und Sicherungsgrenzwert fuer beide Ausgaenge von Relaispfad 1; `Fuse2` entsprechend fuer Relaispfad 2
+- `VIN1` und `VIN2` sind intern gebrueckt; `GND1` und `GND2` sind intern gebrueckt
+- das Modell bildet keinen dynamischen Relais-Schaltzustand ab; NC und NO werden als alternative, reale Pfade desselben abgesicherten Ausgangs beschrieben
 
 `DCDC`:
 
@@ -997,6 +1005,12 @@ Wire-Anzeige:
 - Beim Hover ueber eine Wire wird nahe der Hover-Position eine zusaetzliche Wire-Stromanzeige mit Richtungspfeil und Hinweislinie angezeigt. Wenn der Hover nahe an der normalen Wire-Stromanzeige liegt, wird diese zusaetzliche Anzeige unterdrueckt.
 - Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet.
 - Spannungsabfall und berechneter Widerstand koennen spaeter in der Wire-Toolbar oder in einem kleinen Tooltip angezeigt werden, nicht als dauerhaftes Label auf jedem Wire.
+
+Anzeige-Modi:
+
+- `Default`: Permanente Wire-Stromanzeigen erscheinen nur fuer Stroeme kleiner als `-0.02 A` oder groesser als `0.02 A`; die Hover-Anzeige fuer eine Wire bleibt davon ausgenommen und wird immer angezeigt. Pin-Spannungen werden nur an `suppl_out`-Pins und USB-Versorgungsanzeigen dargestellt. `V_LED` und `V_LED,min` bleiben sichtbar.
+- `Extended`: Alle aktuell verfuegbaren Simulationsergebnis-Labels werden angezeigt.
+- Der Modus wird in der Simulation-Sidebar unterhalb des `Simulate`-Buttons umgeschaltet und wirkt auf bereits berechnete Ergebnisse ohne erneuten Simulationslauf.
 - Beispiel: `I = 3.2 A`, `dU = 0.4 V`, `R = 0.12 Ohm`.
 
 Darstellungskonzept:
