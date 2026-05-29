@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "digital-output",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "DIGITAL_OUTPUT_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "OUT", "name": "OUT", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "multifunction-input",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "DIGITAL_ANALOG_INPUT_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "GPIO", "name": "GPIO", "functions": ["dig_in", "an_in"], "tolVmin": 0, "tolVmax": 3.6 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "digital-to-gpio", "source": "digital-output", "target": "multifunction-input", "sourceHandle": "OUT", "targetHandle": "GPIO", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}

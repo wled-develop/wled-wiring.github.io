@@ -225,6 +225,23 @@ Ein Netz speichert ausserdem:
 - `sinkHandles`: Handles mit Eingangs-/Senkenfunktion
 - `childNetIds`: IDs der gruppierten Netze aus der vorherigen Schicht
 
+## Signal-Capabilities und effektive Rollen
+
+`CheckHandle.functions` beschreibt weiterhin die Faehigkeiten eines Handles. Ein Multifunktionspin mit `dig_in` + `dig_out` ist damit nicht automatisch gleichzeitig aktive Quelle und Senke.
+
+Fuer Signalregeln gibt es deshalb eine regelinterne effektive Rollenaufloesung pro Signalkontext:
+
+- Harte Quellen sind Handles mit passender Ausgangsfaehigkeit ohne passende Eingangsfaehigkeit desselben Signaltyps, z.B. ein reines `dig_out`.
+- Harte Senken sind Handles mit passender Eingangsfaehigkeit ohne passende Ausgangsfaehigkeit desselben Signaltyps, z.B. ein reines `dig_in`.
+- Ambivalente Handles mit Quelle und Senke desselben Signaltyps, z.B. `dig_in` + `dig_out`, werden nur bei eindeutiger Gegenrolle inferiert.
+- Gibt es eine harte Quelle im Kontext, wird ein passender ambivalenter Pin als Senke betrachtet.
+- Gibt es keine harte Quelle, aber eine harte Senke im Kontext, wird ein passender ambivalenter Pin als Quelle betrachtet.
+- Gibt es nur ambivalente Pins ohne harte Gegenrolle, bleibt die Rolle unklar und erzeugt keinen Mehrquellenfehler.
+
+Diese Auswertung aendert die Netzklassifikation nicht. `digital_net_type`, `analog_net_type` und die anderen Klassifikationen bleiben konservativ und werden weiterhin nur dort gesetzt, wo die jeweilige Klassifikationslogik sie hart erkennt.
+
+Wenn ein Multifunktionspin in einem Signalkontext effektiv verwendet wird, werden alternative Funktionen desselben Handles fuer generische Quelle-/Senke-ohne-Gegenstueck-Regeln nicht zusaetzlich als eigene Nutzerfehler gemeldet. Beispiel: Ein `dig_in` + `dig_out` + `an_in`-GPIO, der in einem Netz eindeutig als digitale Quelle verwendet wird, erzeugt in demselben Netz keinen separaten analogen `signalSinkWithoutSource`-Fehler fuer `an_in`.
+
 ## Erreichbarkeits-Hilfsfunktionen
 
 Neben den Netzen gibt es Reachability-Funktionen, die fuer einige Checks genutzt werden.
@@ -342,7 +359,7 @@ Das gilt auch fuer DCDC-Eingaenge: Ein DCDC-`suppl_in` darf in einem Supply-Netz
 
 ### `signalSinkWithoutSource`
 
-Fehler, wenn ein Signal-Eingang verdrahtet ist, aber das Netz nicht als passendes Signalnetz klassifiziert ist.
+Fehler, wenn ein effektiv verwendeter Signal-Eingang verdrahtet ist, aber das Netz nicht als passendes Signalnetz klassifiziert ist.
 
 Aktuelle Signaldefinitionen:
 
@@ -355,6 +372,8 @@ Aktuelle Signaldefinitionen:
 USB ist dabei ein optionaler Power-Pair-Steckverbinder. Ein verdrahtetes oder unverdrahtetes `usb_full` ohne erreichbares `usb_power_out` erzeugt keinen `signalSinkWithoutSource`-Fehler; der USB-Port gilt dann fuer die Versorgung als nicht verwendet, z.B. weil dort nur Daten laufen. Wenn ein `usb_power_out` erreichbar ist, wird die Verbindung nicht als normales Signal, sondern als USB-Power-Sonderfall bewertet. Strukturfehler wie Verzweigungen oder mehrere USB-Senken sollen deshalb nicht als `signalSinkWithoutSource`, sondern als eigene USB-Power-Meldung erscheinen.
 
 Hinweis zu analogen LED-Streifen: `pwm_in_R`, `pwm_in_G`, `pwm_in_B`, `pwm_in_W` und `pwm_in_WW` werden dort aktuell als negativ geschaltete Lastanschluesse verwendet, nicht als klassische Logiksignal-Eingaenge. Fuer diese Handles sollten Spannungs-/Signalchecks perspektivisch anders arbeiten als bei reinen PWM-Logikpins, z.B. ueber eine eigene Lastanschluss-Funktion oder ueber Komponentenmetadaten, die Common-Anode-LED-Lasten von Signalinputs unterscheiden. Bis dahin sollten fehlende `tolVmin`/`tolVmax` an diesen analogen Strip-Pins nicht automatisch als Definitionsfehler bewertet werden.
+
+Die Regel nutzt effektive Signalrollen. Ambivalente Multifunktionspins werden nicht blind fuer alle Eingangsfaehigkeiten gemeldet. Wenn derselbe Handle im aktuellen Netz bereits als passende digitale oder analoge Rolle aufgeloest ist, erzeugen alternative Eingangsfaehigkeiten keine zusaetzlichen generischen Sink-ohne-Source-Meldungen.
 
 Digitale Senken haben eine Sonderbehandlung: Sie gelten auch dann als aufgeloest, wenn ueber `signalReachableHandles()` eine digitale Quelle erreichbar ist oder eine gueltige Bias-Verbindung existiert.
 
@@ -370,20 +389,22 @@ LED-Backup-Eingaenge haben eine zusaetzliche Sonderbehandlung: Ein `dig_backup_i
 
 ### `digitalSignalVoltageMismatch`
 
-Fehler, wenn ein digitaler Eingang mit einer digitalen Quelle verbunden ist, deren aufgeloeste Ausgangsspannung ausserhalb von `tolVmin` / `tolVmax` des Eingangs liegt.
+Fehler, wenn ein effektiver digitaler Eingang mit einer effektiven digitalen Quelle verbunden ist, deren aufgeloeste Ausgangsspannung ausserhalb von `tolVmin` / `tolVmax` des Eingangs liegt.
 
 Geprueft wird, wenn:
 
 - das Netz als digitales Netz klassifiziert ist, oder
-- das Netz keine Klassifikation hat, aber fuer den Eingang digitale Quellen ueber `signalReachableHandles()` gefunden wurden.
+- das Netz keine Klassifikation hat, aber fuer den Eingang effektive digitale Quellen gefunden wurden.
 
 Quellen ohne aufloesbare Spannung erzeugen keinen Mismatch.
 
+Ein Multifunktionspin, der im Kontext als digitale Senke inferiert wurde, wird fuer diese Regel nicht gleichzeitig als digitale Quelle behandelt.
+
 ### `multipleSignalSources`
 
-Fehler, wenn ein klassifiziertes Signalnetz mehr als eine passende Quelle enthaelt.
+Fehler, wenn ein klassifiziertes Signalnetz mehr als eine effektive passende Quelle enthaelt.
 
-Geprueft wird fuer dieselben Signaldefinitionen wie bei `signalSinkWithoutSource`. Es werden nur `sourceHandles` des Netzes betrachtet.
+Geprueft wird fuer dieselben Signaldefinitionen wie bei `signalSinkWithoutSource`. Harte Mehrfachquellen bleiben Fehler. Ambivalente Multifunktionspins zaehlen nur dann als Quelle, wenn die effektive Rollenaufloesung sie durch eine harte Gegenrolle eindeutig als Quelle interpretiert. Ein reines `dig_out` zusammen mit einem `dig_in` + `dig_out`-GPIO erzeugt deshalb keinen `multipleSignalSources`-Fehler; zwei reine `dig_out`-Quellen im selben Netz bleiben ein Fehler.
 
 ### USB-Power-Sonderfall
 
@@ -983,13 +1004,13 @@ Moegliche Logik:
 
 Warnung, wenn ein Signal-Ausgang verdrahtet ist, aber keine passende Signal-Senke erreicht.
 
-Aktuell gibt es Checks fuer Eingange ohne Quelle und mehrere Quellen. Der Gegenfall, also ein Ausgang ohne erkennbaren Verbraucher, kann auf vergessene Verbindungen oder falsch gesetzte Pin-Funktionen hinweisen.
+Implementiert fuer klassifizierte Signalnetze. Die Regel arbeitet mit effektiven Signalrollen statt direkt mit allen Ausgangsfaehigkeiten eines Handles. Dadurch wird ein Multifunktionspin, der im aktuellen Kontext als Eingang dient, nicht zusaetzlich als unbenutzter Ausgang gemeldet.
 
-Moegliche Logik:
+Aktuelle Logik:
 
 - Fuer Digital, PWM, Analog, Audio, USB je Signaldefinition alle klassifizierten Signalnetze betrachten.
-- Wenn passende Quellen vorhanden sind, aber keine passende Senke im Netz oder ueber `signalReachableHandles()` gefunden wird, Warnung erzeugen.
-- Passive Serienkomponenten wie `Resistor` beruecksichtigen.
+- Wenn effektive Quellen vorhanden sind, aber keine andere effektive passende Senke im Signalkontext gefunden wird, Warnung erzeugen.
+- Fuer digitale Signale passive Serienkomponenten wie `Resistor` ueber `signalReachableHandles()` beruecksichtigen.
 
 #### `dataDirectionWrong`
 
@@ -997,10 +1018,11 @@ Fehler, wenn bei gerichteten LED-Signalen Ausgang-zu-Ausgang oder Eingang-zu-Ein
 
 Teilweise wird das bereits indirekt durch `multipleSignalSources` oder `signalSinkWithoutSource` erkannt. Eine eigene Regel koennte nutzerfreundlichere Meldungen liefern, z.B. "Data-Out eines LED-Streifens wurde mit Data-Out des naechsten Streifens verbunden".
 
-Moegliche Logik:
+Aktuelle Logik:
 
-- Digitale Netze mit nur `dig_out`-Handles und ohne `dig_in` als Ausgang-ohne-Senke melden.
-- Netze mit nur `dig_in`-Handles und ohne erreichbare Quelle als Eingang-ohne-Quelle melden.
+- Digitale Netze mit mehr als einem harten `dig_out`-Handle und ohne harten `dig_in` als Ausgang-ohne-Senke melden.
+- Netze mit mehr als einem harten `dig_in`-Handle und ohne harten `dig_out` als Eingang-ohne-Quelle melden.
+- Multifunktionspins mit `dig_in` + `dig_out` erzeugen allein kein Output-only- oder Input-only-Netz.
 - Fuer LED-Komponenten die physischen Namen `DI`, `DO`, `BI`, `BO`, `CI`, `CO` in der Meldung hervorheben.
 
 #### `mixedDigitalSignalTypes` NICHT IMPLEMENTIEREN
@@ -1397,6 +1419,14 @@ Moegliche Logik:
 - Handles mit mehreren klassifikationsrelevanten Funktionen finden.
 - Pruefen, ob diese Kombination in einer erlaubten Liste steht.
 - Sonst Entwicklerhinweis ausgeben.
+
+Aktuell erlaubte Multifunktionskombinationen sind:
+
+- `dig_in` + `dig_out`
+- `dig_in` + `dig_out` + `an_in`
+- `dig_in` + `an_in`
+- `dig_clock_in` + `dig_clock_out`
+- `dig_backup_in` + `dig_backup_out`
 
 ## Priorisierung der vorgeschlagenen Regeln
 

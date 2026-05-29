@@ -1,0 +1,48 @@
+{
+  "nodes": [
+    {
+      "id": "controller-output",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "CONTROLLER_OUTPUT_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "OUT", "name": "OUT", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "resistor",
+      "type": "general-component-type",
+      "position": { "x": 150, "y": 0 },
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "1", "name": "1", "functions": ["passive"], "mustBeConnected": true },
+          { "hid": "2", "name": "2", "functions": ["passive"], "mustBeConnected": true }
+        ]
+      }
+    },
+    {
+      "id": "controller-gpio",
+      "type": "general-component-type",
+      "position": { "x": 300, "y": 0 },
+      "data": {
+        "technicalID": "MULTIFUNCTION_GPIO_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "GPIO", "name": "GPIO", "functions": ["dig_in", "dig_out"], "tolVmin": 0, "tolVmax": 3.6, "Vout": 3.3 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "output-to-r", "source": "controller-output", "target": "resistor", "sourceHandle": "OUT", "targetHandle": "1", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "r-to-gpio", "source": "resistor", "target": "controller-gpio", "sourceHandle": "2", "targetHandle": "GPIO", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}

@@ -409,13 +409,22 @@ const activeOrSignalClassifications: CheckNetClassification[] = [
   'rs485_b_net_type',
 ];
 
-const signalRuleDefinitions: {
+type SignalRuleDefinition = {
   id: string;
   label: string;
   classification: CheckNetClassification;
   sourceFunctions: string[];
   sinkFunctions: string[];
-}[] = [
+};
+
+type EffectiveSignalRole = {
+  definition: SignalRuleDefinition;
+  direction: 'source' | 'sink';
+  handle: CheckHandle;
+  confidence: 'hard' | 'inferred';
+};
+
+const signalRuleDefinitions: SignalRuleDefinition[] = [
   {
     id: 'digital',
     label: 'Digital',
@@ -572,6 +581,149 @@ const isPassiveSignalComponent = (handle: CheckHandle) => (
 const handlesWithAnyFunction = (handles: CheckHandle[], functions: string[]) => (
   handles.filter((handle) => functions.some((fn) => hasFunction(handle, fn)))
 );
+
+const hasSignalSourceCapability = (
+  handle: CheckHandle,
+  definition: SignalRuleDefinition,
+) => definition.sourceFunctions.some((fn) => hasFunction(handle, fn));
+
+const hasSignalSinkCapability = (
+  handle: CheckHandle,
+  definition: SignalRuleDefinition,
+) => definition.sinkFunctions.some((fn) => hasFunction(handle, fn));
+
+const isHardSignalSource = (
+  handle: CheckHandle,
+  definition: SignalRuleDefinition,
+) => (
+  hasSignalSourceCapability(handle, definition) &&
+  !hasSignalSinkCapability(handle, definition)
+);
+
+const isHardSignalSink = (
+  handle: CheckHandle,
+  definition: SignalRuleDefinition,
+) => (
+  hasSignalSinkCapability(handle, definition) &&
+  !hasSignalSourceCapability(handle, definition)
+);
+
+const uniqueHandles = (handles: CheckHandle[]) => (
+  Array.from(new Map(handles.map((handle) => [handle.key, handle])).values())
+);
+
+const signalContextHandles = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+  definition: SignalRuleDefinition,
+) => {
+  if (definition.id !== 'digital') return net.handles;
+
+  return uniqueHandles([
+    ...net.handles,
+    ...net.handles.flatMap((handle) => context.signalReachableHandles(handle)),
+  ]);
+};
+
+const effectiveSignalRolesForNet = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+  definition: SignalRuleDefinition,
+): EffectiveSignalRole[] => {
+  const handles = signalContextHandles(context, net, definition);
+  const hardSources = handles.filter((handle) => isHardSignalSource(handle, definition));
+  const hardSinks = handles.filter((handle) => isHardSignalSink(handle, definition));
+  const ambiguousHandles = handles.filter((handle) => (
+    hasSignalSourceCapability(handle, definition) &&
+    hasSignalSinkCapability(handle, definition)
+  ));
+
+  const roles: EffectiveSignalRole[] = [
+    ...hardSources.map((handle) => ({
+      definition,
+      direction: 'source' as const,
+      handle,
+      confidence: 'hard' as const,
+    })),
+    ...hardSinks.map((handle) => ({
+      definition,
+      direction: 'sink' as const,
+      handle,
+      confidence: 'hard' as const,
+    })),
+  ];
+
+  if (hardSources.length > 0) {
+    roles.push(...ambiguousHandles.map((handle) => ({
+      definition,
+      direction: 'sink' as const,
+      handle,
+      confidence: 'inferred' as const,
+    })));
+  } else if (hardSinks.length > 0) {
+    roles.push(...ambiguousHandles.map((handle) => ({
+      definition,
+      direction: 'source' as const,
+      handle,
+      confidence: 'inferred' as const,
+    })));
+  }
+
+  const rolesByKey = new Map<string, EffectiveSignalRole>();
+  roles.forEach((role) => {
+    rolesByKey.set(`${role.handle.key}:${role.definition.id}:${role.direction}`, role);
+  });
+
+  return Array.from(rolesByKey.values());
+};
+
+const effectiveSignalSourcesForNet = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+  definition: SignalRuleDefinition,
+) => (
+  effectiveSignalRolesForNet(context, net, definition)
+    .filter((role) => role.direction === 'source')
+    .map((role) => role.handle)
+);
+
+const effectiveSignalSinksForNet = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+  definition: SignalRuleDefinition,
+) => (
+  effectiveSignalRolesForNet(context, net, definition)
+    .filter((role) => role.direction === 'sink')
+    .map((role) => role.handle)
+);
+
+const hasResolvedRoleForOtherSignal = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+  handle: CheckHandle,
+  currentDefinition: SignalRuleDefinition,
+) => (
+  signalRuleDefinitions
+    .filter((definition) => definition.id !== currentDefinition.id)
+    .some((definition) => {
+      const roles = effectiveSignalRolesForNet(context, net, definition);
+      const hasHandleRole = roles.some((role) => role.handle.key === handle.key);
+      const hasSource = roles.some((role) => role.direction === 'source');
+      const hasSink = roles.some((role) => role.direction === 'sink');
+      return hasHandleRole && hasSource && hasSink;
+    })
+);
+
+const isFirstSinkDefinitionForHandle = (
+  handle: CheckHandle,
+  definition: SignalRuleDefinition,
+) => {
+  const firstSinkDefinition = signalRuleDefinitions.find((candidate) => (
+    hasSignalSinkCapability(handle, candidate)
+  ));
+
+  return firstSinkDefinition?.id === definition.id;
+};
 
 const voltageMatches = (sourceVoltage: number | undefined, target: CheckHandle) => {
   if (sourceVoltage === undefined) return false;
@@ -1067,14 +1219,12 @@ const checkSignalOutputWithoutConsumer = (context: DiagramCheckContext) => (
   context.componentLinkedNets.flatMap((net) => (
     signalRuleDefinitions.flatMap((definition) => {
       if (!net.classifications.includes(definition.classification)) return [];
-      const sources = handlesWithAnyFunction(net.sourceHandles, definition.sourceFunctions);
+      const sources = effectiveSignalSourcesForNet(context, net, definition);
+      const sinks = effectiveSignalSinksForNet(context, net, definition);
       return sources
         .filter((source) => source.connectedEdges.length > 0)
         .filter((source) => (
-          !context.signalReachableHandles(source).some((candidate) => (
-            candidate.key !== source.key &&
-            definition.sinkFunctions.some((fn) => hasFunction(candidate, fn))
-          ))
+          !sinks.some((candidate) => candidate.key !== source.key)
         ))
         .map((source) => translatedIssue(
           'network-rules',
@@ -1098,8 +1248,12 @@ const checkDataDirectionWrong = (context: DiagramCheckContext) => (
   context.componentLinkedNets
     .filter((net) => net.classifications.includes('digital_net_type'))
     .flatMap((net) => {
-      const dataSources = handlesWithAnyFunction(net.handles, ['dig_out']);
-      const dataSinks = handlesWithAnyFunction(net.handles, ['dig_in']);
+      const dataSources = net.handles.filter((handle) => (
+        hasFunction(handle, 'dig_out') && !hasFunction(handle, 'dig_in')
+      ));
+      const dataSinks = net.handles.filter((handle) => (
+        hasFunction(handle, 'dig_in') && !hasFunction(handle, 'dig_out')
+      ));
       if (dataSources.length > 1 && dataSinks.length === 0) {
         return [translatedIssue(
           'network-rules',
@@ -1523,6 +1677,9 @@ const checkComponentDefinitionIncompleteForChecks = (context: DiagramCheckContex
 
 const allowedMultiFunctionSets = new Set([
   ['dig_in', 'dig_out'].sort().join('|'),
+  ['dig_in', 'dig_out', 'an_in'].sort().join('|'),
+  ['dig_clock_in', 'dig_clock_out'].sort().join('|'),
+  ['dig_backup_in', 'dig_backup_out'].sort().join('|'),
   ['dig_in', 'an_in'].sort().join('|'),
 ]);
 
@@ -1766,7 +1923,9 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       signalRuleDefinitions.forEach((definition) => {
         if(definition.id === 'usb' && !net.classifications.includes('usb_net_type')) return;
 
-        const sinks = handlesWithAnyFunction(net.handles, definition.sinkFunctions);
+        const sinks = effectiveSignalSinksForNet(context, net, definition)
+          .filter((handle) => isFirstSinkDefinitionForHandle(handle, definition))
+          .filter((handle) => !hasResolvedRoleForOtherSignal(context, net, handle, definition));
         const unresolvedSinks = definition.id === 'digital'
           ? sinks.filter((handle) => !hasResolvedDigitalSink(context, handle))
           : sinks;
@@ -1796,11 +1955,18 @@ const runNetworkRules = (context: DiagramCheckContext) => {
   componentLinkedNets
     .filter((net) => !priorityBlockedNetIds.has(net.id))
     .forEach((net) => {
-      handlesWithAnyFunction(net.handles, digitalSinkFunctions).forEach((input) => {
-        const sources = digitalSignalSourcesForInput(context, input);
-        if (!shouldCheckDigitalSignalVoltage(net, sources)) return;
+      const digitalDefinition = signalRuleDefinitions.find((definition) => definition.id === 'digital');
+      if (!digitalDefinition) return;
 
-        const mismatches = sources
+      const sources = effectiveSignalSourcesForNet(context, net, digitalDefinition);
+      const inputs = effectiveSignalSinksForNet(context, net, digitalDefinition);
+      inputs.forEach((input) => {
+        const inputSources = sources.filter((source) => (
+          source.key !== input.key && source.node.id !== input.node.id
+        ));
+        if (!shouldCheckDigitalSignalVoltage(net, inputSources)) return;
+
+        const mismatches = inputSources
           .map((source) => ({
             source,
             voltage: context.resolveVoltageOut(source),
@@ -1849,7 +2015,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
       signalRuleDefinitions.forEach((definition) => {
         if (!net.classifications.includes(definition.classification)) return;
 
-        const sources = handlesWithAnyFunction(net.sourceHandles, definition.sourceFunctions);
+        const sources = effectiveSignalSourcesForNet(context, net, definition);
         if (sources.length <= 1) return;
 
         issues.push(translatedIssue(

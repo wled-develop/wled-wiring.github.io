@@ -1,0 +1,10 @@
+{
+  "case": "multifunction_gpio_as_sink_via_resistor_valid",
+  "filterIssueIdIncludes": [
+    "multiple-digital-sources",
+    "signal-output-without-consumer",
+    "data-direction-wrong",
+    "digital-signal-voltage-mismatch"
+  ],
+  "expectedIssues": []
+}

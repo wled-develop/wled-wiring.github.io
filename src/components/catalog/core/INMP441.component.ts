@@ -170,7 +170,7 @@ export default defineComponent({
         "yalign": "start",
         "width": 8,
         "height": 8,
-        "postype": "left",
+        "postype": "centered",
         "position": "left",
         "border": {
           "type": "dotted",

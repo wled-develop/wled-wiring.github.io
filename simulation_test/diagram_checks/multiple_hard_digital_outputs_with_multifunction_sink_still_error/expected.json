@@ -1,0 +1,9 @@
+{
+  "case": "multiple_hard_digital_outputs_with_multifunction_sink_still_error",
+  "filterIssueIdIncludes": [
+    "multiple-digital-sources"
+  ],
+  "expectedIssues": [
+    { "idIncludes": "multiple-digital-sources", "severity": "error" }
+  ]
+}

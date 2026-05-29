@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "controller-output",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "CONTROLLER_OUTPUT_5V_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "OUT", "name": "OUT", "functions": ["dig_out"], "Vout": 5 }
+        ]
+      }
+    },
+    {
+      "id": "controller-gpio",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "MULTIFUNCTION_GPIO_3V3_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "GPIO", "name": "GPIO", "functions": ["dig_in", "dig_out"], "tolVmin": 0, "tolVmax": 3.6, "Vout": 3.3 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "output-to-gpio", "source": "controller-output", "target": "controller-gpio", "sourceHandle": "OUT", "targetHandle": "GPIO", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}

@@ -1,6 +1,8 @@
 # Digital Source Capable Check Plan
 
-Stand: 2026-05-29
+Stand: 2026-05-30
+
+Status: Die digitale Quellenfaehigkeit wurde als erster Schritt umgesetzt und wird fuer Control-/Enable-Regeln genutzt. Fuer generische Signalregeln wurde der breitere Plan `Docs/MULTIFUNCTION_HANDLE_EFFECTIVE_ROLE_PLAN.MD` eingefuehrt; dort ist die aktuelle effektive Rollenaufloesung fuer Multifunktionspins dokumentiert.
 
 ## Ziel
 
