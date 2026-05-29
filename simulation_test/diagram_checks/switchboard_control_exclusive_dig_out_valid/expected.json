@@ -1,0 +1,7 @@
+{
+  "case": "switchboard_control_exclusive_dig_out_valid",
+  "filterIssueIdIncludes": [
+    "controlled-output-without-control-input"
+  ],
+  "expectedIssues": []
+}

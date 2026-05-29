@@ -1,0 +1,48 @@
+{
+  "nodes": [
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "CONTROLLER_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "OUT", "name": "OUT", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "switchboard",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "MHC_SwitchBoard",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "EN1", "name": "EN1", "functions": ["dig_in"] },
+          { "hid": "VOUT1", "name": "VOUT1", "functions": ["suppl_out"], "VoutDependency": "VIN", "controllableBy": "EN1" }
+        ]
+      }
+    },
+    {
+      "id": "load",
+      "type": "general-component-type",
+      "position": { "x": 400, "y": 0 },
+      "data": {
+        "technicalID": "LOAD_TEST",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"], "tolVmin": 0, "tolVmax": 24 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "out-to-en1", "source": "controller", "target": "switchboard", "sourceHandle": "OUT", "targetHandle": "EN1", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "vout-to-load", "source": "switchboard", "target": "load", "sourceHandle": "VOUT1", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.5 } }
+  ]
+}

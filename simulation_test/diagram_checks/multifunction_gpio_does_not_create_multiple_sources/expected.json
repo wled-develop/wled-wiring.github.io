@@ -1,0 +1,10 @@
+{
+  "case": "multifunction_gpio_does_not_create_multiple_sources",
+  "filterIssueIdIncludes": [
+    "multiple-signal-sources",
+    "multiple-digital-sources",
+    "data-direction-wrong",
+    "signal-output-without-consumer"
+  ],
+  "expectedIssues": []
+}

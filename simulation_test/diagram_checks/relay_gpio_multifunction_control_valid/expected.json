@@ -1,0 +1,7 @@
+{
+  "case": "relay_gpio_multifunction_control_valid",
+  "filterIssueIdIncludes": [
+    "controlled-output-without-control-input"
+  ],
+  "expectedIssues": []
+}

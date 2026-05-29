@@ -463,13 +463,44 @@ const analogLedColorChannels = [
   { id: 'warmWhite', fn: 'pwm_in_WW' },
 ];
 
-const isDigitalSink = (handle: CheckHandle) => (
+const isDigitalSinkCapable = (handle: CheckHandle) => (
   digitalSinkFunctions.some((fn) => hasFunction(handle, fn))
 );
 
-const isDigitalSource = (handle: CheckHandle) => (
+const isDigitalSink = isDigitalSinkCapable;
+
+const isDigitalSourceCapable = (handle: CheckHandle) => (
   digitalSourceFunctions.some((fn) => hasFunction(handle, fn))
 );
+
+const isDigitalSource = isDigitalSourceCapable;
+
+const digitalSourceCapableHandlesForInput = (
+  context: DiagramCheckContext,
+  input: CheckHandle,
+) => (
+  context.signalReachableHandles(input)
+    .filter((candidate) => candidate.node.id !== input.node.id)
+    .filter(isDigitalSourceCapable)
+);
+
+const netHasDigitalSourceCapable = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+) => (
+  net.handles.some((handle) => (
+    isDigitalSourceCapable(handle) ||
+    digitalSourceCapableHandlesForInput(context, handle).length > 0
+  ))
+);
+
+const handleHasDigitalSourceCapableNet = (
+  context: DiagramCheckContext,
+  handle: CheckHandle,
+) => {
+  const net = context.getNetByHandle(handle);
+  return Boolean(net && netHasDigitalSourceCapable(context, net));
+};
 
 const isUsbFull = (handle: CheckHandle) => hasFunction(handle, 'usb_full');
 
@@ -1152,7 +1183,7 @@ const checkControlledOutputWithoutControlInput = (context: DiagramCheckContext) 
 
         const controlHandles = shortConnectedHandles(nodeHandles, controlHandleId);
         const hasDigitalControl = controlHandles.some((control) => (
-          handleNetHasClassification(context, control, 'digital_net_type')
+          handleHasDigitalSourceCapableNet(context, control)
         ));
         if (hasDigitalControl) return [];
 

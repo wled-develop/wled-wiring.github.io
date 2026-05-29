@@ -1,0 +1,9 @@
+{
+  "case": "switchboard_control_passive_only_still_error",
+  "filterIssueIdIncludes": [
+    "controlled-output-without-control-input"
+  ],
+  "expectedIssues": [
+    { "idIncludes": "controlled-output-without-control-input", "severity": "error" }
+  ]
+}
