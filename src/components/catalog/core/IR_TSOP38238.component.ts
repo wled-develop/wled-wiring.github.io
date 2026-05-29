@@ -120,6 +120,23 @@ export default defineComponent({
           "preferredLineWidth": 1
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "idle-load-3V3",
+          "type": "constantPowerSink",
+          "terminals": {
+            "positive": "3V3",
+            "negative": "GND"
+          },
+          "parameters": {
+            "powerW": 0.01,
+            "minVoltageV": 3
+          }
+        }
+      ]
+    }
   }
 });

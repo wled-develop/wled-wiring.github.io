@@ -24,8 +24,8 @@ const targetTypeLabel = (target: DiagramCheckTarget) => (
   target.type === 'node' ? 'Component' : 'Wire'
 );
 
-const SHOW_DIAGRAM_CHECK_DIAGNOSTICS = false;
-const SHOW_NET_DEBUG = false;
+const SHOW_DIAGRAM_CHECK_DIAGNOSTICS = true;
+const SHOW_NET_DEBUG = true;
 
 const netDebugTargets = (net: CheckNet): DiagramCheckTarget[] => {
   const nodeTargets = new Map<string, DiagramCheckTarget>();

@@ -57,7 +57,7 @@ export default defineComponent({
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
-          "toleranceMax": 0
+          "toleranceMax": 3.6
         },
         "behavior": {
           "mustBeConnected": true,
@@ -89,7 +89,7 @@ export default defineComponent({
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
-          "toleranceMax": 0
+          "toleranceMax": 3.6
         },
         "behavior": {
           "mustBeConnected": true,
@@ -121,7 +121,7 @@ export default defineComponent({
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
-          "toleranceMax": 0
+          "toleranceMax": 3.6
         },
         "behavior": {
           "mustBeConnected": true,
@@ -184,7 +184,7 @@ export default defineComponent({
         "voltage": {
           "out": 3.3,
           "toleranceMin": 0,
-          "toleranceMax": 5
+          "toleranceMax": 3.6
         },
         "behavior": {
           "preferredLineWidth": 1
@@ -213,15 +213,32 @@ export default defineComponent({
           "dig_out"
         ],
         "voltage": {
-          "out": 0,
+          "out": 3.3,
           "toleranceMin": 0,
-          "toleranceMax": 0
+          "toleranceMax": 3.6
         },
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 1
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "idle-load-3V3",
+          "type": "constantPowerSink",
+          "terminals": {
+            "positive": "3V3",
+            "negative": "GND"
+          },
+          "parameters": {
+            "powerW": 0.01,
+            "minVoltageV": 3
+          }
+        }
+      ]
+    }
   }
 });
