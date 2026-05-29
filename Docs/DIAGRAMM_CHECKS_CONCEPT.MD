@@ -462,6 +462,8 @@ Wenn mindestens ein Nicht-USB-`suppl_in` bereits angeschlossen ist, aber keine e
 
 Eine gueltige Point-to-Point-USB-Power-Verbindung zaehlt fuer die direkt angeschlossene Verbraucherkomponente auch als lokaler GND-/Versorgungsbezug. `groundMissing` auf Diagramm- oder Komponentenebene soll fuer diese reine USB-Versorgung nicht ausgeloest werden. USB wird dadurch nicht als normales externes `gnd_net_type` oder `suppl_net_type` umklassifiziert; die Ausnahme gilt nur fuer die betroffene USB-Verbraucherkomponente und die interne `USB.GND`-/`USB.VBUS`-Modellierung.
 
+Wenn ein aktives USB-Power-Netz bereits als `usbPowerPairInvalid` erkannt wurde, sollen daraus abgeleitete Folgefehler wie `powerMissing` oder `groundMissing` fuer die betroffenen USB-Verbraucher nicht zusaetzlich im normalen Nutzer-Modus erscheinen. Die Ursache ist dann die nicht erlaubte USB-Topologie selbst, z.B. mehrere `usb_full`-Senken, mehrere sichtbare USB-Wires oder passive Verteiler im USB-Pfad.
+
 ### `mainsInputMissing`
 
 Fehler, wenn eine Komponente Netzspannungs-Eingaenge hat, diese aber nicht mit dem passenden Netztyp verbunden sind.

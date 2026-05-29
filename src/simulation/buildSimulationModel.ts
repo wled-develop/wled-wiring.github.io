@@ -97,6 +97,14 @@ const allHandles = (node: Node<ComponentDataType>) => [
   ...(node.data.repeatedHandleArray || []),
 ];
 
+const isPassiveJoinNode = (node: Node<ComponentDataType>) => (
+  ["SolderJoint", "WAGO_2X", "WAGO_3X"].includes(node.data.technicalID)
+);
+
+const isDcIgnoredNoElementNode = (node: Node<ComponentDataType>) => (
+  ["Kerko", "Elko"].includes(node.data.technicalID)
+);
+
 const handlePosition = (node: Node<ComponentDataType>, handle: HandleDataType) => ({
   x: node.position.x + handle.x,
   y: node.position.y + handle.y,
@@ -131,6 +139,7 @@ type UsbPowerPairPortRef = {
 type SimulationTerminalResolutionContext = {
   handleByPinId: Map<string, CheckHandle>;
   virtualTerminalPinByNodeId: Map<string, Map<string, string>>;
+  hiddenVirtualTerminalByNodeId: Map<string, Set<string>>;
 };
 
 const isDigitalLedElement = (
@@ -400,6 +409,11 @@ const terminalPinIds = (
       return;
     }
 
+    if(resolutionContext.hiddenVirtualTerminalByNodeId.get(node.id)?.has(handleId)) {
+      hasHiddenTerminal = true;
+      return;
+    }
+
     const id = pinId(node.id, handleId);
     if(resolutionContext.handleByPinId.has(id)) {
       terminals[terminalName] = id;
@@ -455,6 +469,24 @@ const unionShortBridgeTerminals = (
   });
 };
 
+const unionPassiveJoinNodeTerminals = (
+  nodes: Node<ComponentDataType>[],
+  handleByPinId: Map<string, CheckHandle>,
+  unionFind: UnionFind,
+) => {
+  nodes
+    .filter(isPassiveJoinNode)
+    .forEach((node) => {
+      const nodePinIds = visibleHandles(node)
+        .map((handle) => pinId(node.id, handle.hid))
+        .filter((id) => handleByPinId.has(id));
+
+      nodePinIds.slice(1).forEach((id) => {
+        unionFind.union(nodePinIds[0], id);
+      });
+    });
+};
+
 const createSimulationCheckNetRef = (net: CheckNet): SimulationCheckNetRef => ({
   id: net.id,
   classifications: mapNetClassifications(net.classifications),
@@ -470,6 +502,7 @@ const collectUsbPowerPairPorts = (
 ) => {
   const ports: UsbPowerPairPortRef[] = [];
   const virtualTerminalPinByNodeId = new Map<string, Map<string, string>>();
+  const hiddenVirtualTerminalByNodeId = new Map<string, Set<string>>();
   const portByNodeHandle = new Map<string, UsbPowerPairPortRef>();
 
   nodes.forEach((node) => {
@@ -493,7 +526,12 @@ const collectUsbPowerPairPorts = (
       const handle = handleByPinId.get(pinId(node.id, port.handle));
       if(!handle) {
         const rawHandle = allHandles(node).find((candidate) => candidate.hid === port.handle);
-        if(!rawHandle || !isHiddenByCondition(node, rawHandle)) {
+        if(rawHandle && isHiddenByCondition(node, rawHandle)) {
+          const hiddenTerminals = hiddenVirtualTerminalByNodeId.get(node.id) ?? new Set<string>();
+          hiddenTerminals.add(port.positiveTerminal);
+          hiddenTerminals.add(port.negativeTerminal);
+          hiddenVirtualTerminalByNodeId.set(node.id, hiddenTerminals);
+        } else {
           issues.push(issue(
             `simulation-port:${node.id}:${port.id}:handle`,
             "Simulation port points to a missing pin",
@@ -540,6 +578,7 @@ const collectUsbPowerPairPorts = (
     ports,
     portByNodeHandle,
     virtualTerminalPinByNodeId,
+    hiddenVirtualTerminalByNodeId,
   };
 };
 
@@ -1035,12 +1074,14 @@ export const buildSimulationModel = (
   });
 
   const usbPowerPairPorts = collectUsbPowerPairPorts(nodes, handleByPinId, unionFind, issues);
-  const terminalResolutionContext = {
+  const terminalResolutionContext: SimulationTerminalResolutionContext = {
     handleByPinId,
     virtualTerminalPinByNodeId: usbPowerPairPorts.virtualTerminalPinByNodeId,
+    hiddenVirtualTerminalByNodeId: usbPowerPairPorts.hiddenVirtualTerminalByNodeId,
   };
 
   unionShortBridgeTerminals(nodes, terminalResolutionContext, unionFind, issues);
+  unionPassiveJoinNodeTerminals(nodes, handleByPinId, unionFind);
   const digitalLedElementPlans = collectDigitalLedElementPlans(
     nodes,
     edges,
@@ -1111,6 +1152,8 @@ export const buildSimulationModel = (
 
   nodes.forEach((node) => {
     if(node.data.simdata !== undefined) return;
+    if(isPassiveJoinNode(node)) return;
+    if(isDcIgnoredNoElementNode(node)) return;
 
     const relevantHandles = visibleHandles(node).filter((handle) => {
       const handleRef = handleByPinId.get(pinId(node.id, handle.hid));

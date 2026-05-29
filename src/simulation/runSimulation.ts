@@ -1203,6 +1203,14 @@ const createUnpoweredIgnoredIssues = (
     const ignoredElementIds = component.elementIds.filter((elementId) => {
       const element = model.elements.find((candidate) => candidate.id === elementId);
       if(!element) return false;
+      if(
+        element.type === "resistor" ||
+        element.type === "fuse" ||
+        element.type === "shortBridge" ||
+        element.type === "diode"
+      ) {
+        return false;
+      }
 
       return Object.values(element.terminals).every((circuitNodeId) => (
         !activeCircuitNodeIds.has(circuitNodeId)

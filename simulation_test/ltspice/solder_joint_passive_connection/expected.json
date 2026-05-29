@@ -1,0 +1,22 @@
+{
+  "case": "solder_joint_passive_connection",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.001,
+    "currentA": 0.001,
+    "voltageDropV": 0.001
+  },
+  "expected": {
+    "pins": [
+      {
+        "nodeTechnicalID": "TEST_LOAD",
+        "handleId": "VIN",
+        "voltageV": 5
+      }
+    ],
+    "checkIssues": []
+  }
+}

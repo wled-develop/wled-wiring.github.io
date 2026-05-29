@@ -1,0 +1,149 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 0},
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 5},
+          {"technicalID": "source_current", "type": "number_input", "value": 2}
+        ],
+        "handles": [
+          {"hid": "VOUT", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["suppl_out"]},
+          {"hid": "GND", "type": "source", "x": 0, "y": 20, "width": 10, "height": 10, "functions": ["gnd"]}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "source",
+              "type": "voltageSource",
+              "terminals": {"positive": "VOUT", "negative": "GND"},
+              "parameters": {
+                "voltageV": {"field": "source_voltage"},
+                "currentLimitA": {"field": "source_current"},
+                "voltageDropPctAt150Current": 50
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "load",
+      "type": "general-component-type",
+      "position": {"x": 180, "y": 0},
+      "data": {
+        "technicalID": "TEST_LOAD",
+        "technicalVersion": 1,
+        "handles": [
+          {"hid": "VIN", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["suppl_in"]},
+          {"hid": "GND", "type": "source", "x": 0, "y": 20, "width": 10, "height": 10, "functions": ["gnd"]}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "load",
+              "type": "constantPowerSink",
+              "terminals": {"positive": "VIN", "negative": "GND"},
+              "parameters": {"powerW": 0.5, "minVoltageV": 3}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "digital-out",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 100},
+      "data": {
+        "technicalID": "TEST_DIGITAL_OUT",
+        "technicalVersion": 1,
+        "handles": [
+          {"hid": "OUT", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["dig_out"]}
+        ]
+      }
+    },
+    {
+      "id": "resistor",
+      "type": "general-component-type",
+      "position": {"x": 100, "y": 100},
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "selectFields": [
+          {"technicalID": "NominalValue", "selectedValue": 470}
+        ],
+        "handles": [
+          {"hid": "1", "type": "source", "x": 0, "y": 0, "width": 10, "height": 4, "functions": ["dig_in"]},
+          {"hid": "2", "type": "source", "x": 40, "y": 0, "width": 10, "height": 4, "functions": ["dig_in"]}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "resistor",
+              "type": "resistor",
+              "terminals": {"a": "1", "b": "2"},
+              "parameters": {"resistanceOhm": {"select": "NominalValue"}}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "digital-in",
+      "type": "general-component-type",
+      "position": {"x": 220, "y": 100},
+      "data": {
+        "technicalID": "TEST_DIGITAL_IN",
+        "technicalVersion": 1,
+        "handles": [
+          {"hid": "IN", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["dig_in"]}
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "vout-to-load",
+      "type": "editable-wire-type",
+      "source": "psu",
+      "sourceHandle": "VOUT",
+      "target": "load",
+      "targetHandle": "VIN",
+      "data": {"physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}
+    },
+    {
+      "id": "gnd-return",
+      "type": "editable-wire-type",
+      "source": "load",
+      "sourceHandle": "GND",
+      "target": "psu",
+      "targetHandle": "GND",
+      "data": {"physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}
+    },
+    {
+      "id": "digital-out-to-resistor",
+      "type": "editable-wire-type",
+      "source": "digital-out",
+      "sourceHandle": "OUT",
+      "target": "resistor",
+      "targetHandle": "1",
+      "data": {"physLength": 0.1, "physCrosssection": 0.14, "physCrosssectionUnit": "mm2", "physType": "single"}
+    },
+    {
+      "id": "resistor-to-digital-in",
+      "type": "editable-wire-type",
+      "source": "resistor",
+      "sourceHandle": "2",
+      "target": "digital-in",
+      "targetHandle": "IN",
+      "data": {"physLength": 0.1, "physCrosssection": 0.14, "physCrosssectionUnit": "mm2", "physType": "single"}
+    }
+  ]
+}

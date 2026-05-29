@@ -267,6 +267,9 @@ export default defineComponent({
         "backgroundColor": "transparent",
         "rotate180only": true
       }
+    },
+    "simulation": {
+      "version": 1
     }
   }
 });

@@ -506,6 +506,10 @@ const isValidUsbPowerPairNet = (net: CheckNet | undefined) => (
   Boolean(net && usbPowerPairInvalidReasons(net).length === 0)
 );
 
+const isInvalidUsbPowerPairNet = (net: CheckNet | undefined) => (
+  Boolean(net && net.classifications.includes('usb_net_type') && usbPowerPairInvalidReasons(net).length > 0)
+);
+
 const nodeHasValidUsbPowerConnection = (
   context: DiagramCheckContext,
   nodeId: string,
@@ -515,6 +519,18 @@ const nodeHasValidUsbPowerConnection = (
     .some((handle) => (
       hasFunction(handle, 'usb_full') &&
       isValidUsbPowerPairNet(context.getNetByHandle(handle))
+    ))
+);
+
+const nodeHasInvalidUsbPowerConnection = (
+  context: DiagramCheckContext,
+  nodeId: string,
+) => (
+  context.handles
+    .filter((handle) => handle.node.id === nodeId)
+    .some((handle) => (
+      hasFunction(handle, 'usb_full') &&
+      isInvalidUsbPowerPairNet(context.getNetByHandle(handle))
     ))
 );
 
@@ -1548,7 +1564,8 @@ const runNetworkRules = (context: DiagramCheckContext) => {
   const gndHandles = context.handles.filter((handle) => hasFunction(handle, 'gnd'));
   const gndNets = componentLinkedNets.filter((net) => net.classifications.includes('gnd_net_type'));
   const gndHandlesWithoutUsbPower = gndHandles.filter((handle) => (
-    !nodeHasValidUsbPowerConnection(context, handle.node.id)
+    !nodeHasValidUsbPowerConnection(context, handle.node.id) &&
+    !nodeHasInvalidUsbPowerConnection(context, handle.node.id)
   ));
 
   if (gndHandlesWithoutUsbPower.length > 0 && gndNets.length === 0) {
@@ -2020,11 +2037,14 @@ const runComponentRules = (context: DiagramCheckContext) => {
     const hasUsbConnection = usbFullHandles.some((handle) => (
       isValidUsbPowerPairNet(context.getNetByHandle(handle))
     ));
+    const hasInvalidUsbConnection = usbFullHandles.some((handle) => (
+      isInvalidUsbPowerPairNet(context.getNetByHandle(handle))
+    ));
     const hasGroundConnection = gndHandles.some((handle) => (
       handleNetHasClassification(context, handle, 'gnd_net_type')
     ));
 
-    if (gndHandles.length > 0 && !hasGroundConnection && !hasUsbConnection) {
+    if (gndHandles.length > 0 && !hasGroundConnection && !hasUsbConnection && !hasInvalidUsbConnection) {
       issues.push(translatedIssue(
         'component-rules',
         'groundMissing',
@@ -2052,10 +2072,17 @@ const runComponentRules = (context: DiagramCheckContext) => {
     const preferSupplyNetIssue = (
       connectedSupplyInputsWithoutSource.length > 0 &&
       !hasSupplyConnection &&
-      !hasUsbConnection
+      !hasUsbConnection &&
+      !hasInvalidUsbConnection
     );
 
-    if (hasSupplyNeed && !hasSupplyConnection && !hasUsbConnection && !preferSupplyNetIssue) {
+    if (
+      hasSupplyNeed &&
+      !hasSupplyConnection &&
+      !hasUsbConnection &&
+      !hasInvalidUsbConnection &&
+      !preferSupplyNetIssue
+    ) {
       issues.push(translatedIssue(
         'component-rules',
         'powerMissing',

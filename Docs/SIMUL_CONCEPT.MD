@@ -54,11 +54,13 @@ Der Komponenten-Katalog in der Sidebar zeigt bei aktivem `ENABLE_SIMULATION_CONT
 
 ## Datenmodell: Komponenten
 
-Nur Komponenten mit `data.simdata` werden in das Simulationsmodell aufgenommen.
+Nur Komponenten mit `data.simdata` werden als aktive oder modellierte Bauteile in das Simulationsmodell aufgenommen. Passive Verbindungsknoten wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` sind eine Ausnahme: Sie liefern keine Bauteilgleichungen, sondern werden als ideale elektrische Knoten behandelt und brauchen deshalb kein eigenes `simdata`.
 
 Komponenten ohne `simdata` duerfen weiterhin im Diagramm existieren. Sie liefern aber keine elektrischen Bauteilgleichungen. Wenn sie zwischen simulierten Netzen liegen und dadurch ein relevanter Strompfad nicht modelliert werden kann, erzeugt der Modellaufbau einen Simulationsfehler und bricht ab. Dadurch werden unvollstaendige Ergebnisse nicht als vertrauenswuerdig angezeigt.
 
-Wenn `data.simdata` definiert, aber leer ist, bedeutet das: Die Komponente ist fuer die Simulation bekannt, enthaelt aber keine elementaren elektrischen Elemente. Sie kann beim Erzeugen der Gleichungen ignoriert werden. Das ist nuetzlich fuer Komponenten, die nur mechanisch, informativ oder rein verbindend im Diagramm vorkommen, ohne eigenes elektrisches Modell.
+Wenn `data.simdata` definiert, aber leer ist, bedeutet das: Die Komponente ist fuer die Simulation bekannt, enthaelt aber keine elementaren elektrischen Elemente. Sie kann beim Erzeugen der Gleichungen ignoriert werden. Das ist nuetzlich fuer Komponenten, die nur mechanisch oder informativ im Diagramm vorkommen, ohne eigenes elektrisches Modell. Reine Verbindungsknoten sollen bevorzugt ueber die passive Join-Semantik modelliert werden, nicht ueber leere `simdata`.
+
+Kondensatoren (`Kerko`, `Elko`) werden fuer die reine DC-Betrachtung als offene Bauteile ohne DC-Leitpfad behandelt. Sie bekommen deshalb eine leere `simdata`-Definition und erzeugen keine `missing-simdata`-Meldung. Alte gespeicherte Diagramme, deren Kondensator-Knoten diese leere Definition noch nicht enthalten, werden vom Modellaufbau gleichwertig behandelt.
 
 Komponentenoptionen koennen sichtbare Pins beeinflussen. Pins, die durch `hideConditions` aktuell nicht sichtbar sind, werden im Simulationsmodell ignoriert. Wenn ein elementares `simdata`-Element auf mindestens einen solchen unsichtbaren Pin verweist, wird dieses gesamte Element fuer die aktuelle Komponentenkonfiguration ignoriert. Das ist kein Simulationsfehler, sondern bedeutet, dass die optionale Funktion gerade nicht aktiv ist. Verweist ein Element dagegen auf einen Handle, der in der Komponente gar nicht existiert, bleibt das ein Simulationsfehler.
 
@@ -628,7 +630,7 @@ Wenn es mehrere getrennte GND-Netze gibt, sollte das wegen der Diagramm-Check-Vo
 
 Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System sollen bereits durch den Diagramm-Check als Fehler erkannt werden. Falls dieser Zustand trotzdem bis zum Simulationsmodell gelangt, bricht die Simulation mit einem Simulationsfehler ab. Als gleiches Supply/GND-System gelten Spannungsquellen, deren positive und negative Terminals auf denselben Circuit-Nodes liegen. Fuer den Vergleich wird eine kleine Ergebnistoleranz von `0.0005 V` verwendet. Parallele Quellen mit Ausgleichsstrom werden nicht simuliert. Mehrere ideale Quellen mit identischer Spannung auf denselben Circuit-Nodes duerfen vorkommen; der lineare Solver stempelt sie nur einmal, damit keine redundante ideale Quellenbedingung eine singulaere Matrix erzeugt.
 
-Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert und als Hinweis gemeldet. Das betrifft z.B. lose passive Teilnetze oder nicht angeschlossene Teilbereiche ohne Quelle. Die Simulation des versorgten Hauptnetzes darf dadurch weiterlaufen.
+Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert. Ein Hinweis wird nur fuer aktive Simulationselemente erzeugt, also z.B. fuer Lasten, Stromquellen, LED-Elemente oder DCDC-Wandler, deren gesamte Anschlussknoten nicht von einer Spannungsquelle erreichbar sind. Rein passive Elemente wie Widerstaende, Sicherungen, Short-Bridges oder aktuell leitende Dioden duerfen auch in Signal- oder Hilfsnetzen ohne Versorgung liegen und erzeugen keine `unpoweredSubnet`-Info. Die Simulation des versorgten Hauptnetzes darf dadurch weiterlaufen.
 
 ## Simulationseinstellungen
 
@@ -1266,6 +1268,8 @@ Der Modellaufbau erweitert `buildSimulationModel()` um virtuelle Pins fuer zusam
    - `edge:<id>:usb-gnd`
 5. Beide Wire-Elemente behalten eine Referenz auf dieselbe sichtbare Edge-ID, muessen aber fuer Ergebnisaggregation als USB-Paar markiert werden.
 6. Bei USB-Verbraucherkomponenten werden die Port-Terminals mit den internen Versorgungsknoten verbunden: `USB.GND` per `shortBridge`, `USB.VBUS` ueber eine Diode mit ca. `0.4 V` Vorwaertsspannung zum lokalen V+-Knoten.
+
+Wenn ein sichtbarer USB-Handle per Komponentenoption ausgeblendet ist, duerfen die zugehoerigen virtuellen Terminals ebenfalls nicht als fehlende Pins bewertet werden. Element-Terminals wie `USB.GND` oder `USB.VBUS` werden dann fuer diese Komponenteninstanz ignoriert, genauso wie Elemente, die auf andere versteckte Handles zeigen.
 
 Der Solver sieht fuer die USB-Wire weiterhin normale Widerstands-Wires und fuer `PSU_USB` eine normale Spannungsquelle. Neu benoetigt wird aber ein gerichtetes Dioden-/Forward-Drop-Element fuer den Verbraucherpfad von `USB.VBUS` nach lokalem `VIN` bzw. `5V`.
 

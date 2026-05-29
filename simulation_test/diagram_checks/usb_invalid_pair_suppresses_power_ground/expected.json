@@ -1,0 +1,15 @@
+{
+  "case": "usb_invalid_pair_suppresses_power_ground",
+  "filterIssueIdIncludes": [
+    "usb-power-pair-invalid",
+    "power-missing",
+    "ground-missing"
+  ],
+  "expectedIssues": [
+    {
+      "idIncludes": "usb-power-pair-invalid",
+      "severity": "error",
+      "descriptionIncludes": "not point-to-point"
+    }
+  ]
+}
