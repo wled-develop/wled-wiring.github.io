@@ -993,6 +993,7 @@ Spannungsanzeige:
 Wire-Anzeige:
 
 - Im Overlay wird pro Wire dauerhaft der Wire-Strom mit Richtungspfeil angezeigt, solange keine Wire selektiert ist.
+- Strompfeile werden in Screen-Koordinaten gegen andere Wires und bereits platzierte Strompfeile geprueft. Wenn eine Ueberlappung entsteht, wird der neue Pfeil entlang seines Wire-Segments auf die naechste freie Kandidatenposition verschoben; die elektrische Richtung und der angezeigte Wert bleiben unveraendert.
 - Beim Hover ueber eine Wire wird nahe der Hover-Position eine zusaetzliche Wire-Stromanzeige mit Richtungspfeil und Hinweislinie angezeigt. Wenn der Hover nahe an der normalen Wire-Stromanzeige liegt, wird diese zusaetzliche Anzeige unterdrueckt.
 - Beim Select/Klick auf eine Wire wird das Simulation-Overlay ausgeblendet.
 - Spannungsabfall und berechneter Widerstand koennen spaeter in der Wire-Toolbar oder in einem kleinen Tooltip angezeigt werden, nicht als dauerhaftes Label auf jedem Wire.

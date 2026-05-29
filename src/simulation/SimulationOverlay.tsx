@@ -42,6 +42,7 @@ type OverlayArrow = {
   endX: number;
   endY: number;
   bidirectional: boolean;
+  bounds?: Rect;
 };
 
 type SegmentPoint = {
@@ -957,6 +958,13 @@ const createWireCurrentOverlay = (
       endX: arrowEnd.x,
       endY: arrowEnd.y,
       bidirectional,
+      bounds: arrowRect(
+        arrowCenterScreen,
+        currentDirection,
+        normal,
+        WIRE_ARROW_LENGTH_PX,
+        WIRE_ARROW_CROSSING_PADDING_PX,
+      ),
     },
     label: {
       id: `wire-current:${id}`,
@@ -1302,6 +1310,7 @@ export const SimulationOverlay = () => {
     const scale = overlayScale(viewport.zoom);
     const labels: OverlayLabel[] = [];
     const arrows: OverlayArrow[] = [];
+    const currentArrowBlockingRects: Rect[] = [];
     const wireObstacles = wireObstacleRects(edges, nodeById, viewport);
     const obstacles = [
       ...handleObstacleRects(nodes, viewport),
@@ -1328,10 +1337,16 @@ export const SimulationOverlay = () => {
         scale,
         labels,
         obstacles,
-        wireArrowBlockingRects(edges, nodeById, viewport, edge.id),
+        [
+          ...wireArrowBlockingRects(edges, nodeById, viewport, edge.id),
+          ...currentArrowBlockingRects,
+        ],
         wireResult.displayBidirectional === true,
       );
       arrows.push(overlay.arrow);
+      if(overlay.arrow.bounds) {
+        currentArrowBlockingRects.push(overlay.arrow.bounds);
+      }
       labels.push(overlay.label);
     });
 
@@ -1460,7 +1475,10 @@ export const SimulationOverlay = () => {
               scale,
               labels,
               obstacles,
-              wireArrowBlockingRects(edges, nodeById, viewport, wireHover.edgeId),
+              [
+                ...wireArrowBlockingRects(edges, nodeById, viewport, wireHover.edgeId),
+                ...currentArrowBlockingRects,
+              ],
               hoverWireResult.displayBidirectional === true,
               hoverNormal,
               hoverLabelGap,
