@@ -216,11 +216,11 @@ export const ImportExportPage = () => {
       expandBoundsToPoint(measuredBounds, right, bottom);
     });
 
-    const padding = 24 / Math.max(viewport.zoom, 0.01);
+    const padding = 12/ Math.max(viewport.zoom, 0.01);
     measuredBounds.x -= padding;
     measuredBounds.y -= padding;
-    measuredBounds.width += padding * 2;
-    measuredBounds.height += padding * 2;
+    measuredBounds.width += padding;
+    measuredBounds.height += padding;
 
     return measuredBounds;
   };
