@@ -928,8 +928,8 @@ const createCircuitVoltages = (
 const createLedElementVoltageResults = (
   model: SimulationModel,
   circuitVoltages: Map<string, number>,
-) => (
-  model.elements.flatMap((element) => {
+) => {
+  const outputResults = model.elements.flatMap((element) => {
     if(element.type !== "digitalLed" || !element.componentId) return [];
 
     const supplyVoltage = circuitVoltages.get(element.terminals.supplyOut);
@@ -947,8 +947,52 @@ const createLedElementVoltageResults = (
         ? supplyVoltage - gndVoltage
         : undefined,
     }];
-  })
-);
+  });
+
+  const firstLedElementByGroup = new Map<string, SimulationElement>();
+  model.elements.forEach((element) => {
+    if(
+      element.type !== "digitalLed" ||
+      !element.componentId ||
+      element.ledStripPosition?.distanceM === undefined
+    ) {
+      return;
+    }
+
+    const key = `${element.componentId}:${element.sourceElementId ?? ""}`;
+    const current = firstLedElementByGroup.get(key);
+    if(
+      !current ||
+      (element.ledStripPosition.distanceM ?? Number.POSITIVE_INFINITY) <
+      (current.ledStripPosition?.distanceM ?? Number.POSITIVE_INFINITY)
+    ) {
+      firstLedElementByGroup.set(key, element);
+    }
+  });
+
+  const inputResults = Array.from(firstLedElementByGroup.values()).flatMap((element) => {
+    const supplyVoltage = circuitVoltages.get(element.terminals.supplyIn);
+    const gndVoltage = circuitVoltages.get(element.terminals.gndIn);
+
+    return [{
+      elementId: `${element.id}:input`,
+      nodeId: element.componentId as string,
+      sourceElementId: element.sourceElementId,
+      distanceM: 0,
+      sectionIndex: undefined,
+      logicLedIndex: undefined,
+      physicalLedCount: 0,
+      deltaVoltageV: supplyVoltage !== undefined && gndVoltage !== undefined
+        ? supplyVoltage - gndVoltage
+        : undefined,
+    }];
+  });
+
+  return [
+    ...inputResults,
+    ...outputResults,
+  ];
+};
 
 const createLedStripVoltageSummaryResults = (
   ledElementVoltageResults: ReturnType<typeof createLedElementVoltageResults>,
