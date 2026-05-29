@@ -54,6 +54,10 @@ export default defineComponent({
           "changeColorAutomatically": true
         }
       }
-    ]
+    ],
+    "simulation": {
+      "version": 1,
+      "elements": []
+    }
   }
 });
