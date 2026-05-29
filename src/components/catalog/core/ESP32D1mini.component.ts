@@ -683,7 +683,7 @@ export default defineComponent({
       {
         "id": "GND2",
         "name": "GND (2)",
-        "description": "GND",
+        "description": "Ground",
         "type": "source",
         "x": 69.8,
         "y": 115,
@@ -1162,7 +1162,7 @@ export default defineComponent({
       {
         "id": "GND3",
         "name": "GND (3)",
-        "description": "GND",
+        "description": "Ground",
         "type": "source",
         "x": 135,
         "y": 126,
@@ -1207,6 +1207,22 @@ export default defineComponent({
           "terminals": {
             "a": "USB.GND",
             "b": "GND1"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND2"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-3",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND3"
           }
         },
         {

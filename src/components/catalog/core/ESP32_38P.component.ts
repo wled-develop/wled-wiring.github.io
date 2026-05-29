@@ -1213,6 +1213,22 @@ export default defineComponent({
           }
         },
         {
+          "id": "gnd-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND2"
+          }
+        },
+        {
+          "id": "gnd-bridge-1-3",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND3"
+          }
+        },
+        {
           "id": "usb-vbus-diode",
           "type": "diode",
           "terminals": {

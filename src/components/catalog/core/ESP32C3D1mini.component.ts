@@ -576,7 +576,7 @@ export default defineComponent({
           "type": "constantPowerSink",
           "terminals": {
             "positive": "5V",
-            "negative": "GND1"
+            "negative": "GND"
           },
           "parameters": {
             "powerW": 0.3,
@@ -588,7 +588,7 @@ export default defineComponent({
           "type": "constantPowerSink",
           "terminals": {
             "positive": "3V3",
-            "negative": "GND1"
+            "negative": "GND"
           },
           "parameters": {
             "powerW": 0.3,

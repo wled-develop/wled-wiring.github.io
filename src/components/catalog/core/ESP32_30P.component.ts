@@ -974,6 +974,14 @@ export default defineComponent({
           }
         },
         {
+          "id": "gnd-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND1",
+            "b": "GND2"
+          }
+        },
+        {
           "id": "usb-vbus-diode",
           "type": "diode",
           "terminals": {
