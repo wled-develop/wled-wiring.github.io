@@ -174,7 +174,19 @@ const inferRawFunctions = (
   (handle.functions || []) as CheckHandleFunction[]
 );
 
-const inferFunctions = (rawFunctions: CheckHandleFunction[]): CheckHandleFunction[] => rawFunctions;
+const resistorTerminalIds = new Set(['1', '2']);
+
+const inferFunctions = (
+  node: Node<ComponentDataType>,
+  handle: HandleDataType,
+  rawFunctions: CheckHandleFunction[],
+): CheckHandleFunction[] => {
+  if (node.data.technicalID === 'Resistor' && resistorTerminalIds.has(handle.hid)) {
+    return ['passive'];
+  }
+
+  return rawFunctions;
+};
 
 const hasVoltageOutputFunction = (functions: CheckHandleFunction[]) => (
   functions.some((fn) => (
@@ -243,7 +255,7 @@ const buildCheckHandle = (
   edges: Edge<EdgeDataType>[],
 ): CheckHandle => {
   const rawFunctions = inferRawFunctions(handle);
-  const functions = inferFunctions(rawFunctions);
+  const functions = inferFunctions(node, handle, rawFunctions);
   const voltageRange = inferVoltageRange(handle, functions);
 
   return {
@@ -265,9 +277,7 @@ const uniqueBy = <T,>(items: T[], keyOfItem: (item: T) => string) => (
   Array.from(new Map(items.map((item) => [keyOfItem(item), item])).values())
 );
 
-const classificationFunctions = (handle: CheckHandle) => (
-  handle.rawFunctions.length > 0 ? handle.rawFunctions : handle.functions
-);
+const classificationFunctions = (handle: CheckHandle) => handle.functions;
 
 const hasExclusiveFunction = (handle: CheckHandle, functions: CheckHandleFunction[]) => {
   const handleFunctions = classificationFunctions(handle);
@@ -570,9 +580,9 @@ const shouldLinkDigitalNetsThroughResistor = (
 ) => (
   a.node.id === b.node.id &&
   a.key !== b.key &&
-  a.node.data.technicalID === 'Resistor' &&
-  aNet.classifications.includes('digital_net_type') &&
-  bNet.classifications.includes('digital_net_type')
+  isPassiveSeriesSignalPair(a, b) &&
+  netHasDigitalEndpoint(aNet) &&
+  netHasDigitalEndpoint(bNet)
 );
 
 const getComponentConnectionPairs = (
@@ -623,17 +633,27 @@ const isSupplyInputPassThrough = (a: CheckHandle, b: CheckHandle) => {
   return a.functions.includes('suppl_in') && b.functions.includes('suppl_in');
 };
 
-const isSeriesSignalNode = (node: Node<ComponentDataType>) => (
-  node.data.technicalID === 'Resistor'
+const netHasDigitalEndpoint = (net: CheckNet) => (
+  net.classifications.includes('digital_net_type') ||
+  net.handles.some((handle) => (
+    hasFunction(handle, 'dig_in') ||
+    hasFunction(handle, 'dig_clock_in') ||
+    hasFunction(handle, 'dig_backup_in') ||
+    hasFunction(handle, 'dig_out') ||
+    hasFunction(handle, 'dig_clock_out') ||
+    hasFunction(handle, 'dig_backup_out')
+  ))
 );
 
-const isSignalPassThrough = (a: CheckHandle, b: CheckHandle) => {
-  if (a.node.id !== b.node.id || !isSeriesSignalNode(a.node)) return false;
+const isPassiveSeriesSignalPair = (a: CheckHandle, b: CheckHandle) => {
+  if (a.node.id !== b.node.id || a.node.data.technicalID !== 'Resistor') return false;
   if (a.key === b.key) return false;
 
   const nodeHandles = [...(a.node.data.handles || []), ...(a.node.data.repeatedHandleArray || [])];
-  return nodeHandles.length === 2;
+  return nodeHandles.length === 2 && hasFunction(a, 'passive') && hasFunction(b, 'passive');
 };
+
+const isSignalPassThrough = (a: CheckHandle, b: CheckHandle) => isPassiveSeriesSignalPair(a, b);
 
 export function createDiagramCheckContext(
   nodes: Node<ComponentDataType>[],

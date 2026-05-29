@@ -1,0 +1,11 @@
+{
+  "case": "resistor_signal_series_missing_consumer",
+  "filterIssueIdIncludes": [
+    "signal-output-without-consumer",
+    "component-has-only-one-terminal-connected"
+  ],
+  "expectedIssues": [
+    { "idIncludes": "signal-output-without-consumer", "severity": "warning" },
+    { "idIncludes": "component-has-only-one-terminal-connected", "severity": "warning" }
+  ]
+}

@@ -576,6 +576,127 @@ export default defineComponent({
         "toHandle": "EN2"
       }
     ],
+    "simulation": {
+      "version": 1,
+      "elements": [
+        {
+          "id": "vin-vout1-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN",
+            "b": "VOUT1"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "2": 0.105,
+                "3": 0.071,
+                "4": 0.05,
+                "5": 0.045,
+                "10": 0.0308,
+                "15": 0.0265,
+                "7.5": 0.038
+              },
+              "by": {
+                "select": "Fuse1"
+              },
+              "default": 0.0165
+            },
+            "nominalCurrentA": {
+              "select": "Fuse1"
+            }
+          }
+        },
+        {
+          "id": "vin-vout2-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN",
+            "b": "VOUT2"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "2": 0.105,
+                "3": 0.071,
+                "4": 0.05,
+                "5": 0.045,
+                "10": 0.0308,
+                "15": 0.0265,
+                "7.5": 0.038
+              },
+              "by": {
+                "select": "Fuse2"
+              },
+              "default": 0.0165
+            },
+            "nominalCurrentA": {
+              "select": "Fuse2"
+            }
+          }
+        },
+        {
+          "id": "vin-vout3-fuse",
+          "type": "fuse",
+          "terminals": {
+            "a": "VIN",
+            "b": "VOUT3"
+          },
+          "parameters": {
+            "resistanceOhm": {
+              "table": {
+                "2": 0.105,
+                "3": 0.071,
+                "4": 0.05,
+                "5": 0.045,
+                "10": 0.0308,
+                "15": 0.0265,
+                "7.5": 0.038
+              },
+              "by": {
+                "select": "Fuse3"
+              },
+              "default": 0.0165
+            },
+            "nominalCurrentA": {
+              "select": "Fuse3"
+            }
+          }
+        },
+        {
+          "id": "gnd-bridge-input-output-1",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND",
+            "b": "GND1"
+          }
+        },
+        {
+          "id": "gnd-bridge-input-output-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND",
+            "b": "GND2"
+          }
+        },
+        {
+          "id": "gnd-bridge-input-output-3",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "GND",
+            "b": "GND3"
+          }
+        },
+        {
+          "id": "en-bridge-1-2",
+          "type": "shortBridge",
+          "terminals": {
+            "a": "EN1",
+            "b": "EN2"
+          }
+        }
+      ]
+    },
     "runtime": {
       "inputFieldsBox": {
         "x": 200,

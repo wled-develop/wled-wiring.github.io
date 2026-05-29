@@ -1,6 +1,6 @@
 # Diagramm Checks Konzept und aktueller Implementierungsstand
 
-Stand: 2026-05-19
+Stand: 2026-05-29
 
 Dieses Dokument beschreibt den aktuellen Stand der Diagramm-Checks im Projekt. Die Implementierung liegt im Wesentlichen in:
 
@@ -32,7 +32,7 @@ Ein `CheckHandle` enthaelt unter anderem:
 - `node`: die React-Flow-Node der Komponente
 - `handle`: die eigentlichen Handle-Daten aus der Komponentendefinition
 - `rawFunctions`: die direkt am Handle definierten Funktionen
-- `functions`: aktuell identisch zu `rawFunctions`, aber als Erweiterungspunkt vorhanden
+- `functions`: effektiv fuer Checks verwendete Funktionen; bei alten gespeicherten `Resistor`-Nodes werden historische `dig_in`-Pins hier als `passive` normalisiert
 - `connectedEdges`: alle Wires, die an diesem Handle haengen
 - `voltageOut`: abgeleitete Ausgangsspannung
 - `voltageMin` / `voltageMax`: erlaubter Eingangs-Spannungsbereich
@@ -52,6 +52,9 @@ Die Check-Logik arbeitet stark ueber `handle.functions`. Relevante Funktionsgrup
 - Ethernet: `eth`
 - RS485: `rs485_A`, `rs485_B`
 - Netzspannung: `line_out`, `line_in`, `neutral_out`, `neutral_in`, `pe_out`, `pe_in`
+- Passive elektrische Bauteilpins: `passive`
+
+`passive` beschreibt einen elektrisch anschliessbaren Pin ohne aktive Quellen- oder Senkenrolle. Ein passiver Pin erzeugt keine Netzklassifikation und zaehlt nicht als Signal-, Supply-, GND-, PWM-, Analog- oder Audio-Senke. Der generische `Resistor` verwendet `passive` an beiden Anschluessen; seine elektrische Wirkung entsteht fuer die Simulation weiter aus `simdata.elements`.
 
 ### Steuerbeziehungen an Handles
 
@@ -127,7 +130,7 @@ Interne Verknuepfung erfolgt aktuell, wenn zwei Handles derselben Node in unters
 - Zwei `suppl_out`-Handles haben feste Ausgangsspannungen, die sich um weniger als 0.5 V unterscheiden.
 - Zwei `suppl_out`-Handles verwenden dieselbe `VoutDependency`, die als Input-Feld der Komponente existiert.
 - Bei LED-Komponenten (`node.data.group === 'led'`) werden mehrere `suppl_in`-Handles derselben Komponente verbunden.
-- Bei einem `Resistor` werden zwei Netze verbunden, wenn beide angrenzenden Fused Nets als digitale Netze klassifiziert sind.
+- Bei einem zweipoligen passiven `Resistor` werden zwei Netze verbunden, wenn beide angrenzenden Fused Nets digitale Endpunkte enthalten. Der Widerstand selbst ist dabei keine digitale Senke; er dient nur als Serien-Pass-Through zwischen echter Quelle und echter Senke.
 
 `kind === 'short'` ist fuer explizite, harte interne Pin-Bruecken gedacht, z.B. wenn zwei Signal- oder Enable-Pins auf der Platine direkt miteinander verbunden sind. GND-Pins sollen nicht explizit als `short` modelliert werden, weil GND-Handles derselben Komponente bereits automatisch verbunden werden.
 
@@ -158,7 +161,7 @@ Aufbau:
 3. Danach werden dieselben Component-Link-Regeln angewendet wie bei Component-Linked Nets, aber immer auf Basis der Elementary-Net-Zugehoerigkeit.
 4. `kind === 'fuse'` wird dabei explizit ignoriert. Eine Fuse darf in dieser Schicht keine Union-Verbindung erzeugen.
 5. `kind === 'short'` bleibt weiterhin eine harte interne Verbindung und verbindet die betroffenen Elementary-basierten Netze.
-6. Automatische interne Beziehungen wie gemeinsame GND-Handles, abhaengige `suppl_out`-zu-`suppl_in`-Pfade, gleiche feste `suppl_out`-Spannungen, gleiche `VoutDependency`, LED-`suppl_in`-Gruppierung und digitale Resistor-Pass-Throughs werden analog zur bestehenden Component-Linked-Logik angewendet.
+6. Automatische interne Beziehungen wie gemeinsame GND-Handles, abhaengige `suppl_out`-zu-`suppl_in`-Pfade, gleiche feste `suppl_out`-Spannungen, gleiche `VoutDependency`, LED-`suppl_in`-Gruppierung und digitale Pass-Throughs ueber zweipolige passive `Resistor`-Komponenten werden analog zur bestehenden Component-Linked-Logik angewendet.
 7. Nach dem Gruppieren entstehen Netze mit derselben Struktur wie bestehende `CheckNet`s: `handles`, `edges`, `componentIds`, `sourceHandles`, `sinkHandles`, `classifications` und `childNetIds`.
 
 Wichtig ist die Reihenfolge: Diese Netzsicht soll nicht aus Fused Nets abgeleitet werden, weil dann die Information verloren waere, welche Elementary Nets nur durch eine Sicherung zusammengekommen sind. Sie muss direkt parallel zum Fused-Net-Aufbau aus Elementary Nets entstehen.
@@ -211,6 +214,8 @@ Aktuelle Klassifikationen:
 
 "Exklusiv" bedeutet hier: Das Handle hat genau eine klassifikationsrelevante Funktion und diese Funktion gehoert zur jeweiligen Gruppe. Das verhindert, dass Mehrzweck-Handles zu aggressiv als Signalquelle klassifiziert werden.
 
+`passive` ist keine klassifikationsrelevante Funktion. Sie erzeugt weder `digital_net_type` noch Versorgung, GND oder andere aktive Netztypen und erscheint auch nicht in `sourceHandles` oder `sinkHandles`.
+
 Ein Netz speichert ausserdem:
 
 - `handles`: alle enthaltenen CheckHandles
@@ -243,7 +248,7 @@ Startet bei einem Handle und folgt:
 
 - Elementary-Net-Verbindungen
 - internen Kurzschlussverbindungen `internalConnections.kind === 'short'`
-- Serien-Signal-Pass-Through durch `Resistor`, wenn die Komponente genau zwei Handles besitzt
+- Serien-Signal-Pass-Through durch `Resistor`, wenn die Komponente genau zwei sichtbare Handles besitzt und beide effektiv `passive` sind
 
 Diese Funktion wird unter anderem genutzt, um digitale Quellen hinter Serienwiderstaenden zu erkennen.
 
@@ -359,7 +364,7 @@ Eine digitale Bias-Verbindung gilt als gueltig, wenn:
 - und entweder GND erreichbar ist und die Zielspannung 0 V erlaubt,
 - oder ein `suppl_out` erreichbar ist, dessen aufgeloeste Spannung in den erlaubten Bereich der digitalen Senke passt.
 
-Passive Signal-Komponenten `Kerko` und `Resistor` werden dabei nicht als digitale Bias-Ziele betrachtet.
+Passive Signal-Komponenten `Kerko` und `Resistor` werden dabei nicht als digitale Bias-Ziele betrachtet. Beim `Resistor` gilt dies auch fuer alte gespeicherte Diagramme, deren Pins noch `dig_in` enthalten, weil diese Handles im Check-Kontext effektiv zu `passive` normalisiert werden.
 
 LED-Backup-Eingaenge haben eine zusaetzliche Sonderbehandlung: Ein `dig_backup_in` eines LED-Streifens gilt fuer `signalSinkWithoutSource` als aufgeloest, wenn sein Netz `gnd_net_type` hat und der zugehoerige `dig_in`/`DATA_start` nicht von einem vorgelagerten LED-Streifen gespeist wird. Damit wird der empfohlene Anschluss des ersten Backup-Eingangs an GND nicht faelschlich als fehlende digitale Quelle gemeldet. Wird der Data-Eingang dagegen von einem vorherigen LED-Streifen gespeist, muss der Backup-Eingang weiterhin vom passenden `dig_backup_out` dieses vorgelagerten Streifens kommen.
 

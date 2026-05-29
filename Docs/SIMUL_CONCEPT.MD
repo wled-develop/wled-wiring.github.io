@@ -236,7 +236,10 @@ Beispiele:
 - `Resistor`: ein elementarer Widerstand zwischen den beiden Pins.
 - `miniOTOFuse`: ein elementarer Widerstand, dessen Wert aus einer lokalen Tabelle anhand des Sicherungs-Nominalwerts bestimmt wird.
 - `MHC_V43`: ein Widerstand zwischen `VIN` und `VOUT`, um die Sicherung zu modellieren.
+- `MHC_SwitchBoard`: drei getrennte Sicherungspfade `VIN -> VOUT1`, `VIN -> VOUT2` und `VIN -> VOUT3`; Widerstandswert und Nennstrom kommen jeweils aus `Fuse1`..`Fuse3`. Die Widerstandstabellen verwenden die Werte des `MHC_V43` plus `0.01 Ohm` fuer die zusaetzlichen Schalter auf dem Board.
 - `FUSE_Board`: vier getrennte Sicherungspfade `IN1 -> OUT1`, `IN1 -> OUT2`, `IN2 -> OUT3` und `IN2 -> OUT4`; Widerstandswert und Nennstrom kommen jeweils aus dem passenden `Fuse1`..`Fuse4`-Select.
+
+Die Handle-Funktion `passive` ist ein Diagramm-Check- und Komponentenmetadatum. Sie fuehrt kein eigenes Simulationselement ein. Fuer den generischen `Resistor` bleiben die `simdata.elements` mit `type: "resistor"` zwischen Pin `1` und Pin `2` die elektrische Wahrheit; `passive` verhindert nur, dass die Anschluesse in Diagramm-Checks als digitale Eingange oder andere aktive Rollen bewertet werden.
 
 ### Konstante Spannungsquelle mit Stromlimit und Spannungsdegradation
 
@@ -327,6 +330,7 @@ Beispiele:
 - Interne Verbindung zwischen mehreren GND-Ausgaengen einer PSU.
 - `WAGO_2x` und `WAGO_3x`: Kurzschlussbruecken zwischen den jeweiligen Klemmenpins.
 - GND-Bruecken im `MHC_V43` Controller.
+- GND-Bruecken vom Eingang zu den drei Ausgaengen des `MHC_SwitchBoard` sowie die Bruecke zwischen `EN1` und `EN2`.
 
 ### Konstantleistungssenke
 
@@ -477,6 +481,13 @@ Digitale LED-Streifen:
 - Widerstandswert und Sicherungsgrenzwert per lokaler Tabelle direkt in `simdata`
 - Kurzschlussbruecken zwischen den GND-Pins
 - Konstantleistungssenke zwischen `VIN` und `GND1` mit `0.5 W` fuer kleinen Controller-Nebenverbrauch
+
+`MHC_SwitchBoard`:
+
+- je ein Fuse-Element zwischen `VIN` und `VOUT1`, `VOUT2`, `VOUT3`
+- Widerstandswert und Sicherungsgrenzwert per lokaler Tabelle direkt in `simdata`; die Widerstaende entsprechen den `MHC_V43`-Sicherungswerten plus `0.01 Ohm`
+- Kurzschlussbruecken zwischen `GND` und `GND1`, `GND2`, `GND3`
+- Kurzschlussbruecke zwischen `EN1` und `EN2`
 
 `FUSE_Board`:
 
@@ -1444,6 +1455,7 @@ Optional:
    - `WAGO_2x`
    - `WAGO_3x`
    - `MHC_V43`
+   - `MHC_SwitchBoard`
    - `DCDC`
 6. [x] `buildSimulationModel()` implementieren, noch ohne echten Solver. Umgesetzt in `src/simulation/buildSimulationModel.ts`.
 7. [x] `SimulationPage` mit Buttons/Einstellungen und leerer Ergebnisliste bauen. Umgesetzt in `src/simulation/SimulationPage.tsx`.
@@ -1468,7 +1480,7 @@ Optional:
 ## Geklaerte Entscheidungen
 
 1. `simdata.elements` wird kompakt, aber mit lesbaren Feldnamen wie `type`, `terminals` und `parameters` gehalten.
-2. Erste Komponenten: `Resistor`, `miniOTOFuse`, PSU, digitaler LED-Streifen, `WAGO_2x`, `WAGO_3x`, `MHC_V43`, `DCDC`.
+2. Erste Komponenten: `Resistor`, `miniOTOFuse`, PSU, digitaler LED-Streifen, `WAGO_2x`, `WAGO_3x`, `MHC_V43`, `MHC_SwitchBoard`, `DCDC`.
 3. Strombegrenzung wird ueber iteratives nichtlineares Verhalten mit Spannungsreduktion geloest. In `simdata` wird dafuer `voltageDropPctAt150Current` gepflegt, nicht direkt ein `rDegradeOhm`.
 4. PSU ist bis zum Limit ideal geregelt, kein Innenwiderstand vor dem Limit.
 5. Sicherungswerte werden zuerst ueber lokale Tabellen direkt in `simdata` gepflegt.

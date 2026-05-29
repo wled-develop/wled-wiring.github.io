@@ -50,7 +50,7 @@ export default defineComponent({
           "radius": "30%"
         },
         "functions": [
-          "dig_in"
+          "passive"
         ],
         "voltage": {
           "out": 0,
@@ -82,7 +82,7 @@ export default defineComponent({
           "radius": "30%"
         },
         "functions": [
-          "dig_in"
+          "passive"
         ],
         "voltage": {
           "out": 0,

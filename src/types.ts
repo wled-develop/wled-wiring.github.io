@@ -124,7 +124,7 @@ export type HandleDataType = {
     Vout?: number,
     VoutDependency?: string,
     controllableBy?: string,
-    functions?: ("dig_in" | "dig_out" | "dig_clock_in" | "dig_clock_out" | "dig_backup_in" | "dig_backup_out" | "not_connected" | "an_in" | "an_out" | "rst" | "suppl_in" | "suppl_out" | "gnd" | "usb_full" | "usb_power_out" | "suppl_conn" | "general_conn" | "pe_in" | "pe_out" | "neutral_in" | "neutral_out" | "line_in" | "line_out" | "an_common" | "audio_in" | "audio_out" | "eth" | "rs485_A" | "rs485_B" | "pwm_in_R" | "pwm_in_G" | "pwm_in_B" | "pwm_in_W" | "pwm_in_WW" | "pwm_out"  )[],
+    functions?: ("dig_in" | "dig_out" | "dig_clock_in" | "dig_clock_out" | "dig_backup_in" | "dig_backup_out" | "not_connected" | "passive" | "an_in" | "an_out" | "rst" | "suppl_in" | "suppl_out" | "gnd" | "usb_full" | "usb_power_out" | "suppl_conn" | "general_conn" | "pe_in" | "pe_out" | "neutral_in" | "neutral_out" | "line_in" | "line_out" | "an_common" | "audio_in" | "audio_out" | "eth" | "rs485_A" | "rs485_B" | "pwm_in_R" | "pwm_in_G" | "pwm_in_B" | "pwm_in_W" | "pwm_in_WW" | "pwm_out"  )[],
     prefferedLineWidth?: number,
     hideConditions?: {selectHID: string, values: number[]}[],
     prefferedLineDirection?: DirectionType, // his can overwrite default behaviour of pathfinding that draw a line from/to handle in direction of closest node bound. Useful for example in case of miniOTO fuse

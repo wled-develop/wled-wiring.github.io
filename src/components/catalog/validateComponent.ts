@@ -32,6 +32,7 @@ export const KNOWN_HANDLE_FUNCTIONS: readonly HandleFunction[] = [
   'dig_backup_in',
   'dig_backup_out',
   'not_connected',
+  'passive',
   'an_in',
   'an_out',
   'rst',

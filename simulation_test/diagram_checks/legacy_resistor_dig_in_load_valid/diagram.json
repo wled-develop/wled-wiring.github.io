@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "PSU_HP",
+        "technicalVersion": 1,
+        "group": "psu",
+        "handles": [
+          { "hid": "Vout", "name": "Vout", "functions": ["suppl_out"], "Vout": 5 },
+          { "hid": "GND", "name": "GND", "functions": ["gnd"] }
+        ]
+      }
+    },
+    {
+      "id": "resistor",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "1", "name": "1", "functions": ["dig_in"], "mustBeConnected": true, "tolVmin": 0, "tolVmax": 250 },
+          { "hid": "2", "name": "2", "functions": ["dig_in"], "mustBeConnected": true, "tolVmin": 0, "tolVmax": 250 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "vout-to-r", "source": "psu", "target": "resistor", "sourceHandle": "Vout", "targetHandle": "1", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.5 } },
+    { "id": "gnd-to-r", "source": "psu", "target": "resistor", "sourceHandle": "GND", "targetHandle": "2", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.5 } }
+  ]
+}

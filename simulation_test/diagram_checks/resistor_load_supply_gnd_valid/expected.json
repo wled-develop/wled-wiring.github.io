@@ -1,0 +1,11 @@
+{
+  "case": "resistor_load_supply_gnd_valid",
+  "filterIssueIdIncludes": [
+    "signal-sink-without-source",
+    "signal-output-without-consumer",
+    "digital-signal-voltage-mismatch",
+    "data-direction-wrong",
+    "component-has-only-one-terminal-connected"
+  ],
+  "expectedIssues": []
+}

@@ -1,0 +1,48 @@
+{
+  "nodes": [
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "ESP32_TEST",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "DATA", "name": "DATA", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "resistor",
+      "type": "general-component-type",
+      "position": { "x": 150, "y": 0 },
+      "data": {
+        "technicalID": "Resistor",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "1", "name": "1", "functions": ["passive"], "mustBeConnected": true },
+          { "hid": "2", "name": "2", "functions": ["passive"], "mustBeConnected": true }
+        ]
+      }
+    },
+    {
+      "id": "led",
+      "type": "general-component-type",
+      "position": { "x": 300, "y": 0 },
+      "data": {
+        "technicalID": "LED_TEST",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "DIN", "name": "DIN", "functions": ["dig_in"], "tolVmin": 2, "tolVmax": 5.5 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "data-to-r", "source": "controller", "target": "resistor", "sourceHandle": "DATA", "targetHandle": "1", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "r-to-led", "source": "resistor", "target": "led", "sourceHandle": "2", "targetHandle": "DIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}
