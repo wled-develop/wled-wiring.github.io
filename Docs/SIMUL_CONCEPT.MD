@@ -665,7 +665,9 @@ Da die Simulation bei groesseren Diagrammen oder langen LED-Streifen etwas dauer
 
 Das Ergebnis sollte von der UI getrennt sein und keine React-Komponenten enthalten.
 
-Simulationsergebnisse werden nicht exportiert. Sie bleiben reiner Laufzeit-/UI-State und werden nicht in das Diagramm-JSON geschrieben. Dadurch bleiben Exportdateien deterministisch und enthalten nur das bearbeitbare Schaltungsmodell, nicht die zuletzt berechnete Auswertung.
+Simulationsergebnisse werden nicht in das Diagramm-JSON exportiert. Sie bleiben reiner Laufzeit-/UI-State. Dadurch bleiben Modell-Exportdateien deterministisch und enthalten nur das bearbeitbare Schaltungsmodell, nicht die zuletzt berechnete Auswertung.
+
+Bildexporte sind davon ausgenommen: Wenn Simulationsergebnisse im Diagramm sichtbar sind, sollen PNG-, JPG- und SVG-Export die sichtbaren Simulation-Overlay-Elemente mit ausgeben, also Spannungslabels, Stromlabels, Strom-/Spannungspfeile und Hinweislinien. Reine UI-Aktionen des Overlays, z.B. Plot-Buttons, werden nicht in den Bildexport aufgenommen.
 
 ```ts
 type SimulationResult = {

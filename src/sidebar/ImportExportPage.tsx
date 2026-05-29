@@ -77,6 +77,37 @@ const downloadBlob = (blob: Blob, fileName: string) => {
   URL.revokeObjectURL(url);
 };
 
+const nextAnimationFrame = () => new Promise<void>((resolve) => {
+  requestAnimationFrame(() => resolve());
+});
+
+const shouldIncludeExportNode = (node: HTMLElement) => (
+  !node.closest('.react-flow__controls') &&
+  !node.closest('.react-flow__panel') &&
+  !node.closest('.react-flow__minimap') &&
+  !node.closest('.react-flow__attribution') &&
+  !node.closest('.simulation-overlay-action')
+);
+
+const expandBoundsToPoint = (bounds: Rect, x: number, y: number) => {
+  const minX = Math.min(bounds.x, x);
+  const minY = Math.min(bounds.y, y);
+  const maxX = Math.max(bounds.x + bounds.width, x);
+  const maxY = Math.max(bounds.y + bounds.height, y);
+
+  bounds.x = minX;
+  bounds.y = minY;
+  bounds.width = maxX - minX;
+  bounds.height = maxY - minY;
+};
+
+const cloneBounds = (bounds: Rect): Rect => ({
+  x: bounds.x,
+  y: bounds.y,
+  width: bounds.width,
+  height: bounds.height,
+});
+
 const isObject = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null
 );
@@ -159,14 +190,51 @@ export const ImportExportPage = () => {
     return element;
   }
 
-  function generateDataForExport():{element:HTMLElement, viewport:{x:number, y:number, zoom:number}, imageWidth:number, imageHeight:number}{
-    const NodesBoundsArr=reactFlow.getNodes().map((node) => ({id: node.id, rect: reactFlow.getNodesBounds([node.id])}));
-    const nodesBounds=getAdaptedBounds(reactFlow, NodesBoundsArr);
+  const measureRenderedExportBounds = (
+    baseBounds: Rect,
+    exportNode: HTMLElement,
+    viewport: {x: number; y: number; zoom: number},
+  ): Rect => {
+    const rootRect = exportNode.getBoundingClientRect();
+    const measuredBounds = cloneBounds(baseBounds);
+    const candidates = exportNode.querySelectorAll<HTMLElement>(
+      '.react-flow__node, .react-flow__node *, .simulation-overlay-exportable',
+    );
+
+    candidates.forEach((candidate) => {
+      if(!shouldIncludeExportNode(candidate)) return;
+
+      const rect = candidate.getBoundingClientRect();
+      if(rect.width <= 0 || rect.height <= 0) return;
+
+      const left = (rect.left - rootRect.left - viewport.x) / viewport.zoom;
+      const top = (rect.top - rootRect.top - viewport.y) / viewport.zoom;
+      const right = (rect.right - rootRect.left - viewport.x) / viewport.zoom;
+      const bottom = (rect.bottom - rootRect.top - viewport.y) / viewport.zoom;
+
+      expandBoundsToPoint(measuredBounds, left, top);
+      expandBoundsToPoint(measuredBounds, right, bottom);
+    });
+
+    const padding = 24 / Math.max(viewport.zoom, 0.01);
+    measuredBounds.x -= padding;
+    measuredBounds.y -= padding;
+    measuredBounds.width += padding * 2;
+    measuredBounds.height += padding * 2;
+
+    return measuredBounds;
+  };
+
+  function generateDataForExport(nodesBounds: Rect):{element:HTMLElement, viewport:{x:number, y:number, zoom:number}, imageWidth:number, imageHeight:number, exportNode:HTMLElement}{
+    if(nodesBounds.width <= 0 || nodesBounds.height <= 0) {
+      nodesBounds = {x: 0, y: 0, width: 1, height: 1};
+    }
 
     const imageWidth = 1024;
     const imageHeight = imageWidth * (nodesBounds.height / nodesBounds.width);
 
     const doc=document.querySelector('.react-flow__viewport') as HTMLElement;
+    const exportNode=document.querySelector('#reactflowDiv .react-flow') as HTMLElement;
     const textScalefactor=40;
     const textOffset=10;
     const element = createInfoElement(nodesBounds, textScalefactor, textOffset);
@@ -183,8 +251,71 @@ export const ImportExportPage = () => {
       10,
       0.02
     );
-    return {element, viewport, imageWidth, imageHeight};
+    return {element, viewport, imageWidth, imageHeight, exportNode};
   }
+
+  const exportDiagramImage = async (
+    format: 'png' | 'jpg' | 'svg',
+    renderer: typeof toPng,
+  ) => {
+    const currentViewport = reactFlow.getViewport();
+    const NodesBoundsArr=reactFlow.getNodes().map((node) => ({id: node.id, rect: reactFlow.getNodesBounds([node.id])}));
+    const baseBounds = NodesBoundsArr.length > 0
+      ? getAdaptedBounds(reactFlow, NodesBoundsArr)
+      : {x: 0, y: 0, width: 1, height: 1};
+    const exportNode=document.querySelector('#reactflowDiv .react-flow') as HTMLElement;
+    const originalWidth = exportNode.style.width;
+    const originalHeight = exportNode.style.height;
+    let exportData: ReturnType<typeof generateDataForExport> | undefined;
+
+    try {
+      let measuredBounds = cloneBounds(baseBounds);
+
+      for(let pass = 0; pass < 2; pass += 1) {
+        const imageWidth = 1024;
+        const imageHeight = imageWidth * (measuredBounds.height / measuredBounds.width);
+        const viewport = getViewportForBounds(measuredBounds, imageWidth, imageHeight, 0.1, 10, 0.02);
+
+        exportNode.style.width = `${imageWidth}px`;
+        exportNode.style.height = `${imageHeight}px`;
+        await reactFlow.setViewport(viewport, {duration: 0});
+        await nextAnimationFrame();
+        await nextAnimationFrame();
+
+        measuredBounds = measureRenderedExportBounds(measuredBounds, exportNode, viewport);
+      }
+
+      exportData = generateDataForExport(measuredBounds);
+      exportNode.style.width = `${exportData.imageWidth}px`;
+      exportNode.style.height = `${exportData.imageHeight}px`;
+      await reactFlow.setViewport(exportData.viewport, {duration: 0});
+      await nextAnimationFrame();
+      await nextAnimationFrame();
+
+      const dataUrl = await renderer(exportData.exportNode, {
+        backgroundColor: 'white',
+        width: exportData.imageWidth,
+        height: exportData.imageHeight,
+        filter: (node) => (
+          node instanceof HTMLElement ? shouldIncludeExportNode(node) : true
+        ),
+        style: {
+          height: String(exportData.imageHeight),
+          width: String(exportData.imageWidth),
+        },
+      });
+
+      const a = document.createElement('a');
+      a.setAttribute('download', `${exportBaseName}.${format}`);
+      a.setAttribute('href', dataUrl);
+      a.click();
+    } finally {
+      exportData?.element.remove();
+      exportNode.style.width = originalWidth;
+      exportNode.style.height = originalHeight;
+      await reactFlow.setViewport(currentViewport, {duration: 0});
+    }
+  };
 
   const exportBaseName = getExportBaseName(documentFileName);
 
@@ -412,66 +543,13 @@ export const ImportExportPage = () => {
             {t('sidebar.export.dividerExport')}
         </Divider>
         <Button
-           onClick={() => {
-            const {element, viewport, imageWidth, imageHeight} = generateDataForExport();
-            toPng(document.querySelector('.react-flow__viewport') as HTMLElement, {
-              backgroundColor: 'white',
-              width: imageWidth,
-              height: imageHeight,
-              style: {
-                width: String(imageWidth),
-                height: String(imageHeight),
-                transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-              },
-            }).then((dataUrl) => {
-              const a = document.createElement('a');
-              a.setAttribute('download', exportBaseName+'.png');
-              a.setAttribute('href', dataUrl);
-              a.click();
-            }).finally(() => element.remove());
-           }}
+           onClick={() => { void exportDiagramImage('png', toPng); }}
         >{t('sidebar.export.buttonExportPNG')}</Button>
         <Button
-           onClick={() => {
-            const {element, viewport, imageWidth, imageHeight} = generateDataForExport();
-            toJpeg(document.querySelector('.react-flow__viewport') as HTMLElement, {
-              backgroundColor: 'white',
-              width: imageWidth,
-              height: imageHeight,
-              style: {
-                width: String(imageWidth),
-                height: String(imageHeight),
-                transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-              },
-            }).then((dataUrl) => {
-              const a = document.createElement('a');
-              a.setAttribute('download', exportBaseName+'.jpg');
-              a.setAttribute('href', dataUrl);
-              a.click();
-              element.remove();
-            });
-           }}
+           onClick={() => { void exportDiagramImage('jpg', toJpeg); }}
         >{t('sidebar.export.buttonExportJPEG')}</Button>
         <Button
-           onClick={() => {
-            const {element, viewport, imageWidth, imageHeight} = generateDataForExport();
-            toSvg(document.querySelector('.react-flow__viewport') as HTMLElement, {
-              backgroundColor: 'white',
-              width: imageWidth,
-              height: imageHeight,
-              style: {
-                width: String(imageWidth),
-                height: String(imageHeight),
-                transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-              },
-            }).then((dataUrl) => {
-              const a = document.createElement('a');
-              a.setAttribute('download', exportBaseName+'.svg');
-              a.setAttribute('href', dataUrl);
-              a.click();
-              element.remove();
-            });
-           }}
+           onClick={() => { void exportDiagramImage('svg', toSvg); }}
         >{t('sidebar.export.buttonExportSVG')}</Button>
         
       <Divider

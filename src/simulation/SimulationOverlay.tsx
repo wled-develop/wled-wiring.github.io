@@ -1610,6 +1610,7 @@ export const SimulationOverlay = () => {
           {overlayData.labels.map((label) => (
             <div
               key={label.id}
+              className="simulation-overlay-exportable"
               style={{
                 alignItems: "center",
                 background: label.kind === "voltage"
@@ -1653,6 +1654,7 @@ export const SimulationOverlay = () => {
                 <Tooltip title={t("sidebar.simulation.ledVoltagePlot.openButton")}>
                   <Button
                     aria-label={t("sidebar.simulation.ledVoltagePlot.openButton")}
+                    className="simulation-overlay-action"
                     icon={<LineChartOutlined />}
                     onClick={(event) => {
                       event.stopPropagation();
