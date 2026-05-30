@@ -60,6 +60,7 @@ export default defineComponent({
           "toleranceMin": 20,
           "toleranceMax": 24
         },
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -122,6 +123,7 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -154,6 +156,7 @@ export default defineComponent({
           "toleranceMin": 20,
           "toleranceMax": 24
         },
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -216,6 +219,7 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -248,6 +252,7 @@ export default defineComponent({
           "toleranceMin": 20,
           "toleranceMax": 24
         },
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -311,6 +316,7 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
+        "Imax": 10,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
