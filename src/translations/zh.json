@@ -779,6 +779,10 @@
           "title": "供电电压过高",
           "description": "供电电压为 {{voltage}} V，高于最大值 {{limit}} V。"
         },
+        "pinCurrentLimit": {
+          "title": "引脚电流超过限制",
+          "description": "引脚电流 {{current}} A 超过最大值 {{limit}} A。"
+        },
         "ledStripSupplyVoltageLow": {
           "title": "LED 灯带供电电压过低",
           "description": "已连接的 LED 灯带供电点处 VLED 为 {{voltage}} V，低于最小值 {{limit}} V。请提高电源电压；如果电源正在限流，请提高可用功率。"

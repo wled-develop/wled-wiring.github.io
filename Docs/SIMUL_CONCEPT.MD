@@ -550,6 +550,10 @@ type SimulationWireElement = {
   edgeId: string;
   sourceCircuitNodeId: string;
   targetCircuitNodeId: string;
+  pinCurrentContributions?: {
+    pinId: string;
+    sign: 1 | -1;
+  }[];
   resistanceOhm: number;
   lengthM: number;
   crosssectionMm2: number;
@@ -558,6 +562,7 @@ type SimulationWireElement = {
 ```
 
 Wires im Diagramm werden in der Simulation als konstante Widerstaende modelliert. Fuer die erste Version wird Kupfer angenommen.
+`sourceCircuitNodeId` und `targetCircuitNodeId` beschreiben die Solver-Knoten. `pinCurrentContributions` beschreibt dagegen die konkreten Diagramm-Pins, denen der berechnete Wire-Strom fuer Pin-Ergebnisse und Pin-`Imax` zugerechnet wird. Das ist absichtlich getrennt: Wenn mehrere Pins per `shortBridge` zu einem Circuit-Node vereinigt werden, darf der Wire-Strom nicht auf alle Pins dieses Circuit-Nodes verteilt werden, sondern nur auf die tatsaechlichen Wire-Endpunkte.
 
 Formel:
 
@@ -1437,6 +1442,7 @@ Aktuell vorhandene Referenzfaelle:
 - `dcdc_input_limited_resistor`: 12-V-PSU mit 0,1-A-Stromlimit, DCDC-Wandler auf 5 V und 10-Ohm-Last. Dieser Fall prueft das dynamische DCDC-Ausgangslimit aus begrenzter Eingangsleistung und den erwarteten Simulation-Check `DCDC input power limited`. Die zugehoerige LTspice-Datei liegt als `dcdc_input_limited_resistor.cir` im Fixture-Verzeichnis.
 - `dcdc_input_multi_source_ambiguous`: zwei passiv erreichbare 12-V-PSUs am selben DCDC-Eingang. Dieser analytische Fall prueft, dass Eingangsquellenlimits nicht aufsummiert werden und stattdessen `DCDC input power limit is ambiguous` gemeldet wird.
 - `dcdc_two_converters_one_psu`: eine 12-V-PSU versorgt zwei DCDC-Wandler mit je einer 10-Ohm-Last. Dieser analytische Fall prueft, dass mehrere DCDC-Wandler an einer PSU erlaubt sind und die PSU gemeinsam ueber ihre Eingangsstromsenken belasten.
+- `short_bridge_pin_imax`: analytischer Rueckleiter-Fall mit `GND1`/`GND2` per `shortBridge`. Der Fall prueft, dass Pin-`Imax` aus konkreten Wire-Endpunkten abgeleitet wird und Durchgangsstrom nicht durch Circuit-Node-Zusammenfassung verschwindet.
 - `ws2814_single_feed_1m`: 1 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall ist klein und eignet sich als Kalibrierung fuer LED-Kennlinie, LED-Serienwiderstaende und Wire-Ergebnisableitung.
 - `ws2814_single_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung am Anfang. Dieser Fall prueft sichtbaren Spannungsabfall ueber den Streifen und die iterative LED-Stromberechnung.
 - `ws2814_double_feed_10m`: 10 m WS2814-24-V-Streifen mit Einspeisung an Anfang und Ende. Dieser Fall prueft Stromaufteilung ueber mehrere Einspeisepfade und Start-/End-Spannungen am LED-Streifen.
@@ -1484,7 +1490,7 @@ Optional:
 10. [x] Overlay fuer Pin-Strom/Spannung anzeigen. Umgesetzt in `src/simulation/SimulationOverlay.tsx` und `src/simulation/simulationResultStore.ts`.
 11. [x] Kleinen eigenen Dense-Solver fuer fruehe Tests implementieren. Umgesetzt in `src/simulation/denseLinearSystemSolver.ts`.
 12. [x] Erste echte DC-Modelle und Solver nach `SOLVER.MD` ergaenzen. Umgesetzt als DC-Pipeline in `src/simulation/runSimulation.ts`: Wires, Widerstaende, Sicherungen, Spannungsquellen, einfache Stromquellen, konstante Power-Sinks, digitale LED-Serienwiderstaende und LED-Stromsenken werden gestempelt und mit `sparseLinearSystemSolver` geloest. Spannungsabhaengige digitale LED-Stroeme werden iterativ ueber die LED-Kennlinie aktualisiert.
-13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz, mehrere GND-Inseln, nicht simulierbare Komponenten an relevanten Netzen und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits, Sicherungs-Nennstroeme, Supply/GND-Pin-Spannungen und LED-Streifen-Min-/Max-Spannungen.
+13. [x] Simulation-Checks ergaenzen. Umgesetzt fuer Modellfehler wie fehlende Referenz, mehrere GND-Inseln, nicht simulierbare Komponenten an relevanten Netzen und widerspruechliche Spannungsquellen sowie Ergebnis-Checks fuer Quellenstromlimits, Sicherungs-Nennstroeme, Pin-`Imax`, Supply/GND-Pin-Spannungen und LED-Streifen-Min-/Max-Spannungen.
 14. [x] LED-PhysLengths und virtuelle LED-Pin-Spannungen finalisieren. Umgesetzt im Modellaufbau: digitale LED-Streifen werden ueber `physLengths` segmentiert, interne LED-Elemente erzeugt und Start-/End-/Middle-Grenzen als `SimulationVirtualPin` mit `virtualPinResults` ausgegeben.
 15. [x] Erste Simulation-Fixtures und erwartete Ergebniswerte in `simulation_test/` bauen. Umgesetzt mit LTspice-Referenzen unter `simulation_test/ltspice/`.
 16. [x] PSU-Degradation bei ueberschrittenem Stromlimit implementieren. Umgesetzt in `src/simulation/runSimulation.ts`: Quellenstrom wird iterativ ausgewertet, die Zielspannung wird ueber `voltageDropPctAt150Current` reduziert, und konvergierte Ueberlast erzeugt weiterhin ein Simulations-Issue.
@@ -1518,7 +1524,7 @@ Optional:
 17. Fehlende Wire-Laenge oder Querschnitt: Simulation abbrechen und Check-Fehler erzeugen.
 18. Andere Querschnittseinheiten: AWG per lokaler Tabelle nach `mm2` umrechnen.
 19. `internalConnections` werden nicht automatisch in `simdata`-Bruecken uebersetzt.
-20. Erste Grenzwerte: zu niedrige Spannung fuer alle angezeigten Supply/GND-Pin-Paare, Stromlimits und Sicherungen.
+20. Erste Grenzwerte: zu niedrige Spannung fuer alle angezeigten Supply/GND-Pin-Paare, Stromlimits, Pin-`Imax` und Sicherungen.
 21. Strompfeile und Spannungslabels: sichtbare Overlay-Ebene mit Slotting und Hinweislinien gegen Ueberlappung.
 22. Simulationsergebnisse bleiben bei Pan/Zoom sichtbar und werden automatisch neu positioniert.
 23. `Delete simulation results` loescht auch Simulations-Check-Highlights.

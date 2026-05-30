@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "type": "general-component-type",
+      "position": {"x": 0, "y": 0},
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "inputFields": [
+          {"technicalID": "source_voltage", "type": "number_input", "value": 5},
+          {"technicalID": "source_current", "type": "number_input", "value": 2}
+        ],
+        "handles": [
+          {"hid": "VOUT", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["suppl_out"]},
+          {"hid": "GND", "type": "source", "x": 0, "y": 20, "width": 10, "height": 10, "functions": ["gnd"]}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "source",
+              "type": "voltageSource",
+              "terminals": {"positive": "VOUT", "negative": "GND"},
+              "parameters": {
+                "voltageV": {"field": "source_voltage"},
+                "currentLimitA": {"field": "source_current"},
+                "voltageDropPctAt150Current": 50
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bridge",
+      "type": "general-component-type",
+      "position": {"x": 120, "y": 0},
+      "data": {
+        "technicalID": "TEST_SHORT_BRIDGE",
+        "technicalVersion": 1,
+        "handles": [
+          {"hid": "GND1", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["gnd"], "Imax": 0.1},
+          {"hid": "GND2", "type": "source", "x": 0, "y": 20, "width": 10, "height": 10, "functions": ["gnd"], "Imax": 0.1}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "gnd-bridge",
+              "type": "shortBridge",
+              "terminals": {"a": "GND1", "b": "GND2"}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "load",
+      "type": "general-component-type",
+      "position": {"x": 240, "y": 0},
+      "data": {
+        "technicalID": "TEST_CURRENT_LOAD",
+        "technicalVersion": 1,
+        "handles": [
+          {"hid": "VIN", "type": "source", "x": 0, "y": 0, "width": 10, "height": 10, "functions": ["suppl_in"]},
+          {"hid": "GND", "type": "source", "x": 0, "y": 20, "width": 10, "height": 10, "functions": ["gnd"]}
+        ],
+        "simdata": {
+          "version": 1,
+          "elements": [
+            {
+              "id": "load",
+              "type": "currentSource",
+              "terminals": {"positive": "VIN", "negative": "GND"},
+              "parameters": {"currentA": 0.5}
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "positive-feed",
+      "type": "editable-wire-type",
+      "source": "psu",
+      "sourceHandle": "VOUT",
+      "target": "load",
+      "targetHandle": "VIN",
+      "data": {"physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}
+    },
+    {
+      "id": "load-to-bridge",
+      "type": "editable-wire-type",
+      "source": "load",
+      "sourceHandle": "GND",
+      "target": "bridge",
+      "targetHandle": "GND2",
+      "data": {"physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}
+    },
+    {
+      "id": "bridge-to-psu",
+      "type": "editable-wire-type",
+      "source": "bridge",
+      "sourceHandle": "GND1",
+      "target": "psu",
+      "targetHandle": "GND",
+      "data": {"physLength": 0.1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2", "physType": "single"}
+    }
+  ]
+}

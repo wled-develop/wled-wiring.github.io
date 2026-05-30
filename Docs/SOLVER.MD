@@ -211,6 +211,7 @@ Ueberlast ist kein sofortiger Solver-Abbruch:
 - PSU-Stromlimit ueberschritten: weiter mit degradierter Spannung, aber Check-Fehler ausgeben.
 - DCDC-Limit ueberschritten: weiter mit degradierter Ausgangsspannung, aber Check-Fehler ausgeben.
 - Sicherung ueber Nennstrom: weiter rechnen, aber Check-Fehler ausgeben.
+- Pin-`Imax` ueberschritten: weiter rechnen, aber Check-Fehler ausgeben. Geprueft wird der Betrag des nach Konvergenz aus den konkreten Wire-Endpunkt-Beitraegen des Pins aufsummierten Pin-Stroms.
 
 ## Ergebnisableitung
 
@@ -218,7 +219,7 @@ Nach Konvergenz werden berechnet:
 
 - Knotenspannungen gegen Referenz
 - Pin-Spannungen
-- Pin-Stroeme aus Summe der angeschlossenen Elementstroeme
+- Pin-Stroeme aus Summe der konkreten Wire-Endpunkt-Beitraege des Pins; bei durch `shortBridge` zusammengefassten Circuit-Nodes wird nicht der Knoten-Netto-Wire-Strom auf alle Pins verteilt
 - Wire-Stroeme und Spannungsabfaelle
 - LED-Start-/End-/Middle-Differenzspannungen
 - Simulations-Check-Ziele fuer Highlights

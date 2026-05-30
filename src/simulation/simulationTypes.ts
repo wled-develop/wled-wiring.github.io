@@ -199,6 +199,10 @@ export type SimulationWireElement = {
   edgeId: string;
   sourceCircuitNodeId: string;
   targetCircuitNodeId: string;
+  pinCurrentContributions?: {
+    pinId: string;
+    sign: 1 | -1;
+  }[];
   resistanceOhm: number;
   lengthM: number;
   crosssectionMm2: number;
@@ -245,6 +249,7 @@ export type SimulationPin = {
   role: SimulationPinRole;
   voltageMin?: number;
   voltageMax?: number;
+  maxCurrentA?: number;
   position: SimulationPoint;
 };
 

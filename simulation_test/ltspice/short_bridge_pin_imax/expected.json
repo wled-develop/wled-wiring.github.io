@@ -1,0 +1,28 @@
+{
+  "case": "short_bridge_pin_imax",
+  "settings": {
+    "brightnessPercent": 100,
+    "ledColorMode": "RGB_WHITE"
+  },
+  "tolerance": {
+    "voltageV": 0.001,
+    "currentA": 0.001,
+    "voltageDropV": 0.001
+  },
+  "expected": {
+    "checkIssues": [
+      {
+        "id": "simulation-pin-current-limit:bridge:GND1",
+        "severity": "error",
+        "title": "Pin current limit exceeded",
+        "descriptionIncludes": "0.500 A"
+      },
+      {
+        "id": "simulation-pin-current-limit:bridge:GND2",
+        "severity": "error",
+        "title": "Pin current limit exceeded",
+        "descriptionIncludes": "0.500 A"
+      }
+    ]
+  }
+}

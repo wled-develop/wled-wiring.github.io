@@ -21,6 +21,7 @@ import type {
   SimulationPinRole,
   SimulationSettings,
   SimulationVirtualPin,
+  SimulationWireElement,
   UsbPowerPairSimulationPort,
 } from "./simulationTypes";
 
@@ -1133,6 +1134,7 @@ export const buildSimulationModel = (
       role: pinRoleFromFunctions(handle.functions),
       voltageMin: handle.voltageMin,
       voltageMax: handle.voltageMax,
+      maxCurrentA: handle.handle.Imax,
       position: handlePosition(handle.node, handle.handle),
     };
   });
@@ -1171,7 +1173,7 @@ export const buildSimulationModel = (
     ));
   });
 
-  const wires = edges.flatMap((edge) => {
+  const wires: SimulationWireElement[] = edges.flatMap((edge): SimulationWireElement[] => {
     if(!edge.sourceHandle || !edge.targetHandle) {
       issues.push(issue(
         `simulation-wire:${edge.id}:missing-handle`,
@@ -1290,6 +1292,10 @@ export const buildSimulationModel = (
       edgeId: edge.id,
       sourceCircuitNodeId,
       targetCircuitNodeId,
+      pinCurrentContributions: [
+        {pinId: sourcePinId, sign: 1},
+        {pinId: targetPinId, sign: -1},
+      ],
       resistanceOhm: resistance.resistanceOhm,
       lengthM: resistance.lengthM,
       crosssectionMm2: resistance.crosssectionMm2,

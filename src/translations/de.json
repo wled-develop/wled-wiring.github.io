@@ -808,6 +808,10 @@
           "title": "Versorgungsspannung zu hoch",
           "description": "Die Versorgungsspannung ist {{voltage}} V und liegt ueber dem Maximum {{limit}} V."
         },
+        "pinCurrentLimit": {
+          "title": "Pin-Stromgrenze ueberschritten",
+          "description": "Der Pin-Strom {{current}} A ueberschreitet den Maximalwert {{limit}} A."
+        },
         "ledStripSupplyVoltageLow": {
           "title": "Versorgungsspannung am LED-Streifen zu niedrig",
           "description": "VLED an einem angeschlossenen Versorgungspunkt des LED-Streifens ist {{voltage}} V und liegt unter dem Minimum {{limit}} V. Erhoehe die Netzteilspannung oder die verfuegbare Leistung, falls das Netzteil im Stromlimit arbeitet."

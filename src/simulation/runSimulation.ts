@@ -1239,6 +1239,61 @@ const createLedStripVoltageRangeIssues = (
   return issues;
 };
 
+const createPinCurrentById = (
+  model: SimulationModel,
+  circuitVoltages: Map<string, number>,
+) => {
+  const pinCurrentById = new Map<string, number>();
+
+  model.wires.forEach((wire) => {
+    const sourceVoltage = circuitVoltages.get(wire.sourceCircuitNodeId);
+    const targetVoltage = circuitVoltages.get(wire.targetCircuitNodeId);
+    const voltageDropV = sourceVoltage !== undefined && targetVoltage !== undefined
+      ? sourceVoltage - targetVoltage
+      : undefined;
+    const currentA = voltageDropV !== undefined
+      ? voltageDropV / wire.resistanceOhm
+      : undefined;
+
+    if(currentA === undefined) return;
+
+    wire.pinCurrentContributions?.forEach((contribution) => {
+      pinCurrentById.set(
+        contribution.pinId,
+        (pinCurrentById.get(contribution.pinId) ?? 0) + currentA * contribution.sign,
+      );
+    });
+  });
+
+  return pinCurrentById;
+};
+
+const createPinCurrentLimitIssues = (
+  model: SimulationModel,
+  pinCurrentById: Map<string, number>,
+) => {
+  const issues: SimulationCheckIssue[] = [];
+
+  model.pins.forEach((pin) => {
+    if(pin.maxCurrentA === undefined || pin.maxCurrentA < 0) return;
+
+    const currentA = Math.abs(pinCurrentById.get(pin.id) ?? 0);
+    if(currentA <= pin.maxCurrentA + CURRENT_LIMIT_TOLERANCE_A) return;
+
+    issues.push(issue(
+      `simulation-pin-current-limit:${pin.nodeId}:${pin.handleId}`,
+      simulationIssueText("pinCurrentLimit.title"),
+      simulationIssueText("pinCurrentLimit.description", {
+        current: currentA.toFixed(3),
+        limit: pin.maxCurrentA.toFixed(3),
+      }),
+      [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
+    ));
+  });
+
+  return issues;
+};
+
 const createUnpoweredIgnoredIssues = (
   model: SimulationModel,
   activeCircuitNodeIds: Set<string>,
@@ -1283,9 +1338,11 @@ const createSolvedCheckIssues = (
   const issues: SimulationCheckIssue[] = [];
   const elementById = new Map(model.elements.map((element) => [element.id, element]));
   const ledStripSupplyVoltageProblems = collectLedStripSupplyVoltageProblems(model, circuitVoltages);
+  const pinCurrentById = createPinCurrentById(model, circuitVoltages);
 
   issues.push(...createUnpoweredIgnoredIssues(model, linearModel.activeCircuitNodeIds));
   issues.push(...createPinVoltageRangeIssues(model, circuitVoltages));
+  issues.push(...createPinCurrentLimitIssues(model, pinCurrentById));
   issues.push(...createLedStripVoltageRangeIssues(
     model,
     createLedElementVoltageResults(model, circuitVoltages),
@@ -1391,15 +1448,7 @@ const createSimulationResult = (
   const circuitVoltages = createCircuitVoltages(model, linearModel, values);
   const ledElementVoltageResults = createLedElementVoltageResults(model, circuitVoltages);
   const ledStripVoltageSummaryResults = createLedStripVoltageSummaryResults(ledElementVoltageResults);
-  const pinCurrentById = new Map<string, number>();
-  const pinIdsByCircuitNodeId = new Map<string, string[]>();
-
-  model.pins.forEach((pin) => {
-    if(!pin.circuitNodeId) return;
-    const pinIds = pinIdsByCircuitNodeId.get(pin.circuitNodeId) ?? [];
-    pinIds.push(pin.id);
-    pinIdsByCircuitNodeId.set(pin.circuitNodeId, pinIds);
-  });
+  const pinCurrentById = createPinCurrentById(model, circuitVoltages);
 
   const rawWireResults = model.wires.map((wire) => {
     const sourceVoltage = circuitVoltages.get(wire.sourceCircuitNodeId);
@@ -1410,15 +1459,6 @@ const createSimulationResult = (
     const currentA = voltageDropV !== undefined
       ? voltageDropV / wire.resistanceOhm
       : undefined;
-
-    if(currentA !== undefined) {
-      pinIdsByCircuitNodeId.get(wire.sourceCircuitNodeId)?.forEach((pinId) => {
-        pinCurrentById.set(pinId, (pinCurrentById.get(pinId) ?? 0) + currentA);
-      });
-      pinIdsByCircuitNodeId.get(wire.targetCircuitNodeId)?.forEach((pinId) => {
-        pinCurrentById.set(pinId, (pinCurrentById.get(pinId) ?? 0) - currentA);
-      });
-    }
 
     return {
       wireId: wire.id,
