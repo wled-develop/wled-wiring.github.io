@@ -54,7 +54,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
-        "Imax": 16,
+        "Imax": 32,
         "maxCrossSectionAbsolute": 4,
         "behavior": {
           "preferredLineWidth": 1
@@ -88,7 +88,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
-        "Imax": 16,
+        "Imax": 32,
         "maxCrossSectionAbsolute": 4,
         "behavior": {
           "preferredLineWidth": 1

@@ -114,7 +114,7 @@ export default defineComponent({
         "name": "I",
         "value": 3,
         "min": 0,
-        "max": 100,
+        "max": 5,
         "step": 0.1,
         "unit": "A",
         "ui": {

@@ -87,6 +87,7 @@ export default defineComponent({
         },
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
+		"Imax": 0.2,
         "behavior": {}
       },
       {
@@ -501,6 +502,7 @@ export default defineComponent({
         },
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
+		"Imax": 1.2,
         "behavior": {}
       },
       {
@@ -661,6 +663,7 @@ export default defineComponent({
         },
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
+		"Imax": 1.1,
         "behavior": {}
       },
       {
@@ -692,6 +695,7 @@ export default defineComponent({
         },
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
+		"Imax": 1.2,
         "behavior": {}
       },
       {
@@ -883,6 +887,7 @@ export default defineComponent({
         },
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
+		"Imax": 1.2,
         "behavior": {}
       },
       {

@@ -93,6 +93,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 15,
         "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
@@ -217,6 +218,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 15,
         "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
@@ -309,6 +311,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -479,6 +482,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -564,6 +568,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -817,6 +822,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -1141,6 +1147,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -1507,6 +1514,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 1,
         "maxCrossSectionAbsolute": 0.75,
         "maxCrossSectionWarning": 0.5,
         "behavior": {
@@ -1912,6 +1920,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 0.2,
         "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
@@ -2038,6 +2047,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+		"Imax": 0.2,
         "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
