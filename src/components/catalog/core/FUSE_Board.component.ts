@@ -52,6 +52,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -83,6 +85,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -115,6 +119,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -146,6 +152,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -177,6 +185,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -208,6 +218,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 32
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 4
         }

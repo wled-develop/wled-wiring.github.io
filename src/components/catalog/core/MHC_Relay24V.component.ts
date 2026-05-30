@@ -58,6 +58,7 @@ export default defineComponent({
           "toleranceMin": 20,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -90,6 +91,7 @@ export default defineComponent({
           "toleranceMin": 20,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -122,6 +124,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -151,6 +154,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -180,6 +184,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -211,6 +216,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -242,6 +248,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "CTRL1",
           "preferredLineWidth": 4
@@ -274,6 +281,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "CTRL1",
           "preferredLineWidth": 4
@@ -306,6 +314,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "CTRL2",
           "preferredLineWidth": 4
@@ -338,6 +347,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "CTRL2",
           "preferredLineWidth": 4

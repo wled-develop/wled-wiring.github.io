@@ -59,6 +59,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 24
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 2
@@ -91,6 +92,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2
         }
@@ -122,6 +124,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 24
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 2
@@ -154,6 +157,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 24
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2
         },
@@ -186,6 +190,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2
         }
@@ -217,6 +222,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 2

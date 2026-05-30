@@ -60,6 +60,7 @@ export default defineComponent({
           "toleranceMin": 4,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -92,6 +93,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -123,6 +125,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -152,6 +155,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -181,6 +185,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -212,6 +217,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -243,6 +249,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -272,6 +279,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {}
       },
       {
@@ -301,6 +309,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -342,6 +352,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -383,6 +395,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -423,6 +437,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -463,6 +479,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -504,6 +522,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -544,6 +564,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -584,6 +606,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -625,6 +649,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -666,6 +692,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -706,6 +734,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -746,6 +776,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -785,6 +817,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -823,6 +857,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -862,6 +898,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -901,6 +939,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -939,6 +979,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -977,6 +1019,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1016,6 +1060,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1055,6 +1101,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1093,6 +1141,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1131,6 +1181,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1169,6 +1221,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1208,6 +1262,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1247,6 +1303,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1286,6 +1344,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1325,6 +1385,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1364,6 +1426,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1403,6 +1467,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1441,6 +1507,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1479,6 +1547,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1518,6 +1588,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1557,6 +1629,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1596,6 +1670,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1635,6 +1711,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 3.6
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "hideConditions": [
             {
@@ -1792,6 +1870,7 @@ export default defineComponent({
           "toleranceMin": -7,
           "toleranceMax": 12
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [
@@ -1833,6 +1912,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [
@@ -1874,6 +1954,7 @@ export default defineComponent({
           "toleranceMin": -7,
           "toleranceMax": 12
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [
@@ -1915,6 +1996,7 @@ export default defineComponent({
           "toleranceMin": -7,
           "toleranceMax": 12
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [
@@ -1956,6 +2038,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [
@@ -1997,6 +2080,7 @@ export default defineComponent({
           "toleranceMin": -7,
           "toleranceMax": 12
         },
+        "maxCrossSectionAbsolute": 0.75,
         "behavior": {
           "preferredLineWidth": 2,
           "hideConditions": [

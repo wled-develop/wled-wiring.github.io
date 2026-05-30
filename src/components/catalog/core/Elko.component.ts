@@ -57,6 +57,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 250
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 1
@@ -89,6 +91,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 250
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "mustBeConnected": true,
           "preferredLineWidth": 1

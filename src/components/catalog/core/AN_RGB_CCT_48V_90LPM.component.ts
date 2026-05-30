@@ -60,6 +60,8 @@ export default defineComponent({
           "toleranceMin": 40,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -87,6 +89,8 @@ export default defineComponent({
           "pwm_in_R"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -114,6 +118,8 @@ export default defineComponent({
           "pwm_in_G"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -141,6 +147,8 @@ export default defineComponent({
           "pwm_in_B"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -168,6 +176,8 @@ export default defineComponent({
           "pwm_in_WW"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -195,6 +205,8 @@ export default defineComponent({
           "pwm_in_W"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -225,6 +237,8 @@ export default defineComponent({
           "toleranceMin": 40,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -252,6 +266,8 @@ export default defineComponent({
           "pwm_in_R"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -279,6 +295,8 @@ export default defineComponent({
           "pwm_in_G"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -306,6 +324,8 @@ export default defineComponent({
           "pwm_in_B"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -333,6 +353,8 @@ export default defineComponent({
           "pwm_in_WW"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -360,6 +382,8 @@ export default defineComponent({
           "pwm_in_W"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -390,6 +414,8 @@ export default defineComponent({
           "toleranceMin": 40,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -418,6 +444,8 @@ export default defineComponent({
           "pwm_in_R"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -446,6 +474,8 @@ export default defineComponent({
           "pwm_in_G"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -474,6 +504,8 @@ export default defineComponent({
           "pwm_in_B"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -502,6 +534,8 @@ export default defineComponent({
           "pwm_in_WW"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -530,6 +564,8 @@ export default defineComponent({
           "pwm_in_W"
         ],
         "voltage": {},
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false

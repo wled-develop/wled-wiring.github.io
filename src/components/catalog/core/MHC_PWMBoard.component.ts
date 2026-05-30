@@ -58,6 +58,7 @@ export default defineComponent({
           "toleranceMin": 12,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -90,6 +91,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -121,6 +123,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 2
         }
@@ -152,6 +155,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 2
         }
@@ -183,6 +187,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 2
         }
@@ -214,6 +219,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -245,6 +251,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "PWMIN1",
           "preferredLineWidth": 3
@@ -277,6 +284,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "PWMIN2",
           "preferredLineWidth": 3
@@ -309,6 +317,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 48
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "PWMIN3",
           "preferredLineWidth": 3

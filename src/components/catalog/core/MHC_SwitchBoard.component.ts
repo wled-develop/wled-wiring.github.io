@@ -59,6 +59,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 24
         },
+        "maxCrossSectionAbsolute": 4,
         "behavior": {
           "preferredLineWidth": 4
         },
@@ -91,6 +92,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 4,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -122,6 +124,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 1,
         "behavior": {}
       },
       {
@@ -150,6 +153,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 5
         },
+        "maxCrossSectionAbsolute": 1,
         "behavior": {}
       },
       {
@@ -179,6 +183,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "EN1",
           "preferredLineWidth": 4
@@ -211,6 +216,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -242,6 +248,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "EN1",
           "preferredLineWidth": 4
@@ -274,6 +281,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }
@@ -305,6 +313,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "controllableBy": "EN1",
           "preferredLineWidth": 4
@@ -337,6 +346,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 26
         },
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 4
         }

@@ -763,6 +763,30 @@ const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdCha
                   style={{width: '100%'}}
                 />
               </Form.Item>
+              <Form.Item label="Cross abs" style={{width: 140}}>
+                <InputNumber
+                  min={0}
+                  addonAfter="mm2"
+                  value={activeHandle.maxCrossSectionAbsolute}
+                  onChange={(maxCrossSectionAbsolute) => updateActiveHandle((item) => ({
+                    ...item,
+                    maxCrossSectionAbsolute: maxCrossSectionAbsolute ?? undefined,
+                  }))}
+                  style={{width: '100%'}}
+                />
+              </Form.Item>
+              <Form.Item label="Cross warn" style={{width: 140}}>
+                <InputNumber
+                  min={0}
+                  addonAfter="mm2"
+                  value={activeHandle.maxCrossSectionWarning}
+                  onChange={(maxCrossSectionWarning) => updateActiveHandle((item) => ({
+                    ...item,
+                    maxCrossSectionWarning: maxCrossSectionWarning ?? undefined,
+                  }))}
+                  style={{width: '100%'}}
+                />
+              </Form.Item>
             </Flex>
             <Space wrap>
               {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically', 'internallyProtected'] as const).map((key) => (

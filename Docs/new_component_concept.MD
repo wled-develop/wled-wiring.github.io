@@ -207,6 +207,8 @@ type ComponentHandleDefinition = {
     toleranceMax?: number;
   };
   Imax?: number;
+  maxCrossSectionAbsolute?: number;
+  maxCrossSectionWarning?: number;
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;
@@ -228,6 +230,7 @@ Beim Normalisieren wird daraus der heutige `HandleDataType` erzeugt:
 - `voltage.out` wird zu `Vout`.
 - `voltage.outDependency` wird zu `VoutDependency`.
 - `Imax` wird unveraendert zu `Imax` und beschreibt den maximal erlaubten absoluten Pin-Strom in Ampere.
+- `maxCrossSectionAbsolute` und `maxCrossSectionWarning` werden unveraendert uebernommen und beschreiben den maximal anklemmbare Leiterquerschnitt in mm2. Wenn beide gesetzt sind, muss `maxCrossSectionWarning < maxCrossSectionAbsolute` gelten.
 - `behavior.*` wird auf die bestehenden Felder gemappt.
 - `behavior.internallyProtected` wird zu `internallyProtected`; nicht gesetzt bedeutet `false`.
 

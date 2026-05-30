@@ -94,6 +94,8 @@ export type ComponentHandleDefinition = {
     toleranceMax?: number;
   };
   Imax?: number;
+  maxCrossSectionAbsolute?: number;
+  maxCrossSectionWarning?: number;
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;

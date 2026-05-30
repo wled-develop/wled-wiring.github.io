@@ -150,6 +150,40 @@ export const validateComponentPackage = (componentPackage: ComponentPackage): Co
     if (handle.Imax !== undefined && (!Number.isFinite(handle.Imax) || handle.Imax < 0)) {
       addIssue(issues, 'error', `component.handles[${index}].Imax`, 'Imax must be a non-negative number.');
     }
+    if (
+      handle.maxCrossSectionAbsolute !== undefined &&
+      (!Number.isFinite(handle.maxCrossSectionAbsolute) || handle.maxCrossSectionAbsolute < 0)
+    ) {
+      addIssue(
+        issues,
+        'error',
+        `component.handles[${index}].maxCrossSectionAbsolute`,
+        'maxCrossSectionAbsolute must be a non-negative number.',
+      );
+    }
+    if (
+      handle.maxCrossSectionWarning !== undefined &&
+      (!Number.isFinite(handle.maxCrossSectionWarning) || handle.maxCrossSectionWarning < 0)
+    ) {
+      addIssue(
+        issues,
+        'error',
+        `component.handles[${index}].maxCrossSectionWarning`,
+        'maxCrossSectionWarning must be a non-negative number.',
+      );
+    }
+    if (
+      handle.maxCrossSectionAbsolute !== undefined &&
+      handle.maxCrossSectionWarning !== undefined &&
+      handle.maxCrossSectionWarning >= handle.maxCrossSectionAbsolute
+    ) {
+      addIssue(
+        issues,
+        'error',
+        `component.handles[${index}].maxCrossSectionWarning`,
+        'maxCrossSectionWarning must be smaller than maxCrossSectionAbsolute.',
+      );
+    }
     handle.functions?.forEach((handleFunction) => {
       if (!KNOWN_HANDLE_FUNCTIONS.includes(handleFunction)) {
         addIssue(issues, 'error', `component.handles[${index}].functions`, `Unknown handle function "${handleFunction}".`);

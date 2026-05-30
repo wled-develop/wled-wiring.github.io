@@ -58,6 +58,8 @@ const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => {
     Vout: handle.voltage?.out,
     VoutDependency: handle.voltage?.outDependency,
     Imax: handle.Imax,
+    maxCrossSectionAbsolute: handle.maxCrossSectionAbsolute,
+    maxCrossSectionWarning: handle.maxCrossSectionWarning,
     controllableBy: handle.behavior?.controllableBy,
     internallyProtected: handle.behavior?.internallyProtected,
     functions: handle.functions,

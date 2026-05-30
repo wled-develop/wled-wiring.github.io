@@ -54,6 +54,8 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 1
         }
@@ -84,6 +86,8 @@ export default defineComponent({
           "out": 0,
           "outDependency": "source_voltage"
         },
+        "maxCrossSectionAbsolute": 0.75,
+        "maxCrossSectionWarning": 0.5,
         "behavior": {
           "preferredLineWidth": 1
         }

@@ -41,7 +41,9 @@ Ein `CheckHandle` enthaelt unter anderem:
 
 `HandleDataType.Imax?: number` beschreibt den maximal erlaubten absoluten Strom durch den Pin in Ampere. Wenn das Attribut fehlt, ist kein pin-spezifischer Stromgrenzwert definiert.
 
-Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten.
+`HandleDataType.maxCrossSectionAbsolute?: number` beschreibt den absolut maximal anklemmbare Leiterquerschnitt in mm2. `HandleDataType.maxCrossSectionWarning?: number` beschreibt den groessten Leiterquerschnitt in mm2, der ohne Warnung akzeptiert werden soll. Wenn beide Werte gesetzt sind, muss `maxCrossSectionWarning < maxCrossSectionAbsolute` gelten. Wenn ein Attribut fehlt, ist fuer diese Stufe kein pin-spezifischer Querschnittsgrenzwert definiert.
+
+Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `Imax`, Querschnittsgrenzen, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten.
 
 ### Funktionen an Handles
 
