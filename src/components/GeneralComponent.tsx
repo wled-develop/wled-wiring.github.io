@@ -82,6 +82,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
     const rotation=rotatable?compData.rotation:0;
     const checkHighlighted=Boolean(compData.checkHighlighted);
     const simulationHighlighted=Boolean(compData.simulationHighlighted);
+    const simulationHighlightedHandleIds = new Set(compData.simulationHighlightedHandleIds || []);
     const isInfoNode=compData.technicalID=="InfoNode";
 
     const nodeLength=(compData?.nodeLength || 1);
@@ -1519,6 +1520,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                     const rotated_width=(rotationSwapImgWH)?height:width;
                     const rotated_height=(rotationSwapImgWH)?width:height;
                     const editorSelected=compData.editorSelectedHandleId===hid;
+                    const simulationHandleHighlighted=simulationHighlightedHandleIds.has(hid);
 
                     //const posArray=[Position.Left, Position.Top, Position.Right, Position.Bottom, Position.Left, Position.Top, Position.Right, Position.Bottom];
                     //const posIndex= (position==Position.Left)?0:((position==Position.Top)?1:((position==Position.Right)?2:(3)));
@@ -1554,7 +1556,11 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                             borderStyle: borderType,
                             borderRadius: borderRadius,
                             borderWidth: borderLineWidth,
-                            boxShadow: editorSelected ? "0 0 0 3px #faad14, 0 0 8px 5px rgba(250, 173, 20, 0.55)" : undefined,
+                            boxShadow: simulationHandleHighlighted
+                                ? "0 0 0 3px #1677ff, 0 0 8px 5px rgba(22, 119, 255, 0.55)"
+                                : editorSelected
+                                    ? "0 0 0 3px #faad14, 0 0 8px 5px rgba(250, 173, 20, 0.55)"
+                                    : undefined,
                             position: "absolute",
                             top: rotated_top,
                             left: rotated_left,

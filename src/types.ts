@@ -195,6 +195,7 @@ export type HandleDataType = {
     wireInfo_color?: string;
     checkHighlighted?: boolean;
     simulationHighlighted?: boolean;
+    simulationHighlightedHandleIds?: string[];
     // --------------
     // for popover
     popover?: {

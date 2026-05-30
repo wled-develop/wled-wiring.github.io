@@ -1152,10 +1152,10 @@ Die Check-Liste sollte die gleiche UX verwenden wie `DiagramCheckPage`:
 
 - Severity-Tag
 - Titel
-- Beschreibung
-- Empfehlung
+- Beschreibung erst nach Klick/Expand
 - Betroffene Elemente
-- Klick/Expand hebt betroffene Pins/Komponenten/Wires hervor
+- Keine Recommendation-Anzeige in der Simulation-UI
+- Klick/Expand hebt betroffene Pins/Komponenten/Wires hervor; beim Schliessen der Meldung oder des Simulation-Sidebar-Abschnitts wird dieses Highlight wieder entfernt
 
 Betroffene Elemente werden in der normalen UI nutzerverstaendlich angezeigt:
 
@@ -1197,9 +1197,11 @@ Elemente:
    - Diese Zahlen zaehlen nur den wirklich simulierten Modellanteil: Komponenten nur, wenn fuer sie mindestens ein elementares Simulationselement erzeugt wurde; Wires nur, wenn beide Wire-Enden an Circuit-Nodes liegen, die von Simulationselement-Terminals benutzt werden. Ausgenommene Diagramm-Komponenten, optionale/unsichtbare Elemente, WireInfo-Nodes und rein informative bzw. nicht modellierte Wires werden nicht mitgezaehlt.
    - Technische Modellstatistiken wie Circuit-Nodes, Elementanzahl, Pin-Results und Wire-Results nicht in der normalen UI anzeigen.
 5. Check-Ergebnisse
-   - Liste analog Diagramm-Checks
-   - Issue-Zeilen sind interaktiv: Hover zeigt die betroffenen Nodes/Wires temporaer im Diagramm, Klick haelt die Markierung bis zum naechsten Klick, zur naechsten Simulation oder zum Loeschen/Invalidieren der Ergebnisse.
+   - Collapse-Liste analog Diagramm-Checks: initial sichtbar sind Severity und Titel, Beschreibung und betroffene Elemente erscheinen erst nach Expand.
+   - Simulation-Issues zeigen keine Recommendation.
+   - Das Expandieren einer Issue-Meldung aktiviert die Markierung der betroffenen Pins/Komponenten/Wires. Beim Schliessen der Meldung, beim Schliessen des Simulation-Sidebar-Abschnitts, bei neuer Simulation, beim Loeschen oder beim Invalidieren der Ergebnisse wird die Markierung entfernt.
    - Simulation-Issue-Highlights verwenden eigene `simulationHighlighted`-Flags auf Nodes/Edges und ueberschreiben nicht die Diagramm-Check-Highlights.
+   - Pin-Ziele setzen zusaetzlich `simulationHighlightedHandleIds` am betroffenen Node, damit die UI nicht nur die Komponente, sondern auch den konkreten Pin markieren kann.
 
 Debug-Modus:
 

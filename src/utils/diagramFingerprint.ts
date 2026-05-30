@@ -5,6 +5,7 @@ import type { ComponentDataType, EdgeDataType } from "../types";
 const TRANSIENT_NODE_DATA_KEYS = new Set([
   "checkHighlighted",
   "simulationHighlighted",
+  "simulationHighlightedHandleIds",
   "correspondingWireSelected",
 ]);
 

@@ -20,6 +20,9 @@ const Sidebar = () => {
   const isDiagramCheckOpen = Array.isArray(activePanelKeys)
     ? activePanelKeys.includes('3')
     : activePanelKeys === '3';
+  const isSimulationOpen = Array.isArray(activePanelKeys)
+    ? activePanelKeys.includes('4')
+    : activePanelKeys === '4';
 
   const panelStyle: React.CSSProperties = {
     border: 'none',
@@ -30,7 +33,7 @@ const Sidebar = () => {
   };
 
   const simulationPanel = ENABLE_SIMULATION_CONTROLS
-    ? <SimulationPage />
+    ? <SimulationPage isOpen={isSimulationOpen} />
     : (
       <Alert
         type="info"

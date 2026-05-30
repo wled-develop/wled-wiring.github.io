@@ -9,6 +9,7 @@ const ignoredComponentDataKeys = new Set([
     "selectedHid",
     "checkHighlighted",
     "simulationHighlighted",
+    "simulationHighlightedHandleIds",
     "nodeLength",
     "repeatedHandleArray",
     "physLengths",

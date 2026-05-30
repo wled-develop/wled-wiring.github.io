@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeleteOutlined, InfoCircleOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/react";
-import { Alert, Button, Empty, Flex, List, Modal, Segmented, Select, Slider, Space, Tag, Typography } from "antd";
+import { Alert, Button, Collapse, Empty, Flex, List, Modal, Segmented, Select, Slider, Space, Tag, Typography, theme, type CollapseProps } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { createSimulationFingerprint } from "./simulationFingerprint";
@@ -80,8 +80,13 @@ const findNodeForSimulationElement = (
   ));
 };
 
-export const SimulationPage = () => {
+type SimulationPageProps = {
+  isOpen: boolean;
+};
+
+export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
   const { t, i18n } = useTranslation(["main"]);
+  const { token } = theme.useToken();
   const reactFlow = useReactFlow<Node<ComponentDataType>, Edge<EdgeDataType>>();
   const nodes = useNodes<Node<ComponentDataType>>();
   const edges = useEdges<Edge<EdgeDataType>>();
@@ -101,7 +106,7 @@ export const SimulationPage = () => {
   } | null>(null);
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
-  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+  const [activeIssueKeys, setActiveIssueKeys] = useState<string[]>([]);
   const [simulationInfoOpen, setSimulationInfoOpen] = useState(false);
   const simulationRequestIdRef = useRef(0);
   const simulationWorkerRunRef = useRef<SimulationWorkerRun | null>(null);
@@ -233,6 +238,7 @@ export const SimulationPage = () => {
       data: {
         ...node.data,
         simulationHighlighted: false,
+        simulationHighlightedHandleIds: undefined,
       },
     })));
 
@@ -247,11 +253,20 @@ export const SimulationPage = () => {
 
   const highlightSimulationTargets = useCallback((targets: SimulationTarget[] = []) => {
     const highlightedNodeIds = new Set<string>();
+    const highlightedHandleIdsByNodeId = new Map<string, Set<string>>();
     const highlightedEdgeIds = new Set<string>();
 
     targets.forEach((target) => {
-      if(target.type === "node" || target.type === "pin") {
+      if(target.type === "node") {
         highlightedNodeIds.add(target.nodeId);
+        return;
+      }
+
+      if(target.type === "pin") {
+        highlightedNodeIds.add(target.nodeId);
+        const highlightedHandleIds = highlightedHandleIdsByNodeId.get(target.nodeId) ?? new Set<string>();
+        highlightedHandleIds.add(target.handleId);
+        highlightedHandleIdsByNodeId.set(target.nodeId, highlightedHandleIds);
         return;
       }
 
@@ -271,6 +286,7 @@ export const SimulationPage = () => {
       data: {
         ...node.data,
         simulationHighlighted: node.data.technicalID !== "SolderJoint" && highlightedNodeIds.has(node.id),
+        simulationHighlightedHandleIds: Array.from(highlightedHandleIdsByNodeId.get(node.id) ?? []),
       },
     })));
 
@@ -282,29 +298,6 @@ export const SimulationPage = () => {
       },
     })));
   }, [reactFlow]);
-
-  const restoreActiveIssueHighlight = useCallback(() => {
-    const activeIssue = issues?.find((issue) => issue.id === activeIssueId);
-    if(activeIssue) {
-      highlightSimulationTargets(activeIssue.targets);
-      return;
-    }
-
-    clearSimulationHighlights();
-  }, [activeIssueId, clearSimulationHighlights, highlightSimulationTargets, issues]);
-
-  const activateIssue = (issue: SimulationCheckIssue) => {
-    if(!issue.targets || issue.targets.length === 0) return;
-
-    const nextIssueId = activeIssueId === issue.id ? null : issue.id;
-    setActiveIssueId(nextIssueId);
-    if(nextIssueId) {
-      highlightSimulationTargets(issue.targets);
-      return;
-    }
-
-    clearSimulationHighlights();
-  };
 
   const applySimulationResult = (simulation: Awaited<SimulationWorkerRun["promise"]>) => {
     const simulationFingerprint = simulation.ok
@@ -318,13 +311,15 @@ export const SimulationPage = () => {
       setResultFingerprint(null);
       setWasInvalidated(true);
       setSimulationOverlayResult(null);
-      setActiveIssueId(null);
+      setActiveIssueKeys([]);
       clearSimulationHighlights();
       return;
     }
 
     logSimulationDebug(simulation);
     setIssues(simulation.issues);
+    setActiveIssueKeys([]);
+    clearSimulationHighlights();
 
     if(simulation.ok) {
       setResultFingerprint(simulation.result.diagramFingerprint);
@@ -346,7 +341,7 @@ export const SimulationPage = () => {
       setModelStats(null);
       setWasInvalidated(false);
       setSimulationOverlayResult(null);
-      setActiveIssueId(null);
+      setActiveIssueKeys([]);
       clearSimulationHighlights();
       return;
     }
@@ -356,7 +351,7 @@ export const SimulationPage = () => {
     setModelStats(null);
     setWasInvalidated(false);
     setSimulationOverlayResult(null);
-    setActiveIssueId(null);
+    setActiveIssueKeys([]);
     clearSimulationHighlights();
 
     simulationWorkerRunRef.current?.terminate();
@@ -387,7 +382,7 @@ export const SimulationPage = () => {
         }]);
         setResultFingerprint(currentFingerprint);
         setSimulationOverlayResult(null);
-        setActiveIssueId(null);
+        setActiveIssueKeys([]);
         clearSimulationHighlights();
         setStatus("failed");
       });
@@ -403,7 +398,7 @@ export const SimulationPage = () => {
     setResultFingerprint(null);
     setWasInvalidated(false);
     setSimulationOverlayResult(null);
-    setActiveIssueId(null);
+    setActiveIssueKeys([]);
     clearSimulationHighlights();
   };
 
@@ -417,15 +412,60 @@ export const SimulationPage = () => {
     setResultFingerprint(null);
     setWasInvalidated(true);
     setSimulationOverlayResult(null);
-    setActiveIssueId(null);
+    setActiveIssueKeys([]);
     clearSimulationHighlights();
   }, [clearSimulationHighlights, currentFingerprint, resultFingerprint, setSimulationOverlayResult, status]);
+
+  useEffect(() => {
+    if(isOpen) return;
+
+    setActiveIssueKeys([]);
+    clearSimulationHighlights();
+  }, [clearSimulationHighlights, isOpen]);
 
   useEffect(() => () => {
     simulationRequestIdRef.current += 1;
     simulationWorkerRunRef.current?.terminate();
     clearSimulationHighlights();
   }, [clearSimulationHighlights]);
+
+  const issueItems: CollapseProps["items"] = useMemo(() => (
+    issues?.map((issueItem) => ({
+      key: issueItem.id,
+      label: (
+        <Space size={6} align="start">
+          <Tag color={severityColor[issueItem.severity]} style={{ marginInlineEnd: 0 }}>
+            {t(`sidebar.simulation.severity.${issueItem.severity}`)}
+          </Tag>
+          <span>{issueMessageText(issueItem.titleMessage, issueItem.title)}</span>
+        </Space>
+      ),
+      children: (
+        <Flex gap="small" vertical>
+          <Typography.Text>
+            {issueMessageText(issueItem.descriptionMessage, issueItem.description)}
+          </Typography.Text>
+          {issueItem.targets && issueItem.targets.length > 0 &&
+            <List
+              size="small"
+              header={t("sidebar.simulation.affectedElements")}
+              dataSource={issueItem.targets}
+              renderItem={(target) => (
+                <List.Item>
+                  <Typography.Text>{targetLabel(target)}</Typography.Text>
+                </List.Item>
+              )}
+            />
+          }
+        </Flex>
+      ),
+      style: {
+        border: `1px solid ${token.colorBorder}`,
+        borderRadius: 4,
+        marginBottom: 6,
+      },
+    }))
+  ), [issueMessageText, issues, t, targetLabel, token.colorBorder]);
 
   return (
     <Flex gap="small" vertical>
@@ -638,57 +678,26 @@ export const SimulationPage = () => {
       }
 
       {issues !== null && issues.length > 0 &&
-        <List
-          size="small"
-          dataSource={issues}
-          header={t("sidebar.simulation.issueCount", { count: issues.length })}
-          renderItem={(issueItem) => (
-            <List.Item
-              role={issueItem.targets?.length ? "button" : undefined}
-              tabIndex={issueItem.targets?.length ? 0 : undefined}
-              onClick={() => activateIssue(issueItem)}
-              onKeyDown={(event) => {
-                if(!issueItem.targets?.length) return;
-                if(event.key !== "Enter" && event.key !== " ") return;
-
-                event.preventDefault();
-                activateIssue(issueItem);
-              }}
-              onMouseEnter={() => {
-                if(issueItem.targets?.length) {
-                  highlightSimulationTargets(issueItem.targets);
-                }
-              }}
-              onMouseLeave={restoreActiveIssueHighlight}
-              style={{
-                borderRadius: 4,
-                cursor: issueItem.targets?.length ? "pointer" : undefined,
-                outline: activeIssueId === issueItem.id ? "1px solid #1677ff" : undefined,
-                outlineOffset: activeIssueId === issueItem.id ? -1 : undefined,
-                paddingInline: 6,
-              }}
-            >
-              <Flex gap={4} vertical>
-                <Space size={6} align="start">
-                  <Tag color={severityColor[issueItem.severity]} style={{ marginInlineEnd: 0 }}>
-                    {t(`sidebar.simulation.severity.${issueItem.severity}`)}
-                  </Tag>
-                  <Typography.Text strong>
-                    {issueMessageText(issueItem.titleMessage, issueItem.title)}
-                  </Typography.Text>
-                </Space>
-                <Typography.Text type="secondary">
-                  {issueMessageText(issueItem.descriptionMessage, issueItem.description)}
-                </Typography.Text>
-                {issueItem.targets && issueItem.targets.length > 0 &&
-                  <Typography.Text type="secondary">
-                    {t("sidebar.simulation.affectedElements")}: {issueItem.targets.map(targetLabel).join(", ")}
-                  </Typography.Text>
-                }
-              </Flex>
-            </List.Item>
-          )}
-        />
+        <>
+          <Typography.Text type="secondary">
+            {t("sidebar.simulation.issueCount", { count: issues.length })}
+          </Typography.Text>
+          <Collapse
+            ghost
+            activeKey={activeIssueKeys}
+            items={issueItems}
+            onChange={(key) => {
+              const keys = Array.isArray(key) ? key.map(String) : [String(key)];
+              setActiveIssueKeys(keys);
+              const activeIssue = issues.find((issue) => issue.id === keys[keys.length - 1]);
+              if(activeIssue) {
+                highlightSimulationTargets(activeIssue.targets);
+              } else {
+                clearSimulationHighlights();
+              }
+            }}
+          />
+        </>
       }
     </Flex>
   );
