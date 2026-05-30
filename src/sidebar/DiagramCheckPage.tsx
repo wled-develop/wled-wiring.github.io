@@ -198,6 +198,13 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     return readableWireLabel(edge, [sourceNode, targetNode].filter((node): node is Node<ComponentDataType> => Boolean(node)));
   }, [reactFlow]);
 
+  const showAffectedTarget = useCallback((target: DiagramCheckTarget) => {
+    if (target.type !== 'node') return true;
+
+    const node = reactFlow.getNode(target.id) as Node<ComponentDataType> | undefined;
+    return node?.data.technicalID !== 'SolderJoint';
+  }, [reactFlow]);
+
   useEffect(() => {
     if (previousLanguageRef.current === i18n.resolvedLanguage) return;
 
@@ -215,7 +222,10 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   }, [clearHighlights, isOpen]);
 
   const issueItems: CollapseProps['items'] = useMemo(() => (
-    issues?.map((issue) => ({
+    issues?.map((issue) => {
+      const visibleTargets = issue.targets?.filter(showAffectedTarget) || [];
+
+      return {
       key: issue.id,
       label: (
         <Space size={6} align="start">
@@ -259,11 +269,11 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
               description={issue.recommendation}
             />
           }
-          {issue.targets && issue.targets.length > 0 &&
+          {visibleTargets.length > 0 &&
             <List
               size="small"
               header={t('sidebar.check.affectedElements')}
-              dataSource={issue.targets}
+              dataSource={visibleTargets}
               renderItem={(target) => (
                 <List.Item>
                   <Typography.Text>
@@ -280,8 +290,9 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
         borderRadius: 4,
         marginBottom: 6,
       },
-    }))
-  ), [deduplicationMode, issues, t, targetLabel, token.colorBorder]);
+    };
+    })
+  ), [deduplicationMode, issues, showAffectedTarget, t, targetLabel, token.colorBorder]);
 
   const ruleInfos = getDiagramCheckRuleInfos();
   const ruleInfoItems: CollapseProps['items'] = ruleInfos.map((rule) => ({

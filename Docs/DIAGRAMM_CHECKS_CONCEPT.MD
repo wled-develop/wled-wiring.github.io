@@ -604,7 +604,8 @@ Issues enthalten:
 
 Targets sind aktuell `node` oder `edge`. Ein Handle wird indirekt ueber seine Node und die angeschlossenen Edges abgebildet. Doppelte Targets werden ueber `type`, `id` und optional `handleId` dedupliziert.
 Komponenten werden in Nutzertexten und Target-Labels ueber den gemeinsamen Display-Name-Helfer angezeigt: `name` (uebersetzt) gewinnt vor `technicalID` und Node-ID.
-Wire-Targets werden in der Sidebar und in den Check-Fallbacklabels als lesbare Verbindung gerendert: `Komponente: Pin -> Komponente: Pin`. Die Sidebar loest Edge-Targets beim Anzeigen gegen die aktuellen React-Flow-Nodes und -Edges auf, damit auch aeltere oder roh erzeugte Targets mit technischen Labels nutzerlesbar erscheinen.
+Wire-Targets werden in der Sidebar und in den Check-Fallbacklabels als lesbare Verbindung gerendert: `Komponente: Pin -> Komponente: Pin`. Bei SolderJoint-Endpunkten wird nur der Komponentenname angezeigt, weil der einzelne Pin keinen Zusatznutzen bringt. Die Sidebar loest Edge-Targets beim Anzeigen gegen die aktuellen React-Flow-Nodes und -Edges auf, damit auch aeltere oder roh erzeugte Targets mit technischen Labels nutzerlesbar erscheinen.
+SolderJoint-Knoten bleiben intern als Targets nutzbar, werden in der Nutzerliste der betroffenen Elemente aber ausgeblendet, weil sie als reine Verbindungspunkte keinen eigenen Diagnosewert haben.
 Komponentenbezogene Meldungen nennen die betroffene Komponente nur einmal. Pin-Listen innerhalb derselben Meldung verwenden lokale Pin-Labels ohne erneut vorangestellten Komponentennamen; netzbezogene Meldungen behalten vollstaendige Komponenten-/Pin-Labels, wenn mehrere Komponenten unterschieden werden muessen.
 
 Aktueller Implementierungsstand:

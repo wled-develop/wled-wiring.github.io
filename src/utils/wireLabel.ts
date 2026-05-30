@@ -14,6 +14,8 @@ export const readableWireEndpointLabel = (
   handleId: string | null | undefined,
 ) => {
   const component = node ? getComponentDisplayName(node.data, node.id) : nodeId;
+  if (node?.data.technicalID === 'SolderJoint') return component;
+
   const handle = node && handleId
     ? allNodeHandles(node).find((candidate) => candidate.hid === handleId)
     : undefined;
