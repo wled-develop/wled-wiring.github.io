@@ -61,7 +61,8 @@ export default defineComponent({
         },
         "behavior": {
           "preferredLineWidth": 4
-        }
+        },
+        "internallyProtected": true
       },
       {
         "id": "GND",

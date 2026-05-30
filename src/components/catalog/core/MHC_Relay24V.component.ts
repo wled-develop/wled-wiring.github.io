@@ -60,7 +60,8 @@ export default defineComponent({
         },
         "behavior": {
           "preferredLineWidth": 4
-        }
+        },
+        "internallyProtected": true
       },
       {
         "id": "VIN2",
@@ -91,7 +92,8 @@ export default defineComponent({
         },
         "behavior": {
           "preferredLineWidth": 4
-        }
+        },
+        "internallyProtected": true
       },
       {
         "id": "CTRL1",

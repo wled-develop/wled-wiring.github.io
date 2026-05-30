@@ -52,7 +52,8 @@ export default defineComponent({
         "voltage": {},
         "behavior": {
           "changeColorAutomatically": true
-        }
+        },
+        "internallyProtected": true
       }
     ],
     "simulation": {

@@ -37,6 +37,8 @@ Ein `CheckHandle` enthaelt unter anderem:
 - `voltageOut`: abgeleitete Ausgangsspannung
 - `voltageMin` / `voltageMax`: erlaubter Eingangs-Spannungsbereich
 
+`HandleDataType` besitzt ausserdem das optionale Attribut `internallyProtected?: boolean`. Es markiert einen Eingang als intern geschuetzt, z.B. durch Sicherungen oder vergleichbare Schutzbeschaltung. Wenn das Attribut fehlt, gilt es als `false`.
+
 Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten.
 
 ### Funktionen an Handles

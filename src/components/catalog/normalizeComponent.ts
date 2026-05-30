@@ -58,6 +58,7 @@ const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => {
     Vout: handle.voltage?.out,
     VoutDependency: handle.voltage?.outDependency,
     controllableBy: handle.behavior?.controllableBy,
+    internallyProtected: handle.behavior?.internallyProtected,
     functions: handle.functions,
     prefferedLineWidth: handle.behavior?.preferredLineWidth,
     hideConditions: handle.behavior?.hideConditions?.map((condition) => ({

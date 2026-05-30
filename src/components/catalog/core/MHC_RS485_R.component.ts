@@ -156,7 +156,8 @@ export default defineComponent({
         },
         "behavior": {
           "preferredLineWidth": 2
-        }
+        },
+        "internallyProtected": true
       },
       {
         "id": "GND1",

@@ -99,6 +99,7 @@ export type ComponentHandleDefinition = {
     mustBeConnected?: boolean;
     changeColorAutomatically?: boolean;
     controllableBy?: string;
+    internallyProtected?: boolean;
     preferredLineWidth?: number;
     preferredLineDirection?: DirectionType;
     hideConditions?: {fieldId: string; values: number[]}[];

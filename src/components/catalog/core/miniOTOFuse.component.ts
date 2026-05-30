@@ -59,7 +59,8 @@ export default defineComponent({
           "mustBeConnected": true,
           "preferredLineWidth": 4,
           "preferredLineDirection": "left"
-        }
+        },
+        "internallyProtected": true
       },
       {
         "id": "2",
@@ -85,7 +86,8 @@ export default defineComponent({
           "mustBeConnected": true,
           "preferredLineWidth": 4,
           "preferredLineDirection": "right"
-        }
+        },
+        "internallyProtected": true
       }
     ],
     "fields": [

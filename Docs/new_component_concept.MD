@@ -212,6 +212,7 @@ type ComponentHandleDefinition = {
     mustBeConnected?: boolean;
     changeColorAutomatically?: boolean;
     controllableBy?: string;
+    internallyProtected?: boolean;
     preferredLineWidth?: number;
     preferredLineDirection?: "up" | "down" | "left" | "right";
     hideConditions?: {fieldId: string; values: number[]}[];
@@ -226,6 +227,7 @@ Beim Normalisieren wird daraus der heutige `HandleDataType` erzeugt:
 - `voltage.out` wird zu `Vout`.
 - `voltage.outDependency` wird zu `VoutDependency`.
 - `behavior.*` wird auf die bestehenden Felder gemappt.
+- `behavior.internallyProtected` wird zu `internallyProtected`; nicht gesetzt bedeutet `false`.
 
 Die erlaubten `functions` muessen zentral aus einem Katalog kommen, nicht frei getippt werden. Der Editor bietet diese Werte als Auswahl an. Neue Funktionswerte sind eine Aenderung am Programm und muessen in Diagramm-Checks, Simulation und Dokumentation bewusst ergaenzt werden.
 

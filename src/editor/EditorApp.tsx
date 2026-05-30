@@ -753,7 +753,7 @@ const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdCha
               </Form.Item>
             </Flex>
             <Space wrap>
-              {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically'] as const).map((key) => (
+              {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically', 'internallyProtected'] as const).map((key) => (
                 <Checkbox
                   key={key}
                   checked={Boolean(activeHandle.behavior?.[key])}
