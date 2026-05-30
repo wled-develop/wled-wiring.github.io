@@ -491,10 +491,11 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
           </Typography.Text>
           <Collapse
             ghost
+            accordion
             activeKey={activeIssueKeys}
             items={issueItems}
             onChange={(key) => {
-              const keys = Array.isArray(key) ? key.map(String) : [String(key)];
+              const keys = Array.isArray(key) ? key.map(String) : key ? [String(key)] : [];
               setActiveIssueKeys(keys);
               const activeIssue = issues.find((issue) => issue.id === keys[keys.length - 1]);
               if (activeIssue) {

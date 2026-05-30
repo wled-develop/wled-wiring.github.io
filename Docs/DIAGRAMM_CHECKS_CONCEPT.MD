@@ -19,7 +19,7 @@ Die Checks sind aktuell als Beta-Funktion in der Sidebar sichtbar. Sie werden ma
 3. Falls keine Nodes vorhanden sind, wird sofort ein einzelnes Info-Issue `diagram-empty` erzeugt.
 4. Fuer nicht leere Diagramme erzeugt `createDiagramCheckContext(nodes, edges)` einen technischen Check-Kontext mit Handles, Netzen, Klassifikationen und Hilfsfunktionen.
 5. Danach laufen alle Regeln aus `diagramCheckRules` ueber diesen Kontext.
-6. Die UI rendert die Issues. Beim Aufklappen eines Issues werden dessen Targets im Diagramm markiert.
+6. Die UI rendert die Issues als Accordion-Liste. Beim Aufklappen eines Issues werden dessen Targets im Diagramm markiert; ein neu geoeffnetes Issue schliesst vorher geoeffnete Issues automatisch.
 
 ## Datenmodell fuer Checks
 
@@ -938,9 +938,9 @@ Die Sidebar `DiagramCheckPage` bietet aktuell:
 - Regeluebersicht im Modal
 - leeren Zustand vor dem ersten Check
 - Erfolgsmeldung, wenn keine Issues gefunden wurden
-- Collapse-Liste der Issues mit Severity-Tag
+- Accordion-Collapse-Liste der Issues mit Severity-Tag
 - Anzeige von Beschreibung, Empfehlung und betroffenen Elementen
-- Highlighting der betroffenen Nodes und Edges beim Aufklappen eines Issues
+- Highlighting der betroffenen Nodes und Edges beim Aufklappen eines Issues; dabei ist immer hoechstens ein Issue geoeffnet
 - Diagnoseanzeige fuer Fingerprint, Specificity und Suppression-Quelle, wenn ein Diagnosemodus aktiv ist
 
 Es gibt ausserdem einen deaktivierten Debug-Modus `SHOW_NET_DEBUG`. Wenn er lokal auf `true` gesetzt wird, zeigt die Sidebar alle Elementary, Fused, Component-Linked und Component-Linked-Elementary-based Nets inklusive Klassifikationen, Pins, Wires und Highlight-Button.
