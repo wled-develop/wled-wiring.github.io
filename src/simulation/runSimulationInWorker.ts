@@ -10,7 +10,6 @@ type RunSimulationInWorkerOptions = {
   nodes: Node<ComponentDataType>[];
   edges: Edge<EdgeDataType>[];
   settings: SimulationSettings;
-  language?: string;
 };
 
 export type SimulationWorkerRun = {
@@ -23,7 +22,6 @@ export const runSimulationInWorker = ({
   nodes,
   edges,
   settings,
-  language,
 }: RunSimulationInWorkerOptions): SimulationWorkerRun => {
   let worker: Worker | null = null;
 
@@ -75,7 +73,6 @@ export const runSimulationInWorker = ({
         nodes,
         edges,
         settings,
-        language,
       } satisfies SimulationWorkerRequest);
     } catch {
       fallback();

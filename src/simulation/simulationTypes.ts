@@ -345,8 +345,21 @@ export type SimulationCheckIssue = {
   severity: SimulationSeverity;
   title: string;
   description: string;
+  titleMessage?: SimulationIssueMessage;
+  descriptionMessage?: SimulationIssueMessage;
   recommendation?: string;
   targets?: SimulationTarget[];
+};
+
+export type SimulationIssueMessage = {
+  key: string;
+  options?: Record<string, string | number | SimulationIssueFormattedNumber>;
+};
+
+export type SimulationIssueFormattedNumber = {
+  value: number;
+  minimumFractionDigits: number;
+  maximumFractionDigits: number;
 };
 
 export type SimulationResult = {

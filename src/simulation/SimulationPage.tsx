@@ -13,6 +13,8 @@ import { DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK } from "./simulationFeatureFlags"
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
+  SimulationIssueFormattedNumber,
+  SimulationIssueMessage,
   SimulationModel,
   SimulationSettings,
   SimulationTarget,
@@ -38,6 +40,14 @@ const colorModeOptions: {value: LedSimulationColorMode; labelKey: string}[] = [
   {value: "G", labelKey: "green"},
   {value: "B", labelKey: "blue"},
 ];
+
+const isFormattedNumber = (value: unknown): value is SimulationIssueFormattedNumber => (
+  typeof value === "object" &&
+  value !== null &&
+  "value" in value &&
+  "minimumFractionDigits" in value &&
+  "maximumFractionDigits" in value
+);
 
 const getSimulationModelStats = (model: SimulationModel) => {
   const simulatedCircuitNodeIds = new Set(
@@ -190,6 +200,33 @@ export const SimulationPage = () => {
     return target.elementId;
   };
 
+  const formatIssueMessageOptions = (
+    options: SimulationIssueMessage["options"],
+  ) => {
+    if(!options) return undefined;
+
+    return Object.fromEntries(Object.entries(options).map(([key, value]) => {
+      if(!isFormattedNumber(value)) return [key, value];
+
+      return [
+        key,
+        new Intl.NumberFormat(i18n.resolvedLanguage || i18n.language, {
+          minimumFractionDigits: value.minimumFractionDigits,
+          maximumFractionDigits: value.maximumFractionDigits,
+        }).format(value.value),
+      ];
+    }));
+  };
+
+  const issueMessageText = (
+    message: SimulationIssueMessage | undefined,
+    fallback: string,
+  ) => (
+    message
+      ? String(t(message.key, formatIssueMessageOptions(message.options)))
+      : fallback
+  );
+
   const clearSimulationHighlights = useCallback(() => {
     reactFlow.setNodes((currentNodes) => currentNodes.map((node) => ({
       ...node,
@@ -330,7 +367,6 @@ export const SimulationPage = () => {
       nodes: reactFlow.getNodes(),
       edges: reactFlow.getEdges(),
       settings,
-      language: i18n.resolvedLanguage,
     });
     simulationWorkerRunRef.current = workerRun;
 
@@ -637,9 +673,13 @@ export const SimulationPage = () => {
                   <Tag color={severityColor[issueItem.severity]} style={{ marginInlineEnd: 0 }}>
                     {t(`sidebar.simulation.severity.${issueItem.severity}`)}
                   </Tag>
-                  <Typography.Text strong>{issueItem.title}</Typography.Text>
+                  <Typography.Text strong>
+                    {issueMessageText(issueItem.titleMessage, issueItem.title)}
+                  </Typography.Text>
                 </Space>
-                <Typography.Text type="secondary">{issueItem.description}</Typography.Text>
+                <Typography.Text type="secondary">
+                  {issueMessageText(issueItem.descriptionMessage, issueItem.description)}
+                </Typography.Text>
                 {issueItem.targets && issueItem.targets.length > 0 &&
                   <Typography.Text type="secondary">
                     {t("sidebar.simulation.affectedElements")}: {issueItem.targets.map(targetLabel).join(", ")}

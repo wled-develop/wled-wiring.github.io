@@ -1096,12 +1096,25 @@ type SimulationCheckIssue = {
   severity: 'error' | 'warning' | 'info';
   title: string;
   description: string;
+  titleMessage?: SimulationIssueMessage;
+  descriptionMessage?: SimulationIssueMessage;
   recommendation?: string;
   targets?: SimulationTarget[];
 };
+
+type SimulationIssueMessage = {
+  key: string;
+  options?: Record<string, string | number | SimulationIssueFormattedNumber>;
+};
+
+type SimulationIssueFormattedNumber = {
+  value: number;
+  minimumFractionDigits: number;
+  maximumFractionDigits: number;
+};
 ```
 
-Die UI formatiert `SimulationTarget`-Labels mit demselben Komponenten-Display-Name-Helfer wie die Diagramm-Checks: `name` (uebersetzt) vor `technicalID` vor Node-ID.
+`title` und `description` bleiben Fallback-Texte fuer alte oder harte Modellfehler. Fuer uebersetzbare Simulation-Checks werden zusaetzlich `titleMessage` und `descriptionMessage` gesetzt. Die Simulationsergebnisse bleiben dadurch sprachunabhaengig; die UI uebersetzt und formatiert Zahlen erst beim Anzeigen mit der aktuell aktiven Sprache. Die UI formatiert `SimulationTarget`-Labels mit demselben Komponenten-Display-Name-Helfer wie die Diagramm-Checks: `name` (uebersetzt) vor `technicalID` vor Node-ID.
 
 Erste Checks:
 

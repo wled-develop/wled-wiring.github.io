@@ -18,6 +18,8 @@ import type {
   LinearSystem,
   SimulationCheckIssue,
   SimulationElement,
+  SimulationIssueFormattedNumber,
+  SimulationIssueMessage,
   SimulationModel,
   SimulationResult,
   SimulationSettings,
@@ -91,24 +93,76 @@ const stringParameter = (
 
 const issue = (
   id: string,
-  title: string,
-  description: string,
+  title: string | SimulationIssueText,
+  description: string | SimulationIssueText,
   targets?: SimulationCheckIssue["targets"],
   severity: SimulationCheckIssue["severity"] = "error",
 ): SimulationCheckIssue => ({
   id,
   severity,
-  title,
-  description,
+  title: issueTextFallback(title),
+  description: issueTextFallback(description),
+  titleMessage: issueTextMessage(title),
+  descriptionMessage: issueTextMessage(description),
   targets,
 });
 
+type SimulationIssueText = SimulationIssueMessage & {
+  text: string;
+};
+
+const issueTextFallback = (text: string | SimulationIssueText) => (
+  typeof text === "string" ? text : text.text
+);
+
+const issueTextMessage = (text: string | SimulationIssueText) => (
+  typeof text === "string"
+    ? undefined
+    : {
+      key: text.key,
+      options: text.options,
+    }
+);
+
 const simulationIssueText = (
   key: string,
-  options?: Record<string, string | number>,
-) => (
-  String(i18next.t(`sidebar.simulation.issues.${key}`, { ns: "main", ...options }))
-);
+  options?: Record<string, string | number | SimulationIssueFormattedNumber>,
+): SimulationIssueText => {
+  const translationKey = `sidebar.simulation.issues.${key}`;
+  const fallbackT = i18next.getFixedT("en", "main");
+  return {
+    key: translationKey,
+    options,
+    text: String(fallbackT(translationKey, formatSimulationIssueOptions(options))),
+  };
+};
+
+const simulationIssueNumber = (
+  value: number,
+  fractionDigits: number,
+): SimulationIssueFormattedNumber => ({
+  value,
+  minimumFractionDigits: fractionDigits,
+  maximumFractionDigits: fractionDigits,
+});
+
+const formatSimulationIssueOptions = (
+  options: Record<string, string | number | SimulationIssueFormattedNumber> | undefined,
+) => {
+  if(!options) return undefined;
+
+  return Object.fromEntries(Object.entries(options).map(([key, value]) => {
+    if(typeof value !== "object") return [key, value];
+
+    return [
+      key,
+      new Intl.NumberFormat("en", {
+        minimumFractionDigits: value.minimumFractionDigits,
+        maximumFractionDigits: value.maximumFractionDigits,
+      }).format(value.value),
+    ];
+  }));
+};
 
 const addEntry = (
   entries: LinearSystem["entries"],
@@ -1284,8 +1338,8 @@ const createPinCurrentLimitIssues = (
       `simulation-pin-current-limit:${pin.nodeId}:${pin.handleId}`,
       simulationIssueText("pinCurrentLimit.title"),
       simulationIssueText("pinCurrentLimit.description", {
-        current: currentA.toFixed(3),
-        limit: pin.maxCurrentA.toFixed(3),
+        current: simulationIssueNumber(currentA, 2),
+        limit: simulationIssueNumber(pin.maxCurrentA, 2),
       }),
       [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
     ));

@@ -1,6 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
 
-import i18next from "../i18n";
 import type { ComponentDataType, EdgeDataType } from "../types";
 import { runSimulation, type RunSimulationResult } from "./runSimulation";
 import type { SimulationSettings } from "./simulationTypes";
@@ -10,7 +9,6 @@ export type SimulationWorkerRequest = {
   nodes: Node<ComponentDataType>[];
   edges: Edge<EdgeDataType>[];
   settings: SimulationSettings;
-  language?: string;
 };
 
 export type SimulationWorkerResponse =
@@ -26,13 +24,9 @@ export type SimulationWorkerResponse =
     };
 
 self.onmessage = async (event: MessageEvent<SimulationWorkerRequest>) => {
-  const {requestId, nodes, edges, settings, language} = event.data;
+  const {requestId, nodes, edges, settings} = event.data;
 
   try {
-    if(language) {
-      await i18next.changeLanguage(language);
-    }
-
     const simulation = runSimulation(nodes, edges, settings);
     self.postMessage({
       requestId,

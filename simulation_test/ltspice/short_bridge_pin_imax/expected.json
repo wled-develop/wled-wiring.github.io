@@ -15,13 +15,13 @@
         "id": "simulation-pin-current-limit:bridge:GND1",
         "severity": "error",
         "title": "Pin current limit exceeded",
-        "descriptionIncludes": "0.500 A"
+        "descriptionIncludes": "0.50 A"
       },
       {
         "id": "simulation-pin-current-limit:bridge:GND2",
         "severity": "error",
         "title": "Pin current limit exceeded",
-        "descriptionIncludes": "0.500 A"
+        "descriptionIncludes": "0.50 A"
       }
     ]
   }
