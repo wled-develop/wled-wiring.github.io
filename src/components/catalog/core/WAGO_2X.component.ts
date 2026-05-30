@@ -54,6 +54,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "Imax": 16,
         "behavior": {
           "preferredLineWidth": 1
         }
@@ -86,6 +87,7 @@ export default defineComponent({
           "toleranceMin": 0,
           "toleranceMax": 0
         },
+        "Imax": 16,
         "behavior": {
           "preferredLineWidth": 1
         }

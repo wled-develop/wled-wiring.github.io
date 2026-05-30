@@ -206,6 +206,7 @@ type ComponentHandleDefinition = {
     toleranceMin?: number;
     toleranceMax?: number;
   };
+  Imax?: number;
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;
@@ -226,6 +227,7 @@ Beim Normalisieren wird daraus der heutige `HandleDataType` erzeugt:
 - `position` wird auf die von ReactFlow erwartete `Position` gemappt.
 - `voltage.out` wird zu `Vout`.
 - `voltage.outDependency` wird zu `VoutDependency`.
+- `Imax` wird unveraendert zu `Imax` und beschreibt den maximal erlaubten absoluten Pin-Strom in Ampere.
 - `behavior.*` wird auf die bestehenden Felder gemappt.
 - `behavior.internallyProtected` wird zu `internallyProtected`; nicht gesetzt bedeutet `false`.
 

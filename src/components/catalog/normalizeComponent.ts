@@ -57,6 +57,7 @@ const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => {
     tolVmin: handle.voltage?.toleranceMin,
     Vout: handle.voltage?.out,
     VoutDependency: handle.voltage?.outDependency,
+    Imax: handle.Imax,
     controllableBy: handle.behavior?.controllableBy,
     internallyProtected: handle.behavior?.internallyProtected,
     functions: handle.functions,

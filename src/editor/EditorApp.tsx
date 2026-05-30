@@ -751,6 +751,18 @@ const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdCha
                   style={{width: '100%'}}
                 />
               </Form.Item>
+              <Form.Item label="Imax" style={{width: 120}}>
+                <InputNumber
+                  min={0}
+                  addonAfter="A"
+                  value={activeHandle.Imax}
+                  onChange={(Imax) => updateActiveHandle((item) => ({
+                    ...item,
+                    Imax: Imax ?? undefined,
+                  }))}
+                  style={{width: '100%'}}
+                />
+              </Form.Item>
             </Flex>
             <Space wrap>
               {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically', 'internallyProtected'] as const).map((key) => (

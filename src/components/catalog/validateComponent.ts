@@ -147,6 +147,9 @@ export const validateComponentPackage = (componentPackage: ComponentPackage): Co
     if (handle.width <= 0 || handle.height <= 0) {
       addIssue(issues, 'error', `component.handles[${index}]`, 'Handle width and height must be positive.');
     }
+    if (handle.Imax !== undefined && (!Number.isFinite(handle.Imax) || handle.Imax < 0)) {
+      addIssue(issues, 'error', `component.handles[${index}].Imax`, 'Imax must be a non-negative number.');
+    }
     handle.functions?.forEach((handleFunction) => {
       if (!KNOWN_HANDLE_FUNCTIONS.includes(handleFunction)) {
         addIssue(issues, 'error', `component.handles[${index}].functions`, `Unknown handle function "${handleFunction}".`);

@@ -93,6 +93,7 @@ export type ComponentHandleDefinition = {
     toleranceMin?: number;
     toleranceMax?: number;
   };
+  Imax?: number;
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;
