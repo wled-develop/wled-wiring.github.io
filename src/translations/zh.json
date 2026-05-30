@@ -517,6 +517,30 @@
               "description": "此导线位于供电、GND 或 USB 网络中，但缺少长度或横截面积。",
               "recommendation": "为此导线设置长度和横截面积。"
             },
+            "pinWireCrossSectionTooLarge": {
+              "title": "导线无法接到此端子",
+              "shortDescription": "此导线横截面积对该引脚过大。",
+              "description": "{{handle}} 连接了一根 {{total}} mm2 的导线。最大允许 {{limit}} mm2。该导线横截面积过大，不能可靠地拧紧或焊接到此端子。",
+              "recommendation": "使用更小横截面积的导线，或使用合适的分线/转接端子。"
+            },
+            "pinTotalCrossSectionTooLarge": {
+              "title": "多根导线无法一起接到此端子",
+              "shortDescription": "连接到该引脚的导线总横截面积过大。",
+              "description": "{{handle}} 连接的导线总横截面积为 {{total}} mm2。最大允许 {{limit}} mm2。这些导线的总横截面积过大，不能一起可靠地拧紧或焊接到此端子。",
+              "recommendation": "减小该引脚上的总横截面积，或使用合适的分线端子。"
+            },
+            "pinWireCrossSectionDifficult": {
+              "title": "导线可能较难连接",
+              "shortDescription": "此导线横截面积仍允许用于该引脚，但已接近困难范围。",
+              "description": "{{handle}} 连接了一根 {{total}} mm2 的导线。从 {{limit}} mm2 起，将导线连接或焊接到此引脚可能会比较困难。",
+              "recommendation": "检查此连接是否容易可靠完成，并确认该横截面积是否确有必要，或是否可以减小。"
+            },
+            "pinTotalCrossSectionDifficult": {
+              "title": "多根导线可能较难一起连接",
+              "shortDescription": "连接到该引脚的导线总横截面积仍允许，但已接近困难范围。",
+              "description": "{{handle}} 连接的导线总横截面积为 {{total}} mm2。从 {{limit}} mm2 起，将这些导线一起连接或焊接到此引脚可能会比较困难。",
+              "recommendation": "检查此连接是否容易可靠完成，并确认这些横截面积是否确有必要，或是否可以减小。"
+            },
             "duplicateParallelWire": {
               "title": "重复的并联连接",
               "shortDescription": "多条导线连接了同一对引脚。",

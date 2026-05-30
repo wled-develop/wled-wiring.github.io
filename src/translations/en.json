@@ -546,6 +546,30 @@
               "description": "This wire is in a supply, GND, or USB net, but length or cross section is missing.",
               "recommendation": "Set length and cross section for this wire."
             },
+            "pinWireCrossSectionTooLarge": {
+              "title": "Wire does not fit the terminal",
+              "shortDescription": "The wire cross section is too large for this pin.",
+              "description": "{{handle}} has one connected wire with {{total}} mm2. The maximum is {{limit}} mm2. The connected wire has too much cross section and cannot be safely screwed down or soldered.",
+              "recommendation": "Use a wire with a smaller cross section or a suitable splitter/adapter."
+            },
+            "pinTotalCrossSectionTooLarge": {
+              "title": "Wires do not fit the terminal together",
+              "shortDescription": "The total connected wire cross section is too large for this pin.",
+              "description": "{{handle}} has connected wires with {{total}} mm2 in total. The maximum is {{limit}} mm2. The connected wires have too much total cross section and cannot be safely screwed down or soldered together.",
+              "recommendation": "Reduce the total cross section on this pin or use a suitable splitter."
+            },
+            "pinWireCrossSectionDifficult": {
+              "title": "Wire may be difficult to connect",
+              "shortDescription": "The wire cross section is still allowed for this pin, but critical.",
+              "description": "{{handle}} has one connected wire with {{total}} mm2. From {{limit}} mm2 upward, connecting or soldering this wire to the pin may be difficult.",
+              "recommendation": "Check whether the connection is practical and whether this cross section is really necessary or can be reduced."
+            },
+            "pinTotalCrossSectionDifficult": {
+              "title": "Wires may be difficult to connect together",
+              "shortDescription": "The total connected wire cross section is still allowed for this pin, but critical.",
+              "description": "{{handle}} has connected wires with {{total}} mm2 in total. From {{limit}} mm2 upward, connecting or soldering these wires together to the pin may be difficult.",
+              "recommendation": "Check whether the connection is practical and whether these cross sections are really necessary or can be reduced."
+            },
             "duplicateParallelWire": {
               "title": "Duplicate parallel connection",
               "shortDescription": "Multiple wires connect the same two pins.",

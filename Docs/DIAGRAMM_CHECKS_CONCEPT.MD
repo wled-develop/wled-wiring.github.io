@@ -961,7 +961,7 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `pinWireCrossSectionTooLarge`, `pinTotalCrossSectionTooLarge`, `pinWireCrossSectionDifficult`, `pinTotalCrossSectionDifficult`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
 - Deaktiviert: `supplyInputOnlyInternallyPowered`, weil die Meldung bei LED-Streifen zu oft irrefuehrend war und durch `supplyInputWithoutSource` bzw. `powerMissing` besser abgedeckt wird.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
@@ -1352,6 +1352,32 @@ Moegliche Logik:
 - Edge-Daten auf physikalische Laenge und Querschnitt pruefen.
 - Severity `warning`
 
+#### `pinWireCrossSectionTooLarge` / `pinTotalCrossSectionTooLarge`
+
+Fehler, wenn ein angeschlossener Pin einen definierten `maxCrossSectionAbsolute`-Grenzwert besitzt und die Summe der an diesem Pin angeschlossenen auswertbaren Leitungsquerschnitte diesen Wert ueberschreitet.
+
+Moegliche Logik:
+
+- Alle sichtbaren angeschlossenen Handles mit `maxCrossSectionAbsolute` betrachten.
+- Pro Handle alle direkt angeschlossenen Wires auswerten.
+- Nur Wires mit gueltigem physikalischem Querschnitt summieren. Fehlende, ungueltige oder nicht unterstuetzte Querschnitte werden in dieser Regel nicht geraten und nicht in die Summe aufgenommen.
+- Bei genau einer auswertbaren Wire `pinWireCrossSectionTooLarge` melden.
+- Bei mehreren auswertbaren Wires `pinTotalCrossSectionTooLarge` melden.
+- Targets sind der betroffene Pin bzw. dessen Komponente und die ausgewerteten Wires.
+- Severity `error`, weil die Leitung bzw. die Summe der Leitungen mechanisch nicht sicher angeschraubt oder angeloetet werden kann.
+
+#### `pinWireCrossSectionDifficult` / `pinTotalCrossSectionDifficult`
+
+Warnung, wenn `maxCrossSectionAbsolute` nicht ueberschritten wird, aber `maxCrossSectionWarning` definiert ist und die Summe der auswertbaren Leitungsquerschnitte diesen Warnwert ueberschreitet.
+
+Moegliche Logik:
+
+- Gleiche Summenbildung wie bei `pinWireCrossSectionTooLarge` / `pinTotalCrossSectionTooLarge`.
+- Die Warnung wird nur erzeugt, wenn kein absoluter Grenzwertfehler fuer denselben Pin vorliegt.
+- Bei genau einer auswertbaren Wire `pinWireCrossSectionDifficult` melden.
+- Bei mehreren auswertbaren Wires `pinTotalCrossSectionDifficult` melden.
+- Severity `warning`, weil Anschliessen oder Anloeten bei diesen Querschnitten schwierig sein kann, aber noch nicht zwingend ausgeschlossen ist.
+
 #### `powerWireCrossSectionTooSmall` NICHT IMPLEMENTIEREN (später nahc simulation)
 
 Warnung, wenn ein Power-Wire anhand bekannter Lastdaten wahrscheinlich zu duenn ist.
@@ -1462,6 +1488,8 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `analogLedColorChannelUnconnected` | 9 | `warning` | 70 | 85 | `component`/`handle` | Spezifischer Funktionshinweis fuer analoge LED-Streifen. Soll nicht durch generische PWM-Signalregeln ersetzt werden; vollstaendig unverdrahtete Komponenten bleiben bei `isolatedComponent`. |
 | `analogLedColorChannelMultiplePwmSignals` | 10 | `error` | 90 | 44 | `component`/`handle` | Spezifischer Schutzfehler fuer analoge LED-Streifen. Gewinnt als konkrete Komponentenmeldung gegen generische Mehrfach-PWM-Quellen auf demselben Farbkanal. |
 | `wireWithoutPhysicalParameters` | 11 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
+| `pinWireCrossSectionTooLarge` / `pinTotalCrossSectionTooLarge` | 11 | `error` | 80 | 30 | `handle` | Mechanischer Anschlussgrenzwert. Summiert nur auswertbare Wire-Querschnitte am Pin und ignoriert fehlende/ungueltige Querschnitte in dieser Regel. |
+| `pinWireCrossSectionDifficult` / `pinTotalCrossSectionDifficult` | 11 | `warning` | 55 | 105 | `handle` | Warnbereich fuer mechanisch schwieriges Anschliessen/Anloeten. Wird nicht erzeugt, wenn der absolute Grenzwert bereits ueberschritten ist. |
 | `clockedLedClockMissing` | 12 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
 | `dataDirectionWrong` | 13 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
 | `digitalBackupPairMismatch` | 14 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |

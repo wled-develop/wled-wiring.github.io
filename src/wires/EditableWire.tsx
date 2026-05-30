@@ -70,6 +70,7 @@ const WIRE_JUMP_HALO_COLOR = '#fff';
 const WIRE_JUMP_HALO_WIDTH_EXTRA = 3;
 const WIRE_JUMP_MERGE_GAP = 2;
 const WIRE_JUMP_MERGED_HEIGHT_EXTRA = 1.5;
+const MIXED_WIRE_VALUE_PLACEHOLDER = "-";
 
 let globalSegmentDragSession = 0;
 let globalSegmentDragCleanup: (() => void) | null = null;
@@ -78,6 +79,32 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const finiteNumberOr = (value: unknown, fallback: number) => (
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
+);
+
+type AggregatedWireValue<T> =
+  | {kind: 'empty'}
+  | {kind: 'mixed'}
+  | {kind: 'single'; value: T};
+
+const aggregateWireValue = <T,>(
+  edges: Edge<EdgeDataType>[],
+  getValue: (edge: Edge<EdgeDataType>) => T | null | undefined,
+): AggregatedWireValue<T> => {
+  const rawValues = edges.map(getValue);
+  const values = rawValues.filter((value): value is T => value !== null && value !== undefined);
+  const hasMissingValue = rawValues.length !== values.length;
+
+  if(values.length === 0) return {kind: 'empty'};
+  if(hasMissingValue) return {kind: 'mixed'};
+
+  const first = values[0];
+  return values.every((value) => Object.is(value, first))
+    ? {kind: 'single', value: first}
+    : {kind: 'mixed'};
+};
+
+const aggregatedValueOrUndefined = <T,>(value: AggregatedWireValue<T>) => (
+  value.kind === 'single' ? value.value : undefined
 );
 
 const rectsOverlap = (
@@ -1592,6 +1619,18 @@ export default function EditableWire ({
   const selectedNetworkActive = Boolean(selectedNetworkEdgeIds?.length);
   const selectableNetworkEdgeCount = findElementaryNetForWire()?.edges.length ?? 0;
   const showWireNetworkButton = selectedNetworkActive || selectableNetworkEdgeCount > 1;
+  const activeWireEdges = selectedNetworkActive
+    ? (reactFlowInstance.getEdges() as Edge<EdgeDataType>[]).filter((edge) => (
+      selectedNetworkEdgeIds?.includes(edge.id)
+    ))
+    : (reactFlowInstance.getEdge(id) ? [reactFlowInstance.getEdge(id) as Edge<EdgeDataType>] : []);
+  const activeWireWidth = aggregateWireValue(activeWireEdges, (edge) => edge.data?.width);
+  const activeWireCrosssection = aggregateWireValue(activeWireEdges, (edge) => edge.data?.physCrosssection);
+  const activeWireCrosssectionUnit = aggregateWireValue(activeWireEdges, (edge) => edge.data?.physCrosssectionUnit);
+  const activeWireScopeUsesOnlyUsbPresets = (
+    activeWireEdges.length > 0 &&
+    activeWireEdges.every((edge) => edge.data?.physType === "usb")
+  );
   const updateActiveWireScope = (
     patch: Partial<EdgeDataType>,
     wireInfoPatch?: Partial<ComponentDataType>,
@@ -1630,7 +1669,7 @@ export default function EditableWire ({
   const contentLineWidth = (
     <>
     <Radio.Group
-      value={edgeData.width}
+      value={aggregatedValueOrUndefined(activeWireWidth)}
       options={[
         { value: 1, label: "1px" },
         { value: 2, label: "2px" },
@@ -1647,16 +1686,20 @@ export default function EditableWire ({
   );
 
   const crosssectionsMM2=[0.25, 0.34, 0.5, 0.75, 1, 1.5, 2.5, 4, 6];
-  const isUsbWire = edgeData.physType === "usb";
-  const crosssectionsAWG = isUsbWire ? [...USB_WIRE_AWG_PRESETS] : [...GENERAL_WIRE_AWG_PRESETS];
+  const crosssectionsAWG = activeWireScopeUsesOnlyUsbPresets ? [...USB_WIRE_AWG_PRESETS] : [...GENERAL_WIRE_AWG_PRESETS];
+  const activeCrosssectionUnit = aggregatedValueOrUndefined(activeWireCrosssectionUnit);
+  const activeCrosssectionOptions = activeCrosssectionUnit === "AWG" ? crosssectionsAWG : crosssectionsMM2;
+  const activeCrosssectionValue = activeCrosssectionUnit
+    ? aggregatedValueOrUndefined(activeWireCrosssection)
+    : undefined;
 
   const contentPhysLineCrosssection = (
     <>
     <Select
-      key={"CS"+edgeData.physCrosssectionUnit+String(edgeData.physCrosssection)}
-      defaultValue={typeof(edgeData.physCrosssection)==="number"?edgeData.physCrosssection:crosssectionsMM2[3]}
-      //value={typeof(edgeData.physCrosssection)==="number"?edgeData.physCrosssection:crosssectionsMM2[3]}
-      options={(typeof(edgeData.physCrosssectionUnit)==="string"?(edgeData.physCrosssectionUnit==="mm2"?crosssectionsMM2:crosssectionsAWG):crosssectionsMM2).map(val=>({label: String(val), value: val}))}
+      value={activeCrosssectionValue}
+      placeholder={activeWireCrosssection.kind === 'mixed' ? MIXED_WIRE_VALUE_PLACEHOLDER : undefined}
+      disabled={!activeCrosssectionUnit}
+      options={activeCrosssectionOptions.map(val=>({label: String(val), value: val}))}
       style={{width:100}}
       onChange={(value)=>{
         updateActiveWireScope(
@@ -1668,9 +1711,8 @@ export default function EditableWire ({
     />
     &nbsp;
     <Select
-      key={"CSU"+edgeData.physCrosssectionUnit+String(edgeData.physCrosssection)}
-      defaultValue={typeof(edgeData.physCrosssectionUnit)==="string"?edgeData.physCrosssectionUnit:"mm2"}
-      //value={typeof(edgeData.physCrosssectionUnit)==="string"?edgeData.physCrosssectionUnit:"mm2"}
+      value={aggregatedValueOrUndefined(activeWireCrosssectionUnit)}
+      placeholder={activeWireCrosssectionUnit.kind === 'mixed' ? MIXED_WIRE_VALUE_PLACEHOLDER : undefined}
       options={[
         {value: "mm2", label: "mm2"},
         {value: "AWG", label: "AWG"},
@@ -1679,7 +1721,7 @@ export default function EditableWire ({
       onChange={(value)=>{
         const physCrosssectionvalue = value === "mm2"
           ? crosssectionsMM2[3]
-          : isUsbWire
+          : activeWireScopeUsesOnlyUsbPresets
             ? DEFAULT_USB_WIRE_AWG
             : crosssectionsAWG[3];
         updateActiveWireScope(

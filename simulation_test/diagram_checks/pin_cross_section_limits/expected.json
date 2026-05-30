@@ -1,0 +1,16 @@
+{
+  "case": "pin_cross_section_limits",
+  "filterIssueIdIncludes": ["pin-cross-section"],
+  "expectedIssues": [
+    {
+      "idIncludes": "pin-cross-section-too-large",
+      "severity": "error",
+      "descriptionIncludes": "1.1 mm2 in total"
+    },
+    {
+      "idIncludes": "pin-cross-section-warning",
+      "severity": "warning",
+      "descriptionIncludes": "0.8 mm2"
+    }
+  ]
+}

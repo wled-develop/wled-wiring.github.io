@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 
 import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
+import { normalizeWireCrosssectionToMm2 } from '../simulation/wireResistance';
 import { getComponentDisplayName } from '../utils/componentDisplayName';
 import { readableWireLabel } from '../utils/wireLabel';
 import type { CheckHandle, CheckInvalidWire, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
@@ -948,6 +949,88 @@ const checkWireWithoutPhysicalParameters = (context: DiagramCheckContext) => (
     ))
 );
 
+const formatMm2 = (value: number) => (
+  Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)))
+);
+
+const handleNodeTarget = (handle: CheckHandle): DiagramCheckTarget => ({
+  ...nodeTarget(handle.node),
+  handleId: handle.handle.hid,
+});
+
+const edgeCrossSectionMm2 = (edge: Edge<EdgeDataType>) => {
+  const result = normalizeWireCrosssectionToMm2(
+    edge.data?.physCrosssection,
+    edge.data?.physCrosssectionUnit,
+  );
+
+  return result.ok ? result.crosssectionMm2 : undefined;
+};
+
+const checkPinCrossSectionLimit = (context: DiagramCheckContext) => (
+  context.handles.flatMap((handle) => {
+    if (handle.connectedEdges.length === 0) return [];
+
+    const connectedEdgesWithCrossSection = handle.connectedEdges
+      .map((edge) => ({ edge, crossSectionMm2: edgeCrossSectionMm2(edge) }))
+      .filter((item): item is { edge: Edge<EdgeDataType>; crossSectionMm2: number } => (
+        item.crossSectionMm2 !== undefined
+      ));
+    if (connectedEdgesWithCrossSection.length === 0) return [];
+
+    const totalCrossSectionMm2 = connectedEdgesWithCrossSection
+      .reduce((sum, item) => sum + item.crossSectionMm2, 0);
+    const absoluteLimit = handle.handle.maxCrossSectionAbsolute;
+    const warningLimit = handle.handle.maxCrossSectionWarning;
+    const isMultiple = connectedEdgesWithCrossSection.length > 1;
+    const absoluteIssueKey = isMultiple
+      ? 'pinTotalCrossSectionTooLarge'
+      : 'pinWireCrossSectionTooLarge';
+    const warningIssueKey = isMultiple
+      ? 'pinTotalCrossSectionDifficult'
+      : 'pinWireCrossSectionDifficult';
+    const targets = [
+      handleNodeTarget(handle),
+      ...connectedEdgesWithCrossSection.map((item) => edgeTarget(item.edge, [handle.node])),
+    ];
+    const values = {
+      handle: describeHandle(handle),
+      total: formatMm2(totalCrossSectionMm2),
+      limit: formatMm2(absoluteLimit ?? warningLimit ?? 0),
+    };
+
+    if (absoluteLimit !== undefined && totalCrossSectionMm2 > absoluteLimit) {
+      return [translatedIssue(
+        'network-rules',
+        absoluteIssueKey,
+        `pin-cross-section-too-large-${handle.key}`,
+        'error',
+        { ...values, limit: formatMm2(absoluteLimit) },
+        targets,
+        handleIssueOptions(handle, 'pin-cross-section-too-large', 80, 30, {
+          suppressedBy: ['wire-connected-to-hidden-or-missing-handle'],
+        }),
+      )];
+    }
+
+    if (warningLimit !== undefined && totalCrossSectionMm2 > warningLimit) {
+      return [translatedIssue(
+        'network-rules',
+        warningIssueKey,
+        `pin-cross-section-warning-${handle.key}`,
+        'warning',
+        { ...values, limit: formatMm2(warningLimit) },
+        targets,
+        handleIssueOptions(handle, 'pin-cross-section-warning', 55, 105, {
+          suppressedBy: ['wire-connected-to-hidden-or-missing-handle'],
+        }),
+      )];
+    }
+
+    return [];
+  })
+);
+
 const checkMainsWireConnectedToLowVoltageComponent = (context: DiagramCheckContext) => (
   context.componentLinkedNets
     .filter((net) => netHasAnyClassification(net, ['L_net_type', 'N_net_type', 'PE_net_type']))
@@ -1806,6 +1889,7 @@ const runNetworkRules = (context: DiagramCheckContext) => {
     ...checkWireConnectedToHiddenOrMissingHandle(context),
     ...checkDuplicateParallelWires(context),
     ...checkWireWithoutPhysicalParameters(context),
+    ...checkPinCrossSectionLimit(context),
     ...checkMainsWireConnectedToLowVoltageComponent(context),
     ...checkFuseBypassed(context),
   ];
@@ -2442,6 +2526,10 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'supplyVoltageMismatch',
       'fuseBypassed',
       'wireWithoutPhysicalParameters',
+      'pinWireCrossSectionTooLarge',
+      'pinTotalCrossSectionTooLarge',
+      'pinWireCrossSectionDifficult',
+      'pinTotalCrossSectionDifficult',
       'duplicateParallelWire',
     ],
     check: runNetworkRules,

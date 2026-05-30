@@ -546,6 +546,30 @@
               "description": "Diese Leitung liegt in einem Versorgungs-, GND- oder USB-Netz, aber Laenge oder Querschnitt fehlen.",
               "recommendation": "Setze Laenge und Querschnitt fuer diese Leitung."
             },
+            "pinWireCrossSectionTooLarge": {
+              "title": "Leitung passt nicht an den Anschluss",
+              "shortDescription": "Der Leitungsquerschnitt ist fuer diesen Pin zu gross.",
+              "description": "An {{handle}} ist eine Leitung mit {{total}} mm2 angeschlossen. Erlaubt sind maximal {{limit}} mm2. Die angeschlossene Leitung hat einen zu hohen Querschnitt und kann nicht sicher angeschraubt oder angeloetet werden.",
+              "recommendation": "Verwende eine Leitung mit kleinerem Querschnitt oder einen geeigneten Verteiler/Adapter."
+            },
+            "pinTotalCrossSectionTooLarge": {
+              "title": "Leitungen passen zusammen nicht an den Anschluss",
+              "shortDescription": "Die Summe der Leitungsquerschnitte ist fuer diesen Pin zu gross.",
+              "description": "An {{handle}} sind Leitungen mit zusammen {{total}} mm2 angeschlossen. Erlaubt sind maximal {{limit}} mm2. Die angeschlossenen Leitungen haben in Summe einen zu hohen Querschnitt und koennen zusammen nicht sicher angeschraubt oder angeloetet werden.",
+              "recommendation": "Reduziere die Summe der Querschnitte an diesem Pin oder verwende einen geeigneten Verteiler."
+            },
+            "pinWireCrossSectionDifficult": {
+              "title": "Leitung ist schwer anzuschliessen",
+              "shortDescription": "Der Leitungsquerschnitt ist fuer diesen Pin noch zulaessig, aber kritisch.",
+              "description": "An {{handle}} ist eine Leitung mit {{total}} mm2 angeschlossen. Ab {{limit}} mm2 kann das Anschliessen oder Anloeten an diesem Pin schwierig sein.",
+              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob der Querschnitt wirklich notwendig ist oder verkleinert werden kann."
+            },
+            "pinTotalCrossSectionDifficult": {
+              "title": "Leitungen sind schwer zusammen anzuschliessen",
+              "shortDescription": "Die Summe der Leitungsquerschnitte ist fuer diesen Pin noch zulaessig, aber kritisch.",
+              "description": "An {{handle}} sind Leitungen mit zusammen {{total}} mm2 angeschlossen. Ab {{limit}} mm2 kann das gemeinsame Anschliessen oder Anloeten an diesem Pin schwierig sein.",
+              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob die Querschnitte wirklich notwendig sind oder verkleinert werden koennen."
+            },
             "duplicateParallelWire": {
               "title": "Doppelte parallele Verbindung",
               "shortDescription": "Mehrere Wires verbinden dieselben zwei Pins.",

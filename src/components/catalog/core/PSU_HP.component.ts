@@ -55,8 +55,8 @@ export default defineComponent({
         "voltage": {
           "outDependency": "source_voltage"
         },
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -86,8 +86,8 @@ export default defineComponent({
         "voltage": {
           "outDependency": "source_voltage"
         },
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -117,8 +117,8 @@ export default defineComponent({
         "voltage": {
           "outDependency": "source_voltage"
         },
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -146,8 +146,8 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -175,8 +175,8 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -204,8 +204,8 @@ export default defineComponent({
           "gnd"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -233,8 +233,8 @@ export default defineComponent({
           "pe_in"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -262,8 +262,8 @@ export default defineComponent({
           "neutral_in"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -291,8 +291,8 @@ export default defineComponent({
           "line_in"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 4,
+        "maxCrossSectionWarning": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }

@@ -53,8 +53,7 @@ export default defineComponent({
           "line_out"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -82,8 +81,7 @@ export default defineComponent({
           "neutral_out"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
@@ -111,8 +109,7 @@ export default defineComponent({
           "pe_out"
         ],
         "voltage": {},
-        "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        "maxCrossSectionAbsolute": 2.5,
         "behavior": {
           "preferredLineWidth": 3
         }
