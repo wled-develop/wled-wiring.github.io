@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DeleteOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
+import { DeleteOutlined, InfoCircleOutlined, LoadingOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useEdges, useNodes, useReactFlow, type Edge, type Node } from "@xyflow/react";
-import { Alert, Button, Empty, Flex, List, Segmented, Select, Slider, Space, Tag, Typography } from "antd";
+import { Alert, Button, Empty, Flex, List, Modal, Segmented, Select, Slider, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { createSimulationFingerprint } from "./simulationFingerprint";
@@ -92,6 +92,7 @@ export const SimulationPage = () => {
   const [resultFingerprint, setResultFingerprint] = useState<string | null>(null);
   const [wasInvalidated, setWasInvalidated] = useState(false);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+  const [simulationInfoOpen, setSimulationInfoOpen] = useState(false);
   const simulationRequestIdRef = useRef(0);
   const simulationWorkerRunRef = useRef<SimulationWorkerRun | null>(null);
   const currentFingerprintRef = useRef<string | null>(null);
@@ -392,6 +393,60 @@ export const SimulationPage = () => {
 
   return (
     <Flex gap="small" vertical>
+      <Alert
+        type="info"
+        showIcon
+        message={t("sidebar.simulation.betaNoticeTitle")}
+        description={
+          <>
+            <Button
+              size="small"
+              icon={<InfoCircleOutlined />}
+              onClick={() => setSimulationInfoOpen(true)}
+              style={{
+                float: "inline-end",
+                marginInlineStart: 8,
+                marginBlockEnd: 4,
+              }}
+            >
+              {t("sidebar.simulation.infoButton")}
+            </Button>
+            {t("sidebar.simulation.betaNoticeDescription")}
+          </>
+        }
+      />
+
+      <Modal
+        title={t("sidebar.simulation.infoModalTitle")}
+        open={simulationInfoOpen}
+        onCancel={() => setSimulationInfoOpen(false)}
+        footer={null}
+      >
+        <Flex gap="small" vertical>
+          <Typography.Paragraph>
+            {t("sidebar.simulation.infoModalIntro")}
+          </Typography.Paragraph>
+          <List
+            size="small"
+            dataSource={[
+              t("sidebar.simulation.infoModalItems.power"),
+              t("sidebar.simulation.infoModalItems.wires"),
+              t("sidebar.simulation.infoModalItems.leds"),
+              t("sidebar.simulation.infoModalItems.protection"),
+              t("sidebar.simulation.infoModalItems.limits"),
+            ]}
+            renderItem={(item) => (
+              <List.Item>
+                <Typography.Text>{item}</Typography.Text>
+              </List.Item>
+            )}
+          />
+          <Typography.Paragraph type="secondary">
+            {t("sidebar.simulation.infoModalNote")}
+          </Typography.Paragraph>
+        </Flex>
+      </Modal>
+
       <Flex gap={4} vertical>
         <Typography.Text strong>{t("sidebar.simulation.settings")}</Typography.Text>
         <Select

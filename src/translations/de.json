@@ -684,6 +684,19 @@
     },
     "simulation": {
       "title": "Stromfluss simulieren",
+      "betaNoticeTitle": "Beta-Version",
+      "betaNoticeDescription": "Die Simulation ist noch in Entwicklung. Ergebnisse koennen helfen, die Verdrahtung einzuschaetzen, ersetzen aber keine Messung am echten Aufbau.",
+      "infoButton": "Was wird simuliert?",
+      "infoModalTitle": "Was die Simulation berechnet",
+      "infoModalIntro": "Die Simulation schaetzt ab, wie sich Spannung und Strom in deinem aktuellen Diagramm verteilen.",
+      "infoModalItems": {
+        "power": "Sie nutzt Netzteile, DC/DC-Wandler und Verbraucher aus dem Diagramm.",
+        "wires": "Sie beruecksichtigt Laenge und Querschnitt von Leitungen, damit Spannungsabfaelle sichtbar werden.",
+        "leds": "Bei LED-Streifen werden Helligkeit, Farbmodus und Spannungsverlauf entlang des Streifens ausgewertet.",
+        "protection": "Sie meldet auffaellige Stellen wie zu hohe Stroeme, zu niedrige Spannung oder ueberlastete Sicherungen.",
+        "limits": "Sie simuliert eine Gleichstrom-Momentaufnahme, keine Datenprotokolle, Signalformen, Einschaltspitzen oder Waermeentwicklung."
+      },
+      "infoModalNote": "Nutze die Simulation als Plausibilitaetscheck fuer dein Design. Sicherheitskritische Aufbauten und fertige Installationen solltest du trotzdem messen und fachgerecht pruefen.",
       "inDevelopmentTitle": "Simulationen sind noch in Entwicklung",
       "comingSoon": "Simulation der Stromverteilung wird später implementiert. Stay tuned!",
       "settings": "Einstellungen",

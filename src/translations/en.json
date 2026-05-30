@@ -684,6 +684,19 @@
     },
     "simulation": {
       "title": "Simulate current flow",
+      "betaNoticeTitle": "Beta version",
+      "betaNoticeDescription": "The simulation is still under development. Results can help you judge the wiring, but they do not replace measuring the real build.",
+      "infoButton": "What is simulated?",
+      "infoModalTitle": "What the simulation calculates",
+      "infoModalIntro": "The simulation estimates how voltage and current are distributed in your current diagram.",
+      "infoModalItems": {
+        "power": "It uses power supplies, DC/DC converters and loads from the diagram.",
+        "wires": "It takes wire length and cross-section into account so voltage drops become visible.",
+        "leds": "For LED strips, brightness, color mode and voltage along the strip are evaluated.",
+        "protection": "It reports suspicious points such as high current, low voltage or overloaded fuses.",
+        "limits": "It simulates a DC snapshot, not data protocols, signal waveforms, inrush current or heat buildup."
+      },
+      "infoModalNote": "Use the simulation as a plausibility check for your design. Safety-critical builds and finished installations should still be measured and checked properly.",
       "inDevelopmentTitle": "Simulations are still in development",
       "comingSoon": "Simulation of power distribution will be implemented in future. Stay tuned!",
       "settings": "Settings",

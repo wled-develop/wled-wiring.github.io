@@ -661,6 +661,19 @@
       "brightness": "亮度：{{value}}%",
       "buttonRun": "开始模拟",
       "buttonDelete": "删除结果",
+      "betaNoticeTitle": "Beta 版本",
+      "betaNoticeDescription": "仿真功能仍在开发中。结果可以帮助判断布线是否合理，但不能替代对真实设备的测量。",
+      "infoButton": "仿真内容",
+      "infoModalTitle": "仿真会计算什么",
+      "infoModalIntro": "仿真会估算当前图纸中电压和电流的分布情况。",
+      "infoModalItems": {
+        "power": "它会使用图纸中的电源、DC/DC 转换器和负载。",
+        "wires": "它会考虑导线长度和截面积，从而显示可能的压降。",
+        "leds": "对于 LED 灯带，会评估亮度、颜色模式以及灯带上的电压变化。",
+        "protection": "它会提示电流过高、电压过低或保险丝过载等可疑位置。",
+        "limits": "它模拟的是直流静态状态，不模拟数据协议、信号波形、上电浪涌或发热。"
+      },
+      "infoModalNote": "请把仿真作为设计合理性的检查。涉及安全或最终安装的设备仍然需要实际测量并按规范检查。",
       "displayMode": {
         "label": "结果显示",
         "default": "默认",

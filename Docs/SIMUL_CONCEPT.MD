@@ -655,13 +655,16 @@ Nicht versorgte, aber ansonsten valide Teilnetze werden ignoriert. Ein Hinweis w
 
 Der Bereich `Simulate current flow` soll mindestens enthalten:
 
-1. Button `Simulate`
-2. Button `Delete simulation results`
-3. Einstellungen:
+1. Beta-Hinweis mit Button fuer eine kurze Nutzerbeschreibung der Simulation
+2. Button `Simulate`
+3. Button `Delete simulation results`
+4. Einstellungen:
    - LED-Farbwahl: `R`, `G`, `B`, `RGB-White`, `Separate-White`, `Separate-White + RGB-White`
    - Helligkeit in Prozent
-4. Statusanzeige fuer den Simulationszustand
-5. Ergebnisliste der Simulations-Checks, analog zur Liste in der Diagrammpruefung
+5. Statusanzeige fuer den Simulationszustand
+6. Ergebnisliste der Simulations-Checks, analog zur Liste in der Diagrammpruefung
+
+Der Beta-Hinweis ist in der Sidebar sichtbar und oeffnet per Button ein Modal mit einer bewusst nicht-technischen Zusammenfassung: Die Simulation schaetzt DC-Spannungen und -Stroeme im aktuellen Diagramm, beruecksichtigt Netzteile, DCDC-Wandler, Verbraucher, Wire-Laengen/-Querschnitte, LED-Helligkeit/Farbmodus und meldet auffaellige Stellen wie Spannungsabfall, Ueberstrom oder Sicherungsueberlastung. Gleichzeitig wird klar gesagt, dass keine Protokolle, Signalformen, Einschaltspitzen oder Waermeentwicklung simuliert werden und dass reale Messungen dadurch nicht ersetzt werden.
 
 Vorgeschlagene Struktur:
 
