@@ -550,7 +550,7 @@
               "title": "Leitung passt nicht an den Anschluss",
               "shortDescription": "Der Leitungsquerschnitt ist fuer diesen Pin zu gross.",
               "description": "An {{handle}} ist eine Leitung mit {{total}} mm2 angeschlossen. Erlaubt sind maximal {{limit}} mm2. Die angeschlossene Leitung hat einen zu hohen Querschnitt und kann nicht sicher angeschraubt oder angeloetet werden.",
-              "recommendation": "Verwende eine Leitung mit kleinerem Querschnitt oder einen geeigneten Verteiler/Adapter."
+              "recommendation": "Verwende eine Leitung mit kleinerem Querschnitt oder einen geeigneten Verteiler bzw. Adapter. Häufig ist es auch möglich, als Zwischenstück eine kurze Leitung mit kleinerem Querschnitt einzusetzen."
             },
             "pinTotalCrossSectionTooLarge": {
               "title": "Leitungen passen zusammen nicht an den Anschluss",

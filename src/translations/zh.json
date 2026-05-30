@@ -521,7 +521,7 @@
               "title": "导线无法接到此端子",
               "shortDescription": "此导线横截面积对该引脚过大。",
               "description": "{{handle}} 连接了一根 {{total}} mm2 的导线。最大允许 {{limit}} mm2。该导线横截面积过大，不能可靠地拧紧或焊接到此端子。",
-              "recommendation": "使用更小横截面积的导线，或使用合适的分线/转接端子。"
+              "recommendation": "请使用截面积较小的导线，或使用合适的分配器/适配器。在很多情况下，也可以使用一段较短且截面积较小的导线作为中间连接段。"
             },
             "pinTotalCrossSectionTooLarge": {
               "title": "多根导线无法一起接到此端子",

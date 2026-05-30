@@ -550,7 +550,7 @@
               "title": "Wire does not fit the terminal",
               "shortDescription": "The wire cross section is too large for this pin.",
               "description": "{{handle}} has one connected wire with {{total}} mm2. The maximum is {{limit}} mm2. The connected wire has too much cross section and cannot be safely screwed down or soldered.",
-              "recommendation": "Use a wire with a smaller cross section or a suitable splitter/adapter."
+              "recommendation": "Use a cable with a smaller cross-sectional area or a suitable distributor/splitter or adapter. In many cases, it is also possible to use a short cable with a smaller cross-sectional area as an intermediate section."
             },
             "pinTotalCrossSectionTooLarge": {
               "title": "Wires do not fit the terminal together",
