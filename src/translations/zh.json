@@ -285,6 +285,10 @@
       "issueCount": "发现 {{count}} 个结果",
       "recommendation": "建议",
       "affectedElements": "受影响的元素",
+      "targetTypes": {
+        "node": "组件",
+        "edge": "连接"
+      },
       "diagnostics": {
         "modeLabel": "诊断模式",
         "suppressedTag": "已抑制",
@@ -624,7 +628,7 @@
             "ambiguousMultiFunctionHandle": {
               "title": "多功能引脚功能不明确",
               "shortDescription": "某个多功能引脚无法明确归类。",
-              "description": "{{component}} 的 {{handle}} 引脚可能有多个功能，但检查无法确定当前使用的功能。",
+              "description": "{{handle}} 具有这些功能：{{functions}}。",
               "recommendation": "检查连接，或选择更明确的引脚功能。"
             },
             "sn74Ahct125nUsedChannelInputMissing": {

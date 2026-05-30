@@ -314,6 +314,10 @@
       "issueCount": "{{count}} result(s) found",
       "recommendation": "Recommendation",
       "affectedElements": "Affected elements",
+      "targetTypes": {
+        "node": "Component",
+        "edge": "Wire"
+      },
       "diagnostics": {
         "modeLabel": "Diagnostics mode",
         "suppressedTag": "suppressed",

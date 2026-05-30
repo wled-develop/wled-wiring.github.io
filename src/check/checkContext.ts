@@ -1,6 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 
 import type { ComponentDataType, EdgeDataType, HandleDataType } from '../types';
+import { getComponentDisplayName } from '../utils/componentDisplayName';
 
 export type CheckHandleFunction = NonNullable<HandleDataType['functions']>[number] | 'unknown';
 
@@ -875,9 +876,15 @@ export function createDiagramCheckContext(
   };
 }
 
-export const describeHandle = (handle: CheckHandle) => (
-  `${handle.node.data.technicalID || handle.node.id}: ${handle.handle.name || handle.handle.hid}`
-);
+export const describeHandle = (
+  handle: CheckHandle,
+  options: { includeComponent?: boolean } | number = {},
+) => {
+  const pinLabel = handle.handle.name || handle.handle.hid;
+  if (typeof options === 'object' && options.includeComponent === false) return pinLabel;
+
+  return `${getComponentDisplayName(handle.node.data, handle.node.id)}: ${pinLabel}`;
+};
 
 export const voltageMatches = (sourceVoltage: number | undefined, target: CheckHandle) => {
   if (sourceVoltage === undefined) return false;

@@ -2,6 +2,8 @@ import type { Node } from '@xyflow/react';
 
 import i18next from '../i18n';
 import type { ComponentDataType } from '../types';
+import { getComponentDisplayName } from '../utils/componentDisplayName';
+import { readableWireLabel } from '../utils/wireLabel';
 import type { CheckHandle, CheckNet, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
 import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarget } from './diagramCheckTypes';
@@ -33,26 +35,34 @@ const issueText = (
   values?: TranslationValues,
 ) => checkText(`rules.${COMPONENT_RULE_ID}.issues.${issueKey}.${field}`, values);
 
+const componentName = (node: Node<ComponentDataType>) => getComponentDisplayName(node.data, node.id);
+
+const describeComponentHandle = (handle: CheckHandle) => describeHandle(handle, { includeComponent: false });
+
 const nodeTarget = (node: Node<ComponentDataType>): DiagramCheckTarget => ({
   type: 'node',
   id: node.id,
-  label: node.data.technicalID || node.data.name || node.id,
+  label: componentName(node),
 });
 
-const edgeTarget = (edge: CheckNet['edges'][number]): DiagramCheckTarget => ({
+const edgeTarget = (
+  edge: CheckNet['edges'][number],
+  nodes: Iterable<Node<ComponentDataType>> = [],
+): DiagramCheckTarget => ({
   type: 'edge',
   id: edge.id,
-  label: `${edge.sourceHandle || edge.source} -> ${edge.targetHandle || edge.target}`,
+  label: readableWireLabel(edge, nodes),
 });
 
 const handleTargets = (handle: CheckHandle): DiagramCheckTarget[] => [
   nodeTarget(handle.node),
-  ...handle.connectedEdges.map(edgeTarget),
+  ...handle.connectedEdges.map((edge) => edgeTarget(edge, [handle.node])),
 ];
 
 const netTargets = (net: CheckNet): DiagramCheckTarget[] => {
   const nodes = new Map(net.handles.map((handle) => [handle.node.id, nodeTarget(handle.node)]));
-  const edges = new Map(net.edges.map((edge) => [edge.id, edgeTarget(edge)]));
+  const netNodes = net.handles.map((handle) => handle.node);
+  const edges = new Map(net.edges.map((edge) => [edge.id, edgeTarget(edge, netNodes)]));
   return [...nodes.values(), ...edges.values()];
 };
 
@@ -179,10 +189,10 @@ const checkSN74AHCT125NUsedChannelInputs: ComponentSpecificRule = {
           `component-sn74ahct125n-used-channel-input-missing-${node.id}-${group.channel}`,
           'error',
           {
-            component: node.data.technicalID || node.data.name || node.id,
+            component: componentName(node),
             channel: group.channel,
-            output: describeHandle(output),
-            handles: missingHandles.map(describeHandle).join(', '),
+            output: describeComponentHandle(output),
+            handles: missingHandles.map(describeComponentHandle).join(', '),
           },
           [
             nodeTarget(node),
@@ -238,9 +248,9 @@ const checkSN74AHCT125NDirectLedOutputMissingSeriesResistor: ComponentSpecificRu
                 `component-sn74ahct125n-direct-led-output-missing-series-resistor-${output.key}-${ledInput.key}`,
                 'warning',
                 {
-                  output: describeHandle(output),
-                  input: describeHandle(ledInput),
-                  led: ledInput.node.data.technicalID || ledInput.node.data.name || ledInput.node.id,
+                  output: describeComponentHandle(output),
+                  input: describeComponentHandle(ledInput),
+                  led: componentName(ledInput.node),
                 },
                 [
                   nodeTarget(node),

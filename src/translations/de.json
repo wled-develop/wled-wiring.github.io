@@ -314,6 +314,10 @@
       "issueCount": "{{count}} Ergebnis(se) gefunden",
       "recommendation": "Empfehlung",
       "affectedElements": "Betroffene Elemente",
+      "targetTypes": {
+        "node": "Komponente",
+        "edge": "Verbindung"
+      },
       "diagnostics": {
         "modeLabel": "Diagnosemodus",
         "suppressedTag": "unterdrueckt",

@@ -1093,6 +1093,8 @@ type SimulationCheckIssue = {
 };
 ```
 
+Die UI formatiert `SimulationTarget`-Labels mit demselben Komponenten-Display-Name-Helfer wie die Diagramm-Checks: `name` (uebersetzt) vor `technicalID` vor Node-ID.
+
 Erste Checks:
 
 - Diagramm-Check hat Fehler: Simulation nicht starten.

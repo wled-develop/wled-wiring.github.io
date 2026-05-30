@@ -242,6 +242,8 @@ Diese Auswertung aendert die Netzklassifikation nicht. `digital_net_type`, `anal
 
 Wenn ein Multifunktionspin in einem Signalkontext effektiv verwendet wird, werden alternative Funktionen desselben Handles fuer generische Quelle-/Senke-ohne-Gegenstueck-Regeln nicht zusaetzlich als eigene Nutzerfehler gemeldet. Beispiel: Ein `dig_in` + `dig_out` + `an_in`-GPIO, der in einem Netz eindeutig als digitale Quelle verwendet wird, erzeugt in demselben Netz keinen separaten analogen `signalSinkWithoutSource`-Fehler fuer `an_in`.
 
+Der Net-Debug der Diagramm-Check-Seite zeigt pro Netz die effektiven Signalrollen an. Fuer aufgeloeste Rollen werden Richtung, Sicherheit (`hard` oder `inferred`) und Grund angezeigt. Wenn ein ambivalenter Multifunktionspin keine eindeutige Rolle bekommt, zeigt der Debug-Eintrag den Unklarheitsgrund.
+
 ## Erreichbarkeits-Hilfsfunktionen
 
 Neben den Netzen gibt es Reachability-Funktionen, die fuer einige Checks genutzt werden.
@@ -601,6 +603,9 @@ Issues enthalten:
 - `targets`
 
 Targets sind aktuell `node` oder `edge`. Ein Handle wird indirekt ueber seine Node und die angeschlossenen Edges abgebildet. Doppelte Targets werden ueber `type`, `id` und optional `handleId` dedupliziert.
+Komponenten werden in Nutzertexten und Target-Labels ueber den gemeinsamen Display-Name-Helfer angezeigt: `name` (uebersetzt) gewinnt vor `technicalID` und Node-ID.
+Wire-Targets werden in der Sidebar und in den Check-Fallbacklabels als lesbare Verbindung gerendert: `Komponente: Pin -> Komponente: Pin`. Die Sidebar loest Edge-Targets beim Anzeigen gegen die aktuellen React-Flow-Nodes und -Edges auf, damit auch aeltere oder roh erzeugte Targets mit technischen Labels nutzerlesbar erscheinen.
+Komponentenbezogene Meldungen nennen die betroffene Komponente nur einmal. Pin-Listen innerhalb derselben Meldung verwenden lokale Pin-Labels ohne erneut vorangestellten Komponentennamen; netzbezogene Meldungen behalten vollstaendige Komponenten-/Pin-Labels, wenn mehrere Komponenten unterschieden werden muessen.
 
 Aktueller Implementierungsstand:
 

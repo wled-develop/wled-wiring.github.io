@@ -19,6 +19,7 @@ import type {
 } from "./simulationTypes";
 import { useDiagramCheckResultStore } from "../check/diagramCheckResultStore";
 import type { ComponentDataType, EdgeDataType } from "../types";
+import { getComponentDisplayName } from "../utils/componentDisplayName";
 
 type SimulationUiStatus = "idle" | "running" | "success" | "failed" | "blocked";
 type SimulationGateState = "ready" | "debug-bypass" | "not-checked" | "stale" | "has-errors";
@@ -145,7 +146,7 @@ export const SimulationPage = () => {
     const node = nodeById.get(nodeId);
     if(!node) return nodeId;
 
-    return t(node.data.name || node.data.technicalID || node.id);
+    return getComponentDisplayName(node.data, node.id, t);
   };
 
   const pinLabel = (nodeId: string, handleId: string) => {

@@ -411,8 +411,8 @@ Normale Nutzer sollen nicht mit unklaren technischen Rollenhinweisen gestoert we
 
 Optional fuer Diagnosemodus:
 
-- [ ] Anzeige, welche effektive Rolle je Handle/Netz gewaehlt wurde.
-- [ ] Anzeige, warum eine Rolle nicht eindeutig war.
+- [x] Anzeige, welche effektive Rolle je Handle/Netz gewaehlt wurde.
+- [x] Anzeige, warum eine Rolle nicht eindeutig war.
 - [x] `ambiguousMultiFunctionHandle` um erlaubte Kombinationen erweitern:
   - `dig_in|dig_out|an_in`
   - `dig_clock_in|dig_clock_out`

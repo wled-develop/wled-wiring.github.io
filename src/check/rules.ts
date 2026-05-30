@@ -2,6 +2,8 @@ import type { Edge, Node } from '@xyflow/react';
 
 import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
+import { getComponentDisplayName } from '../utils/componentDisplayName';
+import { readableWireLabel } from '../utils/wireLabel';
 import type { CheckHandle, CheckInvalidWire, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
 import { runComponentSpecificRules } from './componentSpecificRules';
@@ -51,6 +53,10 @@ const issueText = (
   values?: TranslationValues,
 ) => checkText(`rules.${ruleId}.issues.${issueKey}.${field}`, values);
 
+const componentName = (node: Node<ComponentDataType>) => getComponentDisplayName(node.data, node.id);
+
+const describeComponentHandle = (handle: CheckHandle) => describeHandle(handle, { includeComponent: false });
+
 const ruleOverviewValues = (issueKey: string): TranslationValues | undefined => {
   if(issueKey === 'signalSinkWithoutSource' || issueKey === 'multipleSignalSources') {
     return {signal: checkText('rulePlaceholders.signal')};
@@ -80,23 +86,27 @@ const ruleInfo = (rule: DiagramCheckRule): DiagramCheckRuleInfo => ({
 const nodeTarget = (node: Node<ComponentDataType>): DiagramCheckTarget => ({
   type: 'node',
   id: node.id,
-  label: node.data.technicalID || node.data.name || node.id,
+  label: componentName(node),
 });
 
-const edgeTarget = (edge: Edge<EdgeDataType>): DiagramCheckTarget => ({
+const edgeTarget = (
+  edge: Edge<EdgeDataType>,
+  nodes: Iterable<Node<ComponentDataType>> = [],
+): DiagramCheckTarget => ({
   type: 'edge',
   id: edge.id,
-  label: `${edge.sourceHandle || edge.source} -> ${edge.targetHandle || edge.target}`,
+  label: readableWireLabel(edge, nodes),
 });
 
 const handleTargets = (handle: CheckHandle): DiagramCheckTarget[] => [
   nodeTarget(handle.node),
-  ...handle.connectedEdges.map(edgeTarget),
+  ...handle.connectedEdges.map((edge) => edgeTarget(edge, [handle.node])),
 ];
 
 const netTargets = (net: CheckNet): DiagramCheckTarget[] => {
   const nodes = new Map(net.handles.map((handle) => [handle.node.id, nodeTarget(handle.node)]));
-  const edges = new Map(net.edges.map((edge) => [edge.id, edgeTarget(edge)]));
+  const netNodes = net.handles.map((handle) => handle.node);
+  const edges = new Map(net.edges.map((edge) => [edge.id, edgeTarget(edge, netNodes)]));
   return [...nodes.values(), ...edges.values()];
 };
 
@@ -422,6 +432,17 @@ type EffectiveSignalRole = {
   direction: 'source' | 'sink';
   handle: CheckHandle;
   confidence: 'hard' | 'inferred';
+  reason: string;
+};
+
+export type EffectiveSignalRoleDiagnostic = {
+  signalId: string;
+  signalLabel: string;
+  handle: CheckHandle;
+  direction?: 'source' | 'sink';
+  confidence?: 'hard' | 'inferred';
+  status: 'resolved' | 'unclear';
+  reason: string;
 };
 
 const signalRuleDefinitions: SignalRuleDefinition[] = [
@@ -644,12 +665,14 @@ const effectiveSignalRolesForNet = (
       direction: 'source' as const,
       handle,
       confidence: 'hard' as const,
+      reason: 'source capability without matching sink capability for this signal type',
     })),
     ...hardSinks.map((handle) => ({
       definition,
       direction: 'sink' as const,
       handle,
       confidence: 'hard' as const,
+      reason: 'sink capability without matching source capability for this signal type',
     })),
   ];
 
@@ -659,6 +682,7 @@ const effectiveSignalRolesForNet = (
       direction: 'sink' as const,
       handle,
       confidence: 'inferred' as const,
+      reason: 'inferred as sink because the signal context contains a hard source',
     })));
   } else if (hardSinks.length > 0) {
     roles.push(...ambiguousHandles.map((handle) => ({
@@ -666,6 +690,7 @@ const effectiveSignalRolesForNet = (
       direction: 'source' as const,
       handle,
       confidence: 'inferred' as const,
+      reason: 'inferred as source because the signal context contains a hard sink and no hard source',
     })));
   }
 
@@ -695,6 +720,43 @@ const effectiveSignalSinksForNet = (
   effectiveSignalRolesForNet(context, net, definition)
     .filter((role) => role.direction === 'sink')
     .map((role) => role.handle)
+);
+
+export const effectiveSignalRoleDiagnosticsForNet = (
+  context: DiagramCheckContext,
+  net: CheckNet,
+): EffectiveSignalRoleDiagnostic[] => (
+  signalRuleDefinitions.flatMap((definition) => {
+    const handles = signalContextHandles(context, net, definition);
+    const roles = effectiveSignalRolesForNet(context, net, definition);
+    const roleKeys = new Set(roles.map((role) => `${role.handle.key}:${role.definition.id}`));
+    const ambiguousHandles = handles.filter((handle) => (
+      hasSignalSourceCapability(handle, definition) &&
+      hasSignalSinkCapability(handle, definition)
+    ));
+    const unclearHandles = ambiguousHandles.filter((handle) => (
+      !roleKeys.has(`${handle.key}:${definition.id}`)
+    ));
+
+    return [
+      ...roles.map((role) => ({
+        signalId: definition.id,
+        signalLabel: definition.label,
+        handle: role.handle,
+        direction: role.direction,
+        confidence: role.confidence,
+        status: 'resolved' as const,
+        reason: role.reason,
+      })),
+      ...unclearHandles.map((handle) => ({
+        signalId: definition.id,
+        signalLabel: definition.label,
+        handle,
+        status: 'unclear' as const,
+        reason: 'ambiguous source/sink capabilities, but no hard counterpart exists in this signal context',
+      })),
+    ];
+  })
 );
 
 const hasResolvedRoleForOtherSignal = (
@@ -859,7 +921,7 @@ const checkDuplicateParallelWires = (context: DiagramCheckContext) => {
       `duplicate-parallel-wire-${edges.map((edge) => edge.id).sort().join('-')}`,
       'info',
       { count: edges.length },
-      edges.map(edgeTarget),
+      edges.map((edge) => edgeTarget(edge)),
       edgeIssueOptions(edges[0], 'duplicate-parallel-wire', 35, 170),
     ));
 };
@@ -899,7 +961,7 @@ const checkMainsWireConnectedToLowVoltageComponent = (context: DiagramCheckConte
       'mainsWireConnectedToLowVoltageComponent',
       `mains-wire-connected-to-low-voltage-component-${handle.key}`,
       'error',
-      { component: handle.node.data.technicalID || handle.node.id, handle: describeHandle(handle) },
+      { component: componentName(handle.node), handle: describeComponentHandle(handle) },
       [
         ...handleTargets(handle),
         ...netTargets(net),
@@ -967,7 +1029,7 @@ const checkFuseBypassed = (context: DiagramCheckContext) => (
           'fuseBypassed',
           `fuse-bypassed-${node.id}-${connection.fromHandle}-${connection.toHandle}`,
           'error',
-          { component: node.data.technicalID || node.id },
+          { component: componentName(node) },
           [
             nodeTarget(node),
             ...netTargets(fromNet),
@@ -1048,8 +1110,8 @@ const checkDigitalBackupPairMismatch = (context: DiagramCheckContext) => {
         `digital-backup-pair-mismatch-${backupIn.key}`,
         'error',
         {
-          component: node.data.technicalID || node.id,
-          source: upstreamData.node.data.technicalID || upstreamData.node.id,
+          component: componentName(node),
+          source: componentName(upstreamData.node),
         },
         [
           ...handleTargets(dataIn),
@@ -1075,7 +1137,7 @@ const checkDigitalBackupPairMismatch = (context: DiagramCheckContext) => {
         ? `digital-backup-input-tied-to-data-${backupIn.key}`
         : `digital-backup-input-not-grounded-${backupIn.key}`,
       backupInDataNet ? 'warning' : 'error',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         ...handleTargets(dataIn),
         ...handleTargets(backupIn),
@@ -1117,7 +1179,7 @@ const checkClockedLedClockMissing = (context: DiagramCheckContext) => {
         'clockedLedClockMissing',
         `clocked-led-clock-missing-${clockIn.key}`,
         'error',
-        { component: node.data.technicalID || node.id },
+        { component: componentName(node) },
         [
           ...handleTargets(dataIn),
           ...handleTargets(clockIn),
@@ -1137,7 +1199,7 @@ const checkClockedLedClockMissing = (context: DiagramCheckContext) => {
       'clockedLedClockMissing',
       `clocked-led-clock-missing-${clockIn.key}`,
       'error',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         ...handleTargets(dataIn),
         ...handleTargets(clockIn),
@@ -1189,9 +1251,9 @@ const checkDigitalLedSignalGroupGroundMissing = (context: DiagramCheckContext) =
         `digital-led-signal-group-ground-missing-${node.id}-${groupKey}`,
         'error',
         {
-          component: node.data.technicalID || node.data.name || node.id,
+          component: componentName(node),
           group: groupKey,
-          signals: signalInputs.map(describeHandle).join(', '),
+          signals: signalInputs.map(describeComponentHandle).join(', '),
         },
         [
           nodeTarget(node),
@@ -1342,7 +1404,7 @@ const checkControlledOutputWithoutControlInput = (context: DiagramCheckContext) 
         if (hasDigitalControl) return [];
 
         const controlLabel = controlHandles.length > 0
-          ? controlHandles.map(describeHandle).join(', ')
+          ? controlHandles.map(describeComponentHandle).join(', ')
           : controlHandleId;
         const controlNetTargets = controlHandles
           .map((control) => context.getNetByHandle(control))
@@ -1355,8 +1417,8 @@ const checkControlledOutputWithoutControlInput = (context: DiagramCheckContext) 
           `controlled-output-without-control-input-${output.key}`,
           'error',
           {
-            component: node.data.technicalID || node.data.name || node.id,
-            output: describeHandle(output),
+            component: componentName(node),
+            output: describeComponentHandle(output),
             control: controlLabel,
           },
           [
@@ -1391,9 +1453,9 @@ const checkAnalogLedColorChannelUnconnected = (context: DiagramCheckContext) => 
         `analog-led-color-channel-unconnected-${node.id}-${channel.id}`,
         'warning',
         {
-          component: node.data.technicalID || node.data.name || node.id,
+          component: componentName(node),
           color: analogLedColorLabel(channel.id),
-          handles: channelHandles.map(describeHandle).join(', '),
+          handles: channelHandles.map(describeComponentHandle).join(', '),
         },
         [
           nodeTarget(node),
@@ -1451,10 +1513,10 @@ const checkAnalogLedColorChannelMultiplePwmSignals = (context: DiagramCheckConte
         `analog-led-color-channel-multiple-pwm-signals-${node.id}-${channel.id}`,
         'error',
         {
-          component: node.data.technicalID || node.data.name || node.id,
+          component: componentName(node),
           color: analogLedColorLabel(channel.id),
           signals: pwmSources.map(describeHandle).join(', '),
-          handles: connectedChannelHandles.map(describeHandle).join(', '),
+          handles: connectedChannelHandles.map(describeComponentHandle).join(', '),
         },
         [
           nodeTarget(node),
@@ -1503,7 +1565,7 @@ const checkFuseCurrentMissingOrUnderspecified = (context: DiagramCheckContext) =
       'fuseCurrentMissingOrUnderspecified',
       `fuse-current-missing-or-underspecified-${node.id}`,
       'info',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [nodeTarget(node)],
       componentIssueOptions(node, 'fuse-current-missing-or-underspecified', 45, 160),
     )];
@@ -1525,7 +1587,7 @@ const checkComponentHasOnlyOneTerminalConnected = (context: DiagramCheckContext)
       'componentHasOnlyOneTerminalConnected',
       `component-has-only-one-terminal-connected-${node.id}`,
       'warning',
-      { component: node.data.technicalID || node.id, handle: describeHandle(connectedHandles[0]) },
+      { component: componentName(node), handle: describeComponentHandle(connectedHandles[0]) },
       [
         nodeTarget(node),
         ...nodeHandles.flatMap(handleTargets),
@@ -1557,7 +1619,7 @@ const checkCapacitorPolarityMismatch = (context: DiagramCheckContext) => (
       'capacitorPolarityMismatch',
       `capacitor-polarity-mismatch-${node.id}`,
       'error',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         nodeTarget(node),
         ...handleTargets(plus),
@@ -1587,7 +1649,7 @@ const checkMainsConnectorIncomplete = (context: DiagramCheckContext) => (
       'mainsConnectorIncomplete',
       `mains-connector-incomplete-${node.id}`,
       'error',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         nodeTarget(node),
         ...lineHandles.flatMap(handleTargets),
@@ -1620,7 +1682,7 @@ const checkProtectiveEarthMissingForMetalOrMainsDevice = (context: DiagramCheckC
       'protectiveEarthMissingForMetalOrMainsDevice',
       `protective-earth-missing-${node.id}`,
       'error',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         nodeTarget(node),
         ...peHandles.flatMap(handleTargets),
@@ -1643,7 +1705,7 @@ const checkIsolatedComponent = (context: DiagramCheckContext) => (
       'isolatedComponent',
       `isolated-component-${node.id}`,
       'info',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [nodeTarget(node)],
       componentIssueOptions(node, 'isolated-component', 30, 180),
     )];
@@ -1667,7 +1729,7 @@ const checkComponentDefinitionIncompleteForChecks = (context: DiagramCheckContex
       'componentDefinitionIncompleteForChecks',
       `component-definition-incomplete-for-checks-${handle.key}`,
       'info',
-      { component: handle.node.data.technicalID || handle.node.id, handle: describeHandle(handle) },
+      { component: componentName(handle.node), handle: describeComponentHandle(handle) },
       handleTargets(handle),
       handleIssueOptions(handle, 'component-definition-incomplete-for-checks', 60, 900, {
         diagnosticOnly: true,
@@ -1726,7 +1788,7 @@ const checkUnusedRequiredFunctionalGroup = (context: DiagramCheckContext) => (
       'unusedRequiredFunctionalGroup',
       `unused-required-functional-group-${node.id}`,
       'warning',
-      { component: node.data.technicalID || node.id },
+      { component: componentName(node) },
       [
         nodeTarget(node),
         ...(dataIn ? handleTargets(dataIn) : []),
@@ -2218,8 +2280,8 @@ const runComponentRules = (context: DiagramCheckContext) => {
         `component-required-pin-unconnected-${node.id}`,
         'error',
         {
-          component: node.data.technicalID || node.data.name || node.id,
-          handles: requiredDisconnectedHandles.map(describeHandle).join(', '),
+          component: componentName(node),
+          handles: requiredDisconnectedHandles.map(describeComponentHandle).join(', '),
         },
         [
           nodeTarget(node),
@@ -2247,7 +2309,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
         'groundMissing',
         `component-ground-missing-${node.id}`,
         'error',
-        { component: node.data.technicalID || node.data.name || node.id },
+        { component: componentName(node) },
         [
           nodeTarget(node),
           ...gndHandles.flatMap(handleTargets),
@@ -2285,7 +2347,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
         'powerMissing',
         `component-power-missing-${node.id}`,
         'error',
-        { component: node.data.technicalID || node.data.name || node.id },
+        { component: componentName(node) },
         [
           nodeTarget(node),
           ...supplyInputHandles.flatMap(handleTargets),
@@ -2309,7 +2371,7 @@ const runComponentRules = (context: DiagramCheckContext) => {
         `component-${requirement.id}-input-missing-${node.id}`,
         'error',
         {
-          component: node.data.technicalID || node.data.name || node.id,
+          component: componentName(node),
           label: mainsInputLabel(requirement.id),
         },
         [
