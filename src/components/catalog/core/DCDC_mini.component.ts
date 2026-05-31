@@ -229,7 +229,7 @@ export default defineComponent({
     "runtime": {
       "inputFieldsBox": {
         "x": 28.5,
-        "y": 44,
+        "y": 48,
         "borderType": "solid",
         "borderColor": "black",
         "borderLineWidth": 0,
