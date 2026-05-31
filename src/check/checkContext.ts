@@ -497,6 +497,25 @@ const createGroupedNets = (
   ));
 };
 
+const inheritSupplyClassificationFromParentNets = (
+  nets: CheckNet[],
+  parentNetByHandleKey: Map<string, CheckNet>,
+) => (
+  nets.map((net) => {
+    if (net.classifications.includes('suppl_net_type')) return net;
+
+    const hasSupplyParentNet = net.handles.some((handle) => (
+      parentNetByHandleKey.get(handle.key)?.classifications.includes('suppl_net_type')
+    ));
+    if (!hasSupplyParentNet) return net;
+
+    return {
+      ...net,
+      classifications: [...net.classifications, 'suppl_net_type' as const],
+    };
+  })
+);
+
 const getFuseConnectionPairs = (
   nodes: Node<ComponentDataType>[],
   handleByKey: Map<string, CheckHandle>,
@@ -678,14 +697,18 @@ export function createDiagramCheckContext(
     'component-linked',
     getComponentConnectionPairs(handles, fusedNetByHandleKey),
   );
-  const componentLinkedElementaryBasedNets = createGroupedNets(
-    elementaryNets,
-    'component-linked-elementary-based',
-    getComponentConnectionPairs(handles, elementaryNetByHandleKey, { skipFusePassThroughPairs: true }),
+  const componentLinkedNetByHandleKey = netByHandleKey(componentLinkedNets);
+  const componentLinkedElementaryBasedNets = inheritSupplyClassificationFromParentNets(
+    createGroupedNets(
+      elementaryNets,
+      'component-linked-elementary-based',
+      getComponentConnectionPairs(handles, elementaryNetByHandleKey, { skipFusePassThroughPairs: true }),
+    ),
+    componentLinkedNetByHandleKey,
   );
   const componentLinkedElementaryBasedNetByHandleKey = netByHandleKey(componentLinkedElementaryBasedNets);
   const nets = componentLinkedNets;
-  const netByHandleKeyMap = netByHandleKey(nets);
+  const netByHandleKeyMap = componentLinkedNetByHandleKey;
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const invalidWires: CheckInvalidWire[] = edges.flatMap((edge): CheckInvalidWire[] => {
     const refs: { side: 'source' | 'target'; nodeId: string; handleId?: string | null }[] = [

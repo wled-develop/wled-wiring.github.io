@@ -1,6 +1,6 @@
 # Diagramm Checks Konzept und aktueller Implementierungsstand
 
-Stand: 2026-05-29
+Stand: 2026-05-31
 
 Dieses Dokument beschreibt den aktuellen Stand der Diagramm-Checks im Projekt. Die Implementierung liegt im Wesentlichen in:
 
@@ -168,7 +168,8 @@ Aufbau:
 4. `kind === 'fuse'` wird dabei explizit ignoriert. Eine Fuse darf in dieser Schicht keine Union-Verbindung erzeugen.
 5. `kind === 'short'` bleibt weiterhin eine harte interne Verbindung und verbindet die betroffenen Elementary-basierten Netze.
 6. Automatische interne Beziehungen wie gemeinsame GND-Handles, abhaengige `suppl_out`-zu-`suppl_in`-Pfade, gleiche feste `suppl_out`-Spannungen, gleiche `VoutDependency`, LED-`suppl_in`-Gruppierung und digitale Pass-Throughs ueber zweipolige passive `Resistor`-Komponenten werden analog zur bestehenden Component-Linked-Logik angewendet.
-7. Nach dem Gruppieren entstehen Netze mit derselben Struktur wie bestehende `CheckNet`s: `handles`, `edges`, `componentIds`, `sourceHandles`, `sinkHandles`, `classifications` und `childNetIds`.
+7. Nach dem Gruppieren erben diese Netze gezielt `suppl_net_type`, wenn eines ihrer Handles in einem Component-Linked Net liegt, das `suppl_net_type` besitzt. Dadurch gilt auch die abgesicherte Ausgangsseite einer Sicherung als Versorgungsteilnetz, obwohl die Sicherung in dieser Schicht weiterhin eine Netzgrenze bleibt.
+8. Nach dem Gruppieren entstehen Netze mit derselben Struktur wie bestehende `CheckNet`s: `handles`, `edges`, `componentIds`, `sourceHandles`, `sinkHandles`, `classifications` und `childNetIds`.
 
 Wichtig ist die Reihenfolge: Diese Netzsicht soll nicht aus Fused Nets abgeleitet werden, weil dann die Information verloren waere, welche Elementary Nets nur durch eine Sicherung zusammengekommen sind. Sie muss direkt parallel zum Fused-Net-Aufbau aus Elementary Nets entstehen.
 
@@ -183,7 +184,7 @@ Ergebnis:
 - Elementary Nets: eine Seite vor der Sicherung, eine Seite nach der Sicherung.
 - Fused Nets: beide Seiten werden zu einem Fused Net gruppiert.
 - Component-Linked Nets: beide Seiten bleiben als zusammenhaengender versorgungsbezogener Kontext sichtbar.
-- Component-Linked Elementary based Nets: beide Seiten bleiben getrennt, solange keine zusaetzliche direkte Verbindung die Sicherung umgeht.
+- Component-Linked Elementary based Nets: beide Seiten bleiben getrennt, solange keine zusaetzliche direkte Verbindung die Sicherung umgeht. Beide Teilnetze koennen trotzdem `suppl_net_type` tragen, weil sie Teil desselben versorgten Component-Linked Nets sind.
 
 Wenn dieselben beiden Sicherungsseiten zusaetzlich extern per Wire, SolderJoint, WAGO oder durch eine interne `short`-Verbindung verbunden sind, liegen sie auch in Component-Linked Elementary based Nets im selben Netz. Genau dieser Unterschied ist fuer Bypass-Erkennung und Schutzbereichsgrenzen relevant.
 
@@ -221,6 +222,8 @@ Aktuelle Klassifikationen:
 "Exklusiv" bedeutet hier: Das Handle hat genau eine klassifikationsrelevante Funktion und diese Funktion gehoert zur jeweiligen Gruppe. Das verhindert, dass Mehrzweck-Handles zu aggressiv als Signalquelle klassifiziert werden.
 
 `passive` ist keine klassifikationsrelevante Funktion. Sie erzeugt weder `digital_net_type` noch Versorgung, GND oder andere aktive Netztypen und erscheint auch nicht in `sourceHandles` oder `sinkHandles`.
+
+Sonderfall fuer Component-Linked Elementary based Nets: `suppl_net_type` wird zusaetzlich vom zugehoerigen Component-Linked Net geerbt. Das gilt insbesondere fuer Teilnetze hinter einer internen Sicherung. Andere Klassifikationen werden nicht auf diese Weise vererbt; sie bleiben direkt aus den enthaltenen Handles abgeleitet.
 
 Ein Netz speichert ausserdem:
 
