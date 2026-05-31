@@ -209,6 +209,9 @@ export default defineComponent({
             "outputVoltageV": {
               "field": "source_voltage"
             },
+            "currentLimitA": {
+              "field": "source_current"
+            },
             "efficiency": 0.9,
             "voltageDropPctAt150Current": 50
           }
