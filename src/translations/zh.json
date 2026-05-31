@@ -789,7 +789,11 @@
         },
         "ledStripVoltageDropHigh": {
           "title": "LED 灯带压降过高",
-          "description": "已连接的供电点电压在允许范围内，但灯带长度上的最低 VLED 为 {{voltage}} V，低于最小值 {{limit}} V。请沿 LED 灯带增加更多注入供电点。"
+          "description": "已连接的供电点电压在允许范围内，但灯带长度上的最低 VLED 为 {{voltage}} V，低于关键曲线值 {{limit}} V。颜色还原可能会明显失真。请沿 LED 灯带增加更多注入供电点。"
+        },
+        "ledStripVoltageDropWarning": {
+          "title": "LED 灯带压降过高",
+          "description": "已连接的供电点电压在允许范围内，但灯带长度上的最低 VLED 为 {{voltage}} V，低于警告值 {{limit}} V。颜色还原可能会轻微失真。请沿 LED 灯带增加更多注入供电点。"
         },
         "ledStripVoltageLow": {
           "title": "LED 灯带电压过低",

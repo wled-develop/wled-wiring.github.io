@@ -818,7 +818,11 @@
         },
         "ledStripVoltageDropHigh": {
           "title": "LED strip voltage drop is too high",
-          "description": "The connected supply points are within range, but the lowest VLED along the strip is {{voltage}} V, below the minimum {{limit}} V. Add more power injection points along the LED strip."
+          "description": "The connected supply points are within range, but the lowest VLED along the strip is {{voltage}} V, below the critical curve value {{limit}} V. Color rendering may be noticeably distorted. Add more power injection points along the LED strip."
+        },
+        "ledStripVoltageDropWarning": {
+          "title": "LED strip voltage drop is too high",
+          "description": "The connected supply points are within range, but the lowest VLED along the strip is {{voltage}} V, below the warning value {{limit}} V. Color rendering may be slightly distorted. Add more power injection points along the LED strip."
         },
         "ledStripVoltageLow": {
           "title": "LED strip voltage is too low",

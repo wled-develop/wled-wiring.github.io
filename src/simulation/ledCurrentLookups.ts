@@ -20,6 +20,27 @@ export type LedCurrentCurveResult =
 export const isLedCurrentCurveId = (value: string): value is LedCurrentCurveId =>
   Object.prototype.hasOwnProperty.call(LED_CURRENT_CURVES, value);
 
+export const getLedCurrentCurveParameters = (
+  curveId: string,
+  colorMode: LedSimulationColorMode,
+) => {
+  if(!isLedCurrentCurveId(curveId)) return undefined;
+
+  const parameters = LED_CURRENT_CURVES[curveId][colorMode];
+  if(
+    parameters === undefined ||
+    !Number.isFinite(parameters.i0A) ||
+    !Number.isFinite(parameters.iLimitA) ||
+    !Number.isFinite(parameters.k) ||
+    !Number.isFinite(parameters.v0) ||
+    (parameters.kUI !== undefined && !Number.isFinite(parameters.kUI))
+  ) {
+    return undefined;
+  }
+
+  return parameters;
+};
+
 const sigmoid = (value: number) => {
   if(value >= 0) {
     const expNegative = Math.exp(-value);
@@ -53,9 +74,9 @@ export const getLedCurrentA = (
     };
   }
 
-  const parameters = LED_CURRENT_CURVES[curveId][colorMode];
+  const rawParameters = LED_CURRENT_CURVES[curveId][colorMode];
 
-  if(parameters == undefined) {
+  if(rawParameters == undefined) {
     return {
       ok: false,
       reason: "missing_color_mode",
@@ -63,13 +84,8 @@ export const getLedCurrentA = (
     };
   }
 
-  if(
-    !Number.isFinite(parameters.i0A) ||
-    !Number.isFinite(parameters.iLimitA) ||
-    !Number.isFinite(parameters.k) ||
-    !Number.isFinite(parameters.v0) ||
-    (parameters.kUI !== undefined && !Number.isFinite(parameters.kUI))
-  ) {
+  const parameters = getLedCurrentCurveParameters(curveId, colorMode);
+  if(!parameters) {
     return {
       ok: false,
       reason: "invalid_parameters",

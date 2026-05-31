@@ -818,7 +818,11 @@
         },
         "ledStripVoltageDropHigh": {
           "title": "Spannungsabfall ueber den LED-Streifen zu hoch",
-          "description": "Die angeschlossenen Versorgungspunkte sind im erlaubten Bereich, aber die niedrigste VLED ueber die Laenge des Streifens ist {{voltage}} V und liegt unter dem Minimum {{limit}} V. Fuege weitere Einspeisungen entlang des LED-Streifens hinzu."
+          "description": "Die angeschlossenen Versorgungspunkte sind im erlaubten Bereich, aber die niedrigste VLED ueber die Laenge des Streifens ist {{voltage}} V und liegt unter dem kritischen Kennlinienwert {{limit}} V. Dadurch kann die Farbwiedergabe deutlich verfaelscht werden. Fuege weitere Einspeisungen entlang des LED-Streifens hinzu."
+        },
+        "ledStripVoltageDropWarning": {
+          "title": "Spannungsabfall ueber den LED-Streifen zu hoch",
+          "description": "Die angeschlossenen Versorgungspunkte sind im erlaubten Bereich, aber die niedrigste VLED ueber die Laenge des Streifens ist {{voltage}} V und liegt unter dem Warnwert {{limit}} V. Dadurch kann die Farbwiedergabe etwas verfaelscht werden. Fuege weitere Einspeisungen entlang des LED-Streifens hinzu."
         },
         "ledStripVoltageLow": {
           "title": "LED-Streifen-Spannung zu niedrig",

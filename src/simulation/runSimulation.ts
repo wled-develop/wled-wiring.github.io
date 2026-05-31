@@ -12,7 +12,7 @@ import {
   dcdcDynamicOutputCurrentLimit,
   updateDcdcInputStates,
 } from "./dcdcSimulation";
-import { getLedCurrentA } from "./ledCurrentLookups";
+import { getLedCurrentA, getLedCurrentCurveParameters } from "./ledCurrentLookups";
 import { logSimulationDiodeStateChanges } from "./simulationDebug";
 import type {
   LinearSystem,
@@ -48,6 +48,8 @@ const CURRENT_LIMIT_TOLERANCE_A = 0.0005;
 const VOLTAGE_TOLERANCE_V = 0.0005;
 const DEFAULT_VOLTAGE_DROP_PCT_AT_150_CURRENT = 50;
 const NONLINEAR_RELAXATION = 0.35;
+const LED_STRIP_VOLTAGE_DROP_WARNING_PERCENT = 80;
+const LED_STRIP_VOLTAGE_DROP_ERROR_PERCENT = 40;
 
 type VoltageSourceStamp = {
   elementId: string;
@@ -145,6 +147,9 @@ const simulationIssueNumber = (
   minimumFractionDigits: fractionDigits,
   maximumFractionDigits: fractionDigits,
 });
+
+const simulationIssueVoltage = (value: number) => value.toFixed(2);
+const simulationIssueCurrent = (value: number) => simulationIssueNumber(value, 2);
 
 const formatSimulationIssueOptions = (
   options: Record<string, string | number | SimulationIssueFormattedNumber> | undefined,
@@ -683,8 +688,8 @@ const createExtremeVoltageSourceOverloadIssues = (
         `simulation-current-limit-extreme:${source.elementId}`,
         simulationIssueText("currentLimitExtreme.title"),
         simulationIssueText("currentLimitExtreme.description", {
-          current: currentA.toFixed(3),
-          limit: currentLimitA.toFixed(3),
+          current: simulationIssueCurrent(currentA),
+          limit: simulationIssueCurrent(currentLimitA),
         }),
         [{type: "element", elementId: source.elementId}],
       ));
@@ -1094,6 +1099,52 @@ const isLedStripConnectionGroup = (groupKey: string) => (
   groupKey.startsWith("middle_")
 );
 
+const ledCurveVoltageAtPercent = (
+  element: SimulationElement,
+  percent: number,
+  settings: SimulationSettings,
+) => {
+  if(percent <= 0 || percent >= 100) return undefined;
+
+  const curveId = stringParameter(element.parameters, "currentCurve");
+  if(!curveId) return undefined;
+
+  const parameters = getLedCurrentCurveParameters(curveId, settings.ledColorMode);
+  if(!parameters) return undefined;
+  if(parameters.k === 0) return undefined;
+
+  const voltageV = parameters.v0 + (1 / parameters.k) * Math.log(percent / (100 - percent));
+  return Number.isFinite(voltageV) ? voltageV : undefined;
+};
+
+const createLedStripVoltageDropLimitsByGroup = (model: SimulationModel) => {
+  const limitsByGroup = new Map<string, {warningLimitV: number; errorLimitV: number}>();
+
+  model.elements.forEach((element) => {
+    if(element.type !== "digitalLed" || !element.componentId) return;
+
+    const warningLimitV = ledCurveVoltageAtPercent(
+      element,
+      LED_STRIP_VOLTAGE_DROP_WARNING_PERCENT,
+      model.settings,
+    );
+    const errorLimitV = ledCurveVoltageAtPercent(
+      element,
+      LED_STRIP_VOLTAGE_DROP_ERROR_PERCENT,
+      model.settings,
+    );
+    if(warningLimitV === undefined || errorLimitV === undefined) return;
+
+    const key = `${element.componentId}:${element.sourceElementId ?? ""}`;
+    limitsByGroup.set(key, {
+      warningLimitV: Math.max(warningLimitV, errorLimitV),
+      errorLimitV: Math.min(warningLimitV, errorLimitV),
+    });
+  });
+
+  return limitsByGroup;
+};
+
 type LedStripSupplyVoltageProblem = {
   nodeId: string;
   voltage: number;
@@ -1182,8 +1233,8 @@ const createPinVoltageRangeIssues = (
         `simulation-pin-voltage-low:${pin.nodeId}:${pin.handleId}`,
         simulationIssueText("pinVoltageLow.title"),
         simulationIssueText("pinVoltageLow.description", {
-          voltage: deltaVoltageV.toFixed(3),
-          limit: pin.voltageMin.toFixed(3),
+          voltage: simulationIssueVoltage(deltaVoltageV),
+          limit: simulationIssueVoltage(pin.voltageMin),
         }),
         [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
       ));
@@ -1194,8 +1245,8 @@ const createPinVoltageRangeIssues = (
         `simulation-pin-voltage-high:${pin.nodeId}:${pin.handleId}`,
         simulationIssueText("pinVoltageHigh.title"),
         simulationIssueText("pinVoltageHigh.description", {
-          voltage: deltaVoltageV.toFixed(3),
-          limit: pin.voltageMax.toFixed(3),
+          voltage: simulationIssueVoltage(deltaVoltageV),
+          limit: simulationIssueVoltage(pin.voltageMax),
         }),
         [{type: "pin", nodeId: pin.nodeId, handleId: pin.handleId}],
       ));
@@ -1212,6 +1263,7 @@ const createLedStripVoltageRangeIssues = (
 ) => {
   const issues: SimulationCheckIssue[] = [];
   const supplyPinsByNode = new Map<string, SimulationModel["pins"]>();
+  const voltageDropLimitsByGroup = createLedStripVoltageDropLimitsByGroup(model);
 
   model.pins.forEach((pin) => {
     if(pin.role !== "supply") return;
@@ -1237,8 +1289,8 @@ const createLedStripVoltageRangeIssues = (
       `simulation-led-strip-supply-voltage-low:${problem.nodeId}`,
       simulationIssueText("ledStripSupplyVoltageLow.title"),
       simulationIssueText("ledStripSupplyVoltageLow.description", {
-        voltage: problem.voltage.toFixed(3),
-        limit: problem.limit.toFixed(3),
+        voltage: simulationIssueVoltage(problem.voltage),
+        limit: simulationIssueVoltage(problem.limit),
       }),
       problem.targetPins,
     ));
@@ -1250,12 +1302,10 @@ const createLedStripVoltageRangeIssues = (
     if(ledStripSupplyVoltageProblems.has(nodeId)) return;
 
     const supplyPins = supplyPinsByNode.get(nodeId) ?? [];
-    const minLimit = Math.min(
-      ...supplyPins.flatMap((pin) => pin.voltageMin !== undefined ? [pin.voltageMin] : []),
-    );
     const maxLimit = Math.max(
       ...supplyPins.flatMap((pin) => pin.voltageMax !== undefined ? [pin.voltageMax] : []),
     );
+    const voltageDropLimits = voltageDropLimitsByGroup.get(key);
     const voltages = group.flatMap((result) => (
       result.deltaVoltageV !== undefined ? [result.deltaVoltageV] : []
     ));
@@ -1265,15 +1315,32 @@ const createLedStripVoltageRangeIssues = (
     const maxVoltage = Math.max(...voltages);
     const target = [{type: "node" as const, nodeId}];
 
-    if(Number.isFinite(minLimit) && minVoltage < minLimit - VOLTAGE_TOLERANCE_V) {
+    if(
+      voltageDropLimits &&
+      minVoltage < voltageDropLimits.errorLimitV - VOLTAGE_TOLERANCE_V
+    ) {
       issues.push(issue(
         `simulation-led-strip-voltage-drop-high:${key}`,
         simulationIssueText("ledStripVoltageDropHigh.title"),
         simulationIssueText("ledStripVoltageDropHigh.description", {
-          voltage: minVoltage.toFixed(3),
-          limit: minLimit.toFixed(3),
+          voltage: simulationIssueVoltage(minVoltage),
+          limit: simulationIssueVoltage(voltageDropLimits.errorLimitV),
         }),
         target,
+      ));
+    } else if(
+      voltageDropLimits &&
+      minVoltage < voltageDropLimits.warningLimitV - VOLTAGE_TOLERANCE_V
+    ) {
+      issues.push(issue(
+        `simulation-led-strip-voltage-drop-warning:${key}`,
+        simulationIssueText("ledStripVoltageDropWarning.title"),
+        simulationIssueText("ledStripVoltageDropWarning.description", {
+          voltage: simulationIssueVoltage(minVoltage),
+          limit: simulationIssueVoltage(voltageDropLimits.warningLimitV),
+        }),
+        target,
+        "warning",
       ));
     }
 
@@ -1282,8 +1349,8 @@ const createLedStripVoltageRangeIssues = (
         `simulation-led-strip-voltage-high:${key}`,
         simulationIssueText("ledStripVoltageHigh.title"),
         simulationIssueText("ledStripVoltageHigh.description", {
-          voltage: maxVoltage.toFixed(3),
-          limit: maxLimit.toFixed(3),
+          voltage: simulationIssueVoltage(maxVoltage),
+          limit: simulationIssueVoltage(maxLimit),
         }),
         target,
       ));
@@ -1429,8 +1496,8 @@ const createSolvedCheckIssues = (
           `simulation-dcdc-input-power-limit:${source.elementId}`,
           simulationIssueText("dcdcInputPowerLimited.title"),
           simulationIssueText("dcdcInputPowerLimited.description", {
-            current: currentA.toFixed(3),
-            limit: currentLimitA.toFixed(3),
+            current: simulationIssueCurrent(currentA),
+            limit: simulationIssueCurrent(currentLimitA),
           }),
           [{type: "element", elementId: source.elementId}],
         ));
@@ -1439,12 +1506,12 @@ const createSolvedCheckIssues = (
 
       const description = currentA > currentLimitA + CURRENT_LIMIT_TOLERANCE_A
         ? simulationIssueText("currentLimit.description", {
-          current: currentA.toFixed(3),
-          limit: currentLimitA.toFixed(3),
+          current: simulationIssueCurrent(currentA),
+          limit: simulationIssueCurrent(currentLimitA),
         })
         : simulationIssueText("currentLimitReduced.description", {
-          current: currentA.toFixed(3),
-          limit: currentLimitA.toFixed(3),
+          current: simulationIssueCurrent(currentA),
+          limit: simulationIssueCurrent(currentLimitA),
         });
       issues.push(issue(
         `simulation-current-limit:${source.elementId}`,
@@ -1479,8 +1546,8 @@ const createSolvedCheckIssues = (
         `simulation-fuse-current:${element.id}`,
         simulationIssueText("fuseCurrent.title"),
         simulationIssueText("fuseCurrent.description", {
-          current: currentA.toFixed(3),
-          limit: nominalCurrentA.toFixed(3),
+          current: simulationIssueCurrent(currentA),
+          limit: simulationIssueCurrent(nominalCurrentA),
         }),
         [{type: "element", elementId: element.id}],
       ));
