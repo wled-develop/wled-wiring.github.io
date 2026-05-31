@@ -68,7 +68,7 @@ export default defineComponent({
       {
         "id": "source_current",
         "type": "number",
-        "name": "Iout",
+        "name": "Imax",
         "value": 3,
         "min": 0,
         "max": 5,

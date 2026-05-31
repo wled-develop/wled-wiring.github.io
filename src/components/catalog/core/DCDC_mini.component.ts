@@ -177,6 +177,20 @@ export default defineComponent({
           "color": "black",
           "fieldWidth": 70
         }
+      },
+      {
+        "id": "source_current",
+        "type": "number",
+        "name": "Imax",
+        "value": 1,
+        "min": 0.1,
+        "max": 3,
+        "step": 0.1,
+        "unit": "A",
+        "ui": {
+          "color": "black",
+          "fieldWidth": 70
+        }
       }
     ],
     "simulation": {
