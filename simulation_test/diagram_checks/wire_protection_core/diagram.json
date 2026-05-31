@@ -1,0 +1,205 @@
+{
+  "nodes": [
+    {
+      "id": "psu-direct",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 10, "min": 0, "max": 100, "step": 1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "VOUT", "name": "VOUT", "functions": ["suppl_out"] }
+        ]
+      }
+    },
+    {
+      "id": "load-direct",
+      "type": "general-component-type",
+      "position": { "x": 200, "y": 0 },
+      "data": {
+        "technicalID": "TEST_LOAD",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"] }
+        ]
+      }
+    },
+    {
+      "id": "psu-fused",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 120 },
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 10, "min": 0, "max": 100, "step": 1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "VOUT", "name": "VOUT", "functions": ["suppl_out"] }
+        ]
+      }
+    },
+    {
+      "id": "fuse-high",
+      "type": "general-component-type",
+      "position": { "x": 160, "y": 120 },
+      "data": {
+        "technicalID": "TEST_FUSE",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "IN", "name": "IN", "functions": ["suppl_in"] },
+          { "hid": "OUT", "name": "OUT", "functions": ["suppl_out"] }
+        ],
+        "internalConnections": [
+          { "kind": "fuse", "fromHandle": "IN", "toHandle": "OUT", "fuseId": "F1", "nominalCurrent": 5 }
+        ]
+      }
+    },
+    {
+      "id": "load-fused",
+      "type": "general-component-type",
+      "position": { "x": 340, "y": 120 },
+      "data": {
+        "technicalID": "TEST_LOAD",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"] }
+        ]
+      }
+    },
+    {
+      "id": "psu-led",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 240 },
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 12, "min": 0, "max": 100, "step": 1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "VOUT", "name": "VOUT", "functions": ["suppl_out"] }
+        ]
+      }
+    },
+    {
+      "id": "led-imax",
+      "type": "general-component-type",
+      "position": { "x": 220, "y": 240 },
+      "data": {
+        "technicalID": "TEST_DIGITAL_LED",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "VCC_start", "name": "VCC", "functions": ["suppl_in"], "Imax": 10 },
+          { "hid": "DATA_start", "name": "DATA", "functions": ["dig_in"] }
+        ]
+      }
+    },
+    {
+      "id": "supply-ref",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 360 },
+      "data": {
+        "technicalID": "TEST_SUPPLY_REF",
+        "technicalVersion": 1,
+        "group": "psu",
+        "handles": [
+          { "hid": "VOUT", "name": "VOUT", "functions": ["suppl_out"] },
+          { "hid": "GND", "name": "GND", "functions": ["gnd"] }
+        ]
+      }
+    },
+    {
+      "id": "component-ground",
+      "type": "general-component-type",
+      "position": { "x": 220, "y": 360 },
+      "data": {
+        "technicalID": "TEST_COMPONENT",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"] },
+          { "hid": "GND", "name": "GND", "functions": ["gnd"] }
+        ]
+      }
+    },
+    {
+      "id": "usb-psu-ok",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 520 },
+      "data": {
+        "technicalID": "TEST_USB_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 1, "min": 0, "max": 5, "step": 0.1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "USB", "name": "USB", "functions": ["usb_power_out"] }
+        ]
+      }
+    },
+    {
+      "id": "usb-device-ok",
+      "type": "general-component-type",
+      "position": { "x": 220, "y": 520 },
+      "data": {
+        "technicalID": "TEST_USB_DEVICE",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "USB", "name": "USB", "functions": ["usb_full"] }
+        ]
+      }
+    },
+    {
+      "id": "usb-psu-small",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 640 },
+      "data": {
+        "technicalID": "TEST_USB_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 1, "min": 0, "max": 5, "step": 0.1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "USB", "name": "USB", "functions": ["usb_power_out"] }
+        ]
+      }
+    },
+    {
+      "id": "usb-device-small",
+      "type": "general-component-type",
+      "position": { "x": 220, "y": 640 },
+      "data": {
+        "technicalID": "TEST_USB_DEVICE",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "USB", "name": "USB", "functions": ["usb_full"] }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "wire-source-too-small", "source": "psu-direct", "target": "load-direct", "sourceHandle": "VOUT", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-to-fuse", "source": "psu-fused", "target": "fuse-high", "sourceHandle": "VOUT", "targetHandle": "IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-fused-too-small", "source": "fuse-high", "target": "load-fused", "sourceHandle": "OUT", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-led-imax", "source": "psu-led", "target": "led-imax", "sourceHandle": "VOUT", "targetHandle": "VCC_start", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-component-supply", "source": "supply-ref", "target": "component-ground", "sourceHandle": "VOUT", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 1.5, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-component-gnd-small", "source": "supply-ref", "target": "component-ground", "sourceHandle": "GND", "targetHandle": "GND", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-usb-awg26-ok", "source": "usb-psu-ok", "target": "usb-device-ok", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 26, "physCrosssectionUnit": "AWG" } },
+    { "id": "wire-usb-awg28-small", "source": "usb-psu-small", "target": "usb-device-small", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 28, "physCrosssectionUnit": "AWG" } }
+  ]
+}

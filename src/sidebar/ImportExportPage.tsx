@@ -8,6 +8,11 @@ import { useTranslation } from "react-i18next";
 
 import { toPng, toJpeg, toSvg } from 'html-to-image';
 
+import {
+  normalizeDiagramCheckSettings,
+  type DiagramCheckSettings,
+  useDiagramCheckSettingsStore,
+} from '../check/checkSettingsStore';
 import { getCurrentURL, getAdaptedBounds } from '../utils/utils_functions';
 import { createDiagramExportJson } from '../utils/exportModel';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from '../utils/componentTemplateUpdates';
@@ -21,6 +26,7 @@ type ImportedFlow = {
     y: number;
     zoom: number;
   };
+  checkSettings: DiagramCheckSettings;
 };
 
 type WritableFileHandle = {
@@ -133,6 +139,9 @@ const parseImportedFlow = (jsonData: string): ImportedFlow => {
       y: readNumber(viewport.y, 0),
       zoom: readNumber(viewport.zoom, 1),
     },
+    checkSettings: normalizeDiagramCheckSettings(
+      isObject(parsed.checkSettings) ? parsed.checkSettings : undefined,
+    ),
   };
 };
 
@@ -145,6 +154,7 @@ export const ImportExportPage = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
   const [modalApi, modalContextHolder] = Modal.useModal();
   const { clearHistory, takeSnapshot } = useUndoRedo();
+  const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
   const [documentFileName, setDocumentFileName] = useState(DefaultModelFileName);
   const [modelFileHandle, setModelFileHandle] = useState<WritableFileHandle | null>(null);
   const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
@@ -394,6 +404,7 @@ export const ImportExportPage = () => {
     reactFlow.setNodes(flow.nodes);
     reactFlow.setEdges(flow.edges);
     reactFlow.setViewport(flow.viewport);
+    setDiagramCheckSettingsFromExport(flow.checkSettings);
     clearHistory();
     setDocumentFileName(sanitizeModelFileName(fileName));
     setModelFileHandle(fileHandle);

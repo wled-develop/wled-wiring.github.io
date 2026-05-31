@@ -546,6 +546,48 @@
               "description": "This wire is in a supply, GND, or USB net, but length or cross section is missing.",
               "recommendation": "Set length and cross section for this wire."
             },
+            "sourceWireCrossSectionTooSmall": {
+              "title": "Wire at source is too small",
+              "shortDescription": "A wire directly at an energy source is too small for the source current limit.",
+              "description": "This wire is directly connected to an energy source. The wire can carry {{ampacity}} A; {{required}} A is required.",
+              "recommendation": "Choose a larger cross section or an energy source with a lower current limit."
+            },
+            "unfusedSupplyWireCrossSectionTooSmall": {
+              "title": "Unfused supply wire is too small",
+              "shortDescription": "A wire in a directly source-connected supply net is too small.",
+              "description": "This wire is in a net directly connected to an energy source. The wire can carry {{ampacity}} A; {{required}} A is required.",
+              "recommendation": "Choose a larger cross section, a source with a lower current limit, or add a suitable fuse in between."
+            },
+            "fusedSupplyWireCrossSectionTooSmall": {
+              "title": "Fused supply wire is too small",
+              "shortDescription": "The fuse rating does not match the wire cross section.",
+              "description": "This wire is in a net connected to the energy source through a fuse. The fuse rating is too high for the wire ampacity of {{ampacity}} A.",
+              "recommendation": "Increase the cross section or reduce the fuse rating if the connected load does not need that much current."
+            },
+            "ledSupplyInputNotAdequatelyProtected": {
+              "title": "LED supply input is not adequately protected",
+              "shortDescription": "A digital LED supply input is not adequately limited against possible source current.",
+              "description": "{{input}} can carry up to {{limit}} A, but it is not adequately limited by the source or a fuse.",
+              "recommendation": "Add a suitable fuse between the source and LED input or use a source with a lower current limit."
+            },
+            "componentGroundWireCrossSectionSmallerThanSupply": {
+              "title": "Ground wire smaller than supply",
+              "shortDescription": "A ground wire at a component is smaller than a connected supply wire.",
+              "description": "The ground wire is {{crosssection}} mm2; the reference supply wire is {{required}} mm2.",
+              "recommendation": "Ground wires should generally have at least the cross section of the associated supply wires. Check the build carefully."
+            },
+            "ledGroundWireCrossSectionSmallerThanSupply": {
+              "title": "LED ground wire smaller than supply",
+              "shortDescription": "A ground wire at an LED connection area is smaller than the local or nearest supply wire.",
+              "description": "The ground wire is {{crosssection}} mm2; the reference supply wire is {{required}} mm2.",
+              "recommendation": "Ground wires should generally have at least the cross section of the supply wires. Check the build carefully."
+            },
+            "connectorGroundWireCrossSectionSmallerThanBranch": {
+              "title": "Ground backbone smaller than branch",
+              "shortDescription": "A ground wire between connector components is smaller than a downstream ground branch.",
+              "description": "This ground wire is {{crosssection}} mm2; a downstream branch requires {{required}} mm2.",
+              "recommendation": "Because the diagram does not describe the real cable routing, this warning can be a false positive. Check this point manually."
+            },
             "pinWireCrossSectionTooLarge": {
               "title": "Wire does not fit the terminal",
               "shortDescription": "The wire cross section is too large for this pin.",
@@ -861,6 +903,16 @@
     },
     "tools": {
       "title": "Tools",
+      "wireInstallationButton": "Wire installation",
+      "wireInstallationDescription": "Settings for the wire cross-section check.",
+      "wireInstallationTitle": "Wire installation",
+      "wireInstallationTypeLabel": "Installation",
+      "ambientTemperatureLabel": "Ambient temperature",
+      "wireInstallationTypes": {
+        "surface": "On surface",
+        "conduit": "In conduit",
+        "insulatedWall": "In insulated wall"
+      },
       "rerouteAllButton": "Re-route all wires",
       "rerouteAllTooltip": "Sequentially re-route all wires with Pathfinder",
       "rerouteAllDisabledPF": "Only available in Auto/PF connection mode",

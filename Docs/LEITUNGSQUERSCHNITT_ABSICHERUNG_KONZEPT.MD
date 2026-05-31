@@ -214,7 +214,8 @@ Praezise Erkennung:
    - GND-Handles: Handles mit `gnd`, wenn dieselbe Komponente eine Energiequelle ist.
 3. Direkte Source-Wires:
    - Edge ist direkt an einem dieser Handles angeschlossen.
-   - Edge liegt in einem Netz mit `suppl_net_type`, `gnd_net_type` oder `usb_net_type`.
+   - Supply- und USB-Edges liegen in einem `component-linked-elementary-based` Netz mit `suppl_net_type` bzw. `usb_net_type`.
+   - GND-Edges liegen in einem `elementary` Netz mit `gnd_net_type`.
 4. Erweiterung fuer Supply ueber reine Verbindungselemente:
    - Starte vom Supply-Source-Handle.
    - Folge nur Wires und pure Connector-Komponenten (`SolderJoint`, `WAGO_2X`, `WAGO_3X`) in Supply- bzw. USB-Power-Netzen.
@@ -225,7 +226,7 @@ Praezise Erkennung:
 
 Wichtig:
 
-- Fuer GND sollte mindestens die direkt an der Quelle angeschlossene GND-Wire geprueft werden.
+- Fuer GND wird die direkt an der Quelle angeschlossene GND-Wire ueber die Elementary-Netzsicht geprueft.
 - Die Connector-Erweiterung fuer direkte Quellenanbindung gilt nur fuer Supply bzw. USB-Power, nicht fuer GND. Das folgt der Aufgabenentscheidung und vermeidet zusaetzliche GND-Reachability-Annahmen.
 - Bei USB-Wires ist in der Regel klar, dass Supply und GND gemeinsam im Kabel gefuehrt werden. Deshalb wird `usb_net_type` in die Ampacity-Pruefung einbezogen; AWG26/AWG28 werden ueber die festen USB-Sonderwerte bewertet.
 - Bei DCDC-Komponenten gilt `source_current` fuer die energieliefernde Ausgangsseite. Eingangsleitungen des DCDC werden nicht ueber den DCDC-`source_current` als Quelle bewertet.
@@ -354,6 +355,10 @@ Deutscher Meldungsvorschlag:
 Ziel:
 
 GND-Wires an einer Komponente sollen mindestens den groessten Querschnitt der an diese Komponente angeschlossenen Supply-Wires haben.
+
+Implementierungshinweis:
+
+- Die Regel ist mit dem Code-Feature-Flag `ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK = true` kapselbar.
 
 Ausnahmen:
 
@@ -496,23 +501,23 @@ Neue Regression-Cases in `simulation_test\diagram_checks` bzw. bestehendem Diagr
 
 ## Umsetzungsschritte
 
-1. `WireAmpacitySettings` und `wireAmpacity.ts` anlegen.
-2. Diagramm-Export/-Import um `checkSettings.wireAmpacity` erweitern; fuer alte Diagramme Defaults verwenden.
-3. Tools-UI fuer Leitungsverlegung und Umgebungstemperatur ergaenzen.
-4. `runDiagramCheck` optional um Check-Settings erweitern und `DiagramCheckPage` anbinden.
-5. Hilfsfunktionen in `rules.ts` oder neuer Datei `src/check/wireProtection.ts` anlegen:
+- [x] 1. `WireAmpacitySettings` und `wireAmpacity.ts` anlegen.
+- [x] 2. Diagramm-Export/-Import um `checkSettings.wireAmpacity` erweitern; fuer alte Diagramme Defaults verwenden.
+- [x] 3. Tools-UI fuer Leitungsverlegung und Umgebungstemperatur ergaenzen.
+- [x] 4. `runDiagramCheck` optional um Check-Settings erweitern und `DiagramCheckPage` anbinden.
+- [x] 5. Hilfsfunktionen in `rules.ts` oder neuer Datei `src/check/wireProtection.ts` anlegen:
    - Wire-Ampacity aus Edge-Daten.
    - Source-Limits aus Nodes.
    - Fuse-Boundaries aus `internalConnections`.
    - Net-Lookups fuer component-linked-elementary-based Nets.
-6. Regel 1 und 2 implementieren.
-7. Fuse-Graph und Regel 3 implementieren.
-8. LED-Supply-Eingangsregel 4 implementieren.
-9. GND-Komponentenregeln 5 und 6 implementieren.
-10. Connector-GND-Regel 7 mit Code-Feature-Flag implementieren.
-11. Translation-Texte ergaenzen.
-12. Regression-Cases ergaenzen.
-13. `Docs/DIAGRAMM_CHECKS_CONCEPT.MD` mit finalem Implementierungsstand aktualisieren.
+- [x] 6. Regel 1 und 2 implementieren.
+- [x] 7. Fuse-Graph und Regel 3 implementieren.
+- [x] 8. LED-Supply-Eingangsregel 4 implementieren.
+- [x] 9. GND-Komponentenregeln 5 und 6 implementieren.
+- [x] 10. Connector-GND-Regel 7 mit Code-Feature-Flag implementieren.
+- [x] 11. Translation-Texte ergaenzen.
+- [x] 12. Regression-Cases ergaenzen.
+- [x] 13. `Docs/DIAGRAMM_CHECKS_CONCEPT.MD` mit finalem Implementierungsstand aktualisieren.
 
 ## Entschiedene Punkte
 
@@ -523,8 +528,9 @@ Neue Regression-Cases in `simulation_test\diagram_checks` bzw. bestehendem Diagr
 5. `source_current` bei DCDC-Komponenten gilt fuer den energieliefernden Ausgangsstrom.
 6. `usb_net_type` wird in die Ampacity-Pruefung einbezogen. USB-Supply und USB-GND werden als gemeinsam gefuehrte Kabeladern behandelt, soweit die sichtbare USB-Wire dies hergibt.
 7. Regel 7 wird sofort implementiert, aber mit einem Code-Feature-Flag versehen.
-8. Ampacity-Vergleiche verwenden eine Toleranz von `0.01 A`: Fehler nur bei `ampacityA + 0.01 < requiredA`.
-9. Digitale LED-Strip-`suppl_in`-Handles werden zusaetzlich gegen `handle.Imax` geprueft. Eine passende Sicherung darf hoechstens `Imax` haben; ohne passende Sicherung muss `Imax` mindestens `1.25 * source_current` der Quelle abdecken.
+8. Regel 5 ist ebenfalls mit `ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK` als Code-Feature-Flag versehen.
+9. Ampacity-Vergleiche verwenden eine Toleranz von `0.01 A`: Fehler nur bei `ampacityA + 0.01 < requiredA`.
+10. Digitale LED-Strip-`suppl_in`-Handles werden zusaetzlich gegen `handle.Imax` geprueft. Eine passende Sicherung darf hoechstens `Imax` haben; ohne passende Sicherung muss `Imax` mindestens `1.25 * source_current` der Quelle abdecken.
 
 ## Gesamtpruefung
 

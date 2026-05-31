@@ -517,6 +517,48 @@
               "description": "此导线位于供电、GND 或 USB 网络中，但缺少长度或横截面积。",
               "recommendation": "为此导线设置长度和横截面积。"
             },
+            "sourceWireCrossSectionTooSmall": {
+              "title": "电源附近导线过细",
+              "shortDescription": "直接连接到电源的导线无法承受该电源限流值。",
+              "description": "这根导线直接连接到电源。导线可承载 {{ampacity}} A，需要 {{required}} A。",
+              "recommendation": "请选择更大的截面积，或使用限流值更低的电源。"
+            },
+            "unfusedSupplyWireCrossSectionTooSmall": {
+              "title": "未熔断保护的供电导线过细",
+              "shortDescription": "直接连接电源的供电网络中有一根导线过细。",
+              "description": "这根导线位于直接连接电源的网络中。导线可承载 {{ampacity}} A，需要 {{required}} A。",
+              "recommendation": "请选择更大的截面积、限流值更低的电源，或在中间加入合适的保险丝。"
+            },
+            "fusedSupplyWireCrossSectionTooSmall": {
+              "title": "保险丝后的供电导线过细",
+              "shortDescription": "保险丝额定电流与导线截面积不匹配。",
+              "description": "这根导线所在网络通过保险丝连接到电源。保险丝额定电流相对于 {{ampacity}} A 的导线载流能力过高。",
+              "recommendation": "增大导线截面积；如果负载不需要这么大电流，请降低保险丝额定值。"
+            },
+            "ledSupplyInputNotAdequatelyProtected": {
+              "title": "LED 供电输入保护不足",
+              "shortDescription": "数字 LED 的供电输入没有被电源或保险丝充分限流。",
+              "description": "{{input}} 最多可承载 {{limit}} A，但没有被电源或保险丝充分限制。",
+              "recommendation": "在电源和 LED 输入之间加入合适的保险丝，或使用限流值更低的电源。"
+            },
+            "componentGroundWireCrossSectionSmallerThanSupply": {
+              "title": "GND 导线小于供电导线",
+              "shortDescription": "组件上的 GND 导线小于已连接的供电导线。",
+              "description": "GND 导线为 {{crosssection}} mm2；参考供电导线为 {{required}} mm2。",
+              "recommendation": "GND 导线通常应至少与对应供电导线的截面积相同。请仔细检查该连接。"
+            },
+            "ledGroundWireCrossSectionSmallerThanSupply": {
+              "title": "LED GND 导线小于供电导线",
+              "shortDescription": "LED 连接区域的 GND 导线小于本地或最近的供电导线。",
+              "description": "GND 导线为 {{crosssection}} mm2；参考供电导线为 {{required}} mm2。",
+              "recommendation": "GND 导线通常应至少与供电导线的截面积相同。请仔细检查该连接。"
+            },
+            "connectorGroundWireCrossSectionSmallerThanBranch": {
+              "title": "GND 主干小于分支",
+              "shortDescription": "连接件之间的 GND 导线小于后续 GND 分支。",
+              "description": "这根 GND 导线为 {{crosssection}} mm2；后续分支需要 {{required}} mm2。",
+              "recommendation": "由于图中没有实际布线方式，此警告可能是假阳性。请手动检查该位置。"
+            },
             "pinWireCrossSectionTooLarge": {
               "title": "导线无法接到此端子",
               "shortDescription": "此导线横截面积对该引脚过大。",
@@ -831,6 +873,16 @@
       }
     },
     "tools": {
+      "wireInstallationButton": "导线敷设",
+      "wireInstallationDescription": "导线截面积检查的设置。",
+      "wireInstallationTitle": "导线敷设",
+      "wireInstallationTypeLabel": "敷设方式",
+      "ambientTemperatureLabel": "环境温度",
+      "wireInstallationTypes": {
+        "surface": "表面敷设",
+        "conduit": "穿管敷设",
+        "insulatedWall": "保温墙内"
+      },
       "title": "工具",
       "rerouteAllButton": "重新布线全部导线",
       "rerouteAllTooltip": "使用 Pathfinder 顺序重新布线全部导线",

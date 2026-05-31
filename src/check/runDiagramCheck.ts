@@ -2,6 +2,10 @@ import type { Edge, Node } from '@xyflow/react';
 
 import i18next from '../i18n';
 import type { ComponentDataType, EdgeDataType } from '../types';
+import {
+  normalizeDiagramCheckSettings,
+  type DiagramCheckSettings,
+} from './checkSettingsStore';
 import { createDiagramCheckContext } from './checkContext';
 import type { DiagramCheckDeduplicationMode, DiagramCheckIssue } from './diagramCheckTypes';
 import { normalizeDiagramCheckIssues } from './normalizeDiagramCheckIssues';
@@ -12,10 +16,12 @@ export const DEFAULT_DIAGRAM_CHECK_DEDUPLICATION_MODE: DiagramCheckDeduplication
 type DiagramExportModel = {
   nodes?: Node<ComponentDataType>[];
   edges?: Edge<EdgeDataType>[];
+  checkSettings?: Partial<DiagramCheckSettings>;
 };
 
 type RunDiagramCheckOptions = {
   deduplicationMode?: DiagramCheckDeduplicationMode;
+  checkSettings?: Partial<DiagramCheckSettings>;
 };
 
 export function createDiagramCheckContextFromJson(jsonData: string) {
@@ -33,6 +39,7 @@ export function runDiagramCheck(
   const deduplicationMode = options.deduplicationMode || DEFAULT_DIAGRAM_CHECK_DEDUPLICATION_MODE;
   const model = JSON.parse(jsonData) as DiagramExportModel;
   const nodes = model.nodes || [];
+  const settings = normalizeDiagramCheckSettings(options.checkSettings || model.checkSettings);
 
   if (nodes.length === 0) {
     const t = i18next.getFixedT(null, 'main', 'sidebar.check.issues.diagramEmpty');
@@ -56,7 +63,7 @@ export function runDiagramCheck(
   }
 
   const context = createDiagramCheckContextFromJson(jsonData);
-  const rawIssues = diagramCheckRules.flatMap((rule) => rule.check(context));
+  const rawIssues = diagramCheckRules.flatMap((rule) => rule.check(context, settings));
 
   if (deduplicationMode === 'diagnostic') {
     return rawIssues;

@@ -546,6 +546,48 @@
               "description": "Diese Leitung liegt in einem Versorgungs-, GND- oder USB-Netz, aber Laenge oder Querschnitt fehlen.",
               "recommendation": "Setze Laenge und Querschnitt fuer diese Leitung."
             },
+            "sourceWireCrossSectionTooSmall": {
+              "title": "Leitung an Quelle zu klein",
+              "shortDescription": "Eine direkt quellennahe Leitung ist fuer das Stromlimit der Quelle zu klein.",
+              "description": "Die Leitung ist direkt an eine Energiequelle angeschlossen. Die Leitung kann {{ampacity}} A tragen, erforderlich sind {{required}} A.",
+              "recommendation": "Waehlen Sie einen groesseren Querschnitt oder eine Energiequelle mit kleinerem Stromlimit."
+            },
+            "unfusedSupplyWireCrossSectionTooSmall": {
+              "title": "Ungesicherte Supply-Leitung zu klein",
+              "shortDescription": "Eine Leitung liegt in einem direkt quellenangebundenen Supply-Netz und ist zu klein.",
+              "description": "Diese Leitung liegt in einem Netz, das direkt an eine Energiequelle angeschlossen ist. Die Leitung kann {{ampacity}} A tragen, erforderlich sind {{required}} A.",
+              "recommendation": "Waehlen Sie einen groesseren Querschnitt, eine Energiequelle mit kleinerem Stromlimit oder setzen Sie eine passende Sicherung dazwischen."
+            },
+            "fusedSupplyWireCrossSectionTooSmall": {
+              "title": "Supply-Leitung hinter Sicherung zu klein",
+              "shortDescription": "Der Sicherungsnennstrom passt nicht zum Leitungsquerschnitt.",
+              "description": "Diese Leitung liegt in einem Netz, das ueber eine Sicherung mit der Energiequelle verbunden ist. Der Sicherungsnennstrom ist fuer die Stromtragfaehigkeit von {{ampacity}} A zu hoch.",
+              "recommendation": "Erhoehen Sie den Querschnitt oder verringern Sie den Sicherungsnennwert, wenn der angeschlossene Verbraucher keinen so hohen Strom benoetigt."
+            },
+            "ledSupplyInputNotAdequatelyProtected": {
+              "title": "LED-Versorgungseingang nicht ausreichend geschuetzt",
+              "shortDescription": "Ein digitaler LED-Supply-Eingang ist gegen moeglichen Quellenstrom nicht ausreichend begrenzt.",
+              "description": "{{input}} kann maximal {{limit}} A tragen, ist aber nicht durch Quelle oder Sicherung ausreichend begrenzt.",
+              "recommendation": "Setzen Sie zwischen Quelle und LED-Eingang eine passende Sicherung oder verwenden Sie eine Quelle mit kleinerem Stromlimit."
+            },
+            "componentGroundWireCrossSectionSmallerThanSupply": {
+              "title": "Masseleitung kleiner als Versorgung",
+              "shortDescription": "Eine GND-Leitung an einer Komponente ist kleiner als eine angeschlossene Supply-Leitung.",
+              "description": "Die Masseleitung hat {{crosssection}} mm2, die Referenz-Versorgungsleitung {{required}} mm2.",
+              "recommendation": "Masseleitungen sollten in der Regel mindestens den Querschnitt der zugehoerigen Versorgungsleitungen haben. Pruefen Sie den Aufbau genau."
+            },
+            "ledGroundWireCrossSectionSmallerThanSupply": {
+              "title": "LED-Masseleitung kleiner als Versorgung",
+              "shortDescription": "Eine GND-Leitung an einem LED-Anschlussbereich ist kleiner als die lokale oder naechstliegende Supply-Leitung.",
+              "description": "Die Masseleitung hat {{crosssection}} mm2, die Referenz-Versorgungsleitung {{required}} mm2.",
+              "recommendation": "Masseleitungen sollten in der Regel mindestens den Querschnitt der Versorgungsleitungen haben. Pruefen Sie den Aufbau genau."
+            },
+            "connectorGroundWireCrossSectionSmallerThanBranch": {
+              "title": "Masse-Verteilerleitung kleiner als Abgang",
+              "shortDescription": "Eine GND-Leitung zwischen Verbindungselementen ist kleiner als ein nachgelagerter GND-Abgang.",
+              "description": "Diese Masseleitung hat {{crosssection}} mm2, ein nachgelagerter Abgang erfordert {{required}} mm2.",
+              "recommendation": "Da im Diagramm keine reale Verlegung erfasst ist, kann diese Meldung falsch-positiv sein. Pruefen Sie die Stelle manuell."
+            },
             "pinWireCrossSectionTooLarge": {
               "title": "Leitung passt nicht an den Anschluss",
               "shortDescription": "Der Leitungsquerschnitt ist fuer diesen Pin zu gross.",
@@ -861,6 +903,16 @@
     },
     "tools": {
       "title": "Tools",
+      "wireInstallationButton": "Leitungsverlegung",
+      "wireInstallationDescription": "Einstellungen fuer die Leitungsquerschnitt-Pruefung.",
+      "wireInstallationTitle": "Leitungsverlegung",
+      "wireInstallationTypeLabel": "Verlegung",
+      "ambientTemperatureLabel": "Umgebungstemperatur",
+      "wireInstallationTypes": {
+        "surface": "Auf Oberflaeche",
+        "conduit": "In Elektrorohr",
+        "insulatedWall": "In waermegedaemmter Wand"
+      },
       "rerouteAllButton": "Alle Wires neu routen",
       "rerouteAllTooltip": "Alle Wires sequenziell mit Pathfinder neu routen",
       "rerouteAllDisabledPF": "Nur im Auto/PF-Verbindungsmodus verfügbar",

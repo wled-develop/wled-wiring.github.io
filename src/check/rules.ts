@@ -5,17 +5,19 @@ import type { ComponentDataType, EdgeDataType } from '../types';
 import { normalizeWireCrosssectionToMm2 } from '../simulation/wireResistance';
 import { getComponentDisplayName } from '../utils/componentDisplayName';
 import { readableWireLabel } from '../utils/wireLabel';
+import type { DiagramCheckSettings } from './checkSettingsStore';
 import type { CheckHandle, CheckInvalidWire, CheckNet, CheckNetClassification, DiagramCheckContext } from './checkContext';
 import { describeHandle } from './checkContext';
 import { runComponentSpecificRules } from './componentSpecificRules';
 import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarget } from './diagramCheckTypes';
+import { checkWireProtectionRules } from './wireProtection';
 
 export type DiagramCheckRule = {
   id: string;
   title: string;
   description: string;
   issueKeys: string[];
-  check: (context: DiagramCheckContext) => DiagramCheckIssue[];
+  check: (context: DiagramCheckContext, settings: DiagramCheckSettings) => DiagramCheckIssue[];
 };
 
 export type DiagramCheckRuleInfo = {
@@ -1884,11 +1886,12 @@ const checkUnusedRequiredFunctionalGroup = (context: DiagramCheckContext) => (
   })
 );
 
-const runNetworkRules = (context: DiagramCheckContext) => {
+const runNetworkRules = (context: DiagramCheckContext, settings: DiagramCheckSettings) => {
   const issues: DiagramCheckIssue[] = [
     ...checkWireConnectedToHiddenOrMissingHandle(context),
     ...checkDuplicateParallelWires(context),
     ...checkWireWithoutPhysicalParameters(context),
+    ...checkWireProtectionRules(context, settings.wireAmpacity),
     ...checkPinCrossSectionLimit(context),
     ...checkMainsWireConnectedToLowVoltageComponent(context),
     ...checkFuseBypassed(context),
@@ -2526,6 +2529,13 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'supplyVoltageMismatch',
       'fuseBypassed',
       'wireWithoutPhysicalParameters',
+      'sourceWireCrossSectionTooSmall',
+      'unfusedSupplyWireCrossSectionTooSmall',
+      'fusedSupplyWireCrossSectionTooSmall',
+      'ledSupplyInputNotAdequatelyProtected',
+      'componentGroundWireCrossSectionSmallerThanSupply',
+      'ledGroundWireCrossSectionSmallerThanSupply',
+      'connectorGroundWireCrossSectionSmallerThanBranch',
       'pinWireCrossSectionTooLarge',
       'pinTotalCrossSectionTooLarge',
       'pinWireCrossSectionDifficult',

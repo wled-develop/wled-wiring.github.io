@@ -376,7 +376,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 40
+            "y": 168
           },
           {
             "value": 3,
@@ -387,7 +387,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 40
+            "y": 168
           },
           {
             "value": 4,
@@ -398,7 +398,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 40
+            "y": 168
           },
           {
             "value": 5,
@@ -409,7 +409,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 40
+            "y": 168
           }
         ],
         "ui": {
@@ -520,7 +520,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 168
+            "y": 40
           },
           {
             "value": 3,
@@ -531,7 +531,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 168
+            "y": 40
           },
           {
             "value": 4,
@@ -542,7 +542,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 168
+            "y": 40
           },
           {
             "value": 5,
@@ -553,7 +553,7 @@ export default defineComponent({
               "height": 20
             },
             "x": 88,
-            "y": 168
+            "y": 40
           }
         ],
         "ui": {
