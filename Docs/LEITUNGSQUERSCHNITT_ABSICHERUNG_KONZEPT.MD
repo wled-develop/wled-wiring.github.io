@@ -134,6 +134,7 @@ Empfohlene Rule-IDs:
 - `sourceWireCrossSectionTooSmall`
 - `unfusedSupplyWireCrossSectionTooSmall`
 - `fusedSupplyWireCrossSectionTooSmall`
+- `ledSupplyInputNotAdequatelyProtected`
 - `componentGroundWireCrossSectionSmallerThanSupply`
 - `ledGroundWireCrossSectionSmallerThanSupply`
 - `connectorGroundWireCrossSectionSmallerThanBranch`
@@ -144,8 +145,8 @@ Keine neue Diagnose fuer nicht auswertbare Sicherungsnennwerte einfuehren. Dafue
 
 Severity:
 
-- Regeln 1 bis 3: `error`, weil Leitungen nicht ausreichend gegen Ueberstrom begrenzt sind.
-- Regeln 4 bis 6: `warning`, weil es eine fachlich wichtige Rueckleiter-Plausibilitaet ist, aber ohne reale Verlegung und Lastverteilung false positives moeglich sind.
+- Regeln 1 bis 4: `error`, weil Leitungen oder LED-Supply-Eingaenge nicht ausreichend gegen Ueberstrom begrenzt sind.
+- Regeln 5 bis 7: `warning`, weil es eine fachlich wichtige Rueckleiter-Plausibilitaet ist, aber ohne reale Verlegung und Lastverteilung false positives moeglich sind.
 
 Vergleichstoleranz:
 
@@ -195,6 +196,9 @@ Hilfsfunktionen:
   - Fuer allgemeine vorhandene Network Rules bleibt `componentLinkedNets`.
 - `isPureConnector(node)`
   - `SolderJoint`, `WAGO_2X`, `WAGO_3X`.
+- `isDigitalLedStrip(node)`
+  - `node.data.group === "led"` und mindestens ein sichtbarer Handle hat eine digitale LED-Signalfunktion wie `dig_in`, `dig_out`, `dig_clock_in`, `dig_clock_out`, `dig_backup_in` oder `dig_backup_out`.
+  - Dadurch werden nur digitale LED-Strips fuer die LED-Supply-Eingangsregel betrachtet; analoge LED-Komponenten werden nicht ohne ausdrueckliche Entscheidung einbezogen.
 
 ## Regel 1: Leitung direkt an Energiequelle
 
@@ -293,7 +297,59 @@ Deutscher Meldungsvorschlag:
 
 "Die Leitung liegt in einem Netz, das ueber eine Sicherung mit der Energiequelle verbunden ist. Der Nennstrom der Sicherung passt jedoch nicht zum Querschnitt der Leitung. Erhoehen Sie den Querschnitt oder verringern Sie den Sicherungsnennwert, wenn der angeschlossene Verbraucher keinen so hohen Strom benoetigt."
 
-## Regel 4: GND-Leitung an normaler Komponente
+## Regel 4: Supply-Eingang an digitalem LED-Strip
+
+Ziel:
+
+Digitale LED-Strips koennen Versorgung ueber mehrere Einspeisepunkte intern weiterleiten und verhalten sich damit teilweise wie eine Leitung. Jeder `suppl_in`-Handle eines digitalen LED-Strips besitzt ein `Imax`. Dieser Wert beschreibt den maximal zulaessigen Strom, der ueber diesen Supply-Eingang bzw. den angrenzenden internen Strip-Abschnitt fliessen darf.
+
+Ein solcher Supply-Eingang ist unzureichend geschuetzt, wenn zwischen ihm und einer Energiequelle kein ausreichend kleiner Sicherungsnennwert liegt und die Quelle selbst mehr Strom liefern kann, als der Eingang vertragen darf.
+
+Pruefumfang:
+
+- Nur digitale LED-Strip-Komponenten werden betrachtet.
+- Nur Handles mit Funktion `suppl_in` werden geprueft.
+- GND-Handles werden hier nicht geprueft, weil sie durch Regel 6 abgedeckt werden.
+- Der Handle muss ein numerisches `Imax > 0` besitzen. Fehlt `Imax`, sollte keine harte Schutzmeldung geraten werden; optional kann spaeter eine Entwicklerdiagnose fuer unvollstaendige Komponentenmetadaten greifen.
+
+Schutzbedingung:
+
+Ein LED-Supply-Eingang ist ausreichend geschuetzt, wenn fuer jeden moeglichen Pfad zu einer Energiequelle mindestens eine der folgenden Bedingungen gilt:
+
+1. Auf dem Pfad liegt eine auswertbare Sicherung mit `nominalCurrentA <= handle.Imax + 0.01`.
+2. Der Pfad erreicht die Quelle ohne passende Sicherung, aber `handle.Imax + 0.01 >= 1.25 * source_current` der Energiequelle.
+
+Wenn es mehrere Quellen oder mehrere Parallelpfade gibt, reicht ein unsicherer Pfad fuer eine Fehlermeldung. Das entspricht Regel 3: Ein einziger moeglicher Fehlerstrompfad ohne passende Begrenzung kann den betroffenen Eingang ueberlasten.
+
+Graphmodell:
+
+- Wiederverwendung des Fuse-Graphs aus Regel 3.
+- Start ist das `componentLinkedElementaryBasedNet` des jeweiligen LED-`suppl_in`-Handles.
+- Quellen sind die Netze mit Regel-1-Quelle bzw. mit `source_current`-Quelle.
+- Eine Sicherung mit unbekanntem Nennwert macht den betroffenen Pfad unentscheidbar. In diesem Fall keine harte Regel-4-Meldung erzeugen; die vorhandene Diagnose `fuseCurrentMissingOrUnderspecified` beschreibt die fehlende Sicherungsinformation.
+
+Algorithmus:
+
+1. Sammle alle digitalen LED-Strip-Komponenten.
+2. Sammle deren sichtbare `suppl_in`-Handles mit numerischem `Imax > 0`.
+3. Ermittle fuer jeden solchen Handle das `componentLinkedElementaryBasedNet`.
+4. Traversiere vom Netzknoten ueber den Fuse-Graph Richtung Quellen.
+5. Fuehre pro Traversal-State `hasProtectiveLimitOnPath`:
+   - Beim Ueberqueren einer Sicherung mit `nominalCurrentA <= handle.Imax + 0.01` wird `hasProtectiveLimitOnPath = true`.
+   - Beim Ueberqueren einer groesseren Sicherung bleibt der State unveraendert.
+   - Bei unbekanntem Sicherungsnennwert wird der Pfad als unentscheidbar markiert.
+6. Wird eine Quelle erreicht:
+   - Wenn `hasProtectiveLimitOnPath === true`, ist dieser Pfad geschuetzt.
+   - Wenn keine passende Sicherung auf dem Pfad liegt, pruefe `handle.Imax + 0.01 >= 1.25 * source_current`.
+   - Ist auch diese Bedingung nicht erfuellt, ist der LED-Supply-Eingang unsicher.
+7. Wird mindestens ein unsicherer Pfad gefunden, erzeuge `ledSupplyInputNotAdequatelyProtected`.
+8. Werden Quellen nur ueber unentscheidbare Pfade erreicht, keine harte Meldung erzeugen; die Fuse-Metadaten-Diagnose soll sichtbar bleiben.
+
+Deutscher Meldungsvorschlag:
+
+"Der Versorgungseingang dieses digitalen LED-Streifens kann weniger Strom tragen, als die vorgeschaltete Energiequelle im Normal- oder Fehlerfall liefern kann. Setzen Sie zwischen Quelle und LED-Eingang eine passende Sicherung mit hoechstens dem zulaessigen Eingangsstrom ein oder verwenden Sie eine Quelle mit kleinerem Stromlimit."
+
+## Regel 5: GND-Leitung an normaler Komponente
 
 Ziel:
 
@@ -304,7 +360,7 @@ Ausnahmen:
 - `SolderJoint`
 - `WAGO_2X`
 - `WAGO_3X`
-- LED-Strips bzw. `node.data.group === "led"`; diese werden in Regel 5 behandelt.
+- LED-Strips bzw. `node.data.group === "led"`; diese werden in Regel 6 behandelt.
 
 Algorithmus:
 
@@ -319,7 +375,7 @@ Deutscher Meldungsvorschlag:
 
 "Die Masseleitung an dieser Komponente ist kleiner als eine angeschlossene Versorgungsleitung. Masseleitungen sollten in der Regel mindestens den Querschnitt der zugehoerigen Versorgungsleitungen haben. Pruefen Sie den Aufbau genau."
 
-## Regel 5: GND-Leitung an LED-Strip-Komponente
+## Regel 6: GND-Leitung an LED-Strip-Komponente
 
 Ziel:
 
@@ -355,7 +411,7 @@ Deutscher Meldungsvorschlag:
 
 "Die Masseleitung an diesem LED-Anschlussbereich ist kleiner als die zugehoerige oder naechstliegende Versorgungsleitung. Masseleitungen sollten in der Regel mindestens den Querschnitt der Versorgungsleitungen haben. Pruefen Sie den Aufbau genau."
 
-## Regel 6: GND-Leitungen zwischen reinen Verbindungselementen
+## Regel 7: GND-Leitungen zwischen reinen Verbindungselementen
 
 Ziel:
 
@@ -425,13 +481,18 @@ Neue Regression-Cases in `simulation_test\diagram_checks` bzw. bestehendem Diagr
 6. Zwei Sicherungen in Reihe 10 A und 3 A -> Wire 4 A ist geschuetzt, keine Meldung.
 7. Zwei Parallelpfade, einer mit 3 A und einer mit 10 A -> Wire 4 A erzeugt Fehler wegen unsicherem 10-A-Pfad.
 8. Fuse ohne Nennwert -> keine harte Regel-3-Meldung, aber bestehende Fuse-Nennwert-Diagnose.
-9. Normale Komponente mit Supply 1.5 mm2 und GND 0.75 mm2 -> Warnung Regel 4.
-10. LED-Startbereich mit Supply 1.5 mm2 und GND 0.75 mm2 -> Warnung Regel 5.
-11. LED-GND ohne lokalen Supply, aber naechstliegender Supply in Middle/End -> korrekte Referenz.
-12. Connector-GND-Backbone kleiner als Abgang -> Warnung Regel 6.
-13. Fehlender Wire-Querschnitt -> nur `wireWithoutPhysicalParameters`, keine Ampacity-Fehlmeldung.
-14. AWG26 USB-Wire -> mit `1.3 A` auswertbar; Leitungsverlegung und Temperatur aendern diesen Sonderwert nicht.
-15. AWG28 USB-Wire -> mit `0.85 A` auswertbar; Leitungsverlegung und Temperatur aendern diesen Sonderwert nicht.
+9. Digitaler LED-Strip `suppl_in` mit `Imax = 10 A`, direkte Quelle `source_current = 12 A`, keine Sicherung -> Fehler Regel 4, weil `1.25 * 12 A = 15 A`.
+10. Digitaler LED-Strip `suppl_in` mit `Imax = 10 A`, direkte Quelle `source_current = 8 A`, keine Sicherung -> keine Regel-4-Meldung, weil `1.25 * 8 A = 10 A`.
+11. Digitaler LED-Strip `suppl_in` mit `Imax = 10 A`, Quelle ueber Sicherung 10 A -> keine Regel-4-Meldung.
+12. Digitaler LED-Strip `suppl_in` mit `Imax = 10 A`, Quelle ueber Sicherung 15 A -> Fehler Regel 4.
+13. Digitaler LED-Strip `suppl_in` mit `Imax = 10 A`, zwei Parallelpfade mit 10-A- und 15-A-Sicherung -> Fehler Regel 4 wegen unsicherem 15-A-Pfad.
+14. Normale Komponente mit Supply 1.5 mm2 und GND 0.75 mm2 -> Warnung Regel 5.
+15. LED-Startbereich mit Supply 1.5 mm2 und GND 0.75 mm2 -> Warnung Regel 6.
+16. LED-GND ohne lokalen Supply, aber naechstliegender Supply in Middle/End -> korrekte Referenz.
+17. Connector-GND-Backbone kleiner als Abgang -> Warnung Regel 7.
+18. Fehlender Wire-Querschnitt -> nur `wireWithoutPhysicalParameters`, keine Ampacity-Fehlmeldung.
+19. AWG26 USB-Wire -> mit `1.3 A` auswertbar; Leitungsverlegung und Temperatur aendern diesen Sonderwert nicht.
+20. AWG28 USB-Wire -> mit `0.85 A` auswertbar; Leitungsverlegung und Temperatur aendern diesen Sonderwert nicht.
 
 ## Umsetzungsschritte
 
@@ -446,11 +507,12 @@ Neue Regression-Cases in `simulation_test\diagram_checks` bzw. bestehendem Diagr
    - Net-Lookups fuer component-linked-elementary-based Nets.
 6. Regel 1 und 2 implementieren.
 7. Fuse-Graph und Regel 3 implementieren.
-8. GND-Komponentenregeln 4 und 5 implementieren.
-9. Connector-GND-Regel 6 mit Code-Feature-Flag implementieren.
-10. Translation-Texte ergaenzen.
-11. Regression-Cases ergaenzen.
-12. `Docs/DIAGRAMM_CHECKS_CONCEPT.MD` mit finalem Implementierungsstand aktualisieren.
+8. LED-Supply-Eingangsregel 4 implementieren.
+9. GND-Komponentenregeln 5 und 6 implementieren.
+10. Connector-GND-Regel 7 mit Code-Feature-Flag implementieren.
+11. Translation-Texte ergaenzen.
+12. Regression-Cases ergaenzen.
+13. `Docs/DIAGRAMM_CHECKS_CONCEPT.MD` mit finalem Implementierungsstand aktualisieren.
 
 ## Entschiedene Punkte
 
@@ -460,8 +522,9 @@ Neue Regression-Cases in `simulation_test\diagram_checks` bzw. bestehendem Diagr
 4. Bei nicht auswertbarem Sicherungsnennwert wird keine neue Diagnose eingefuehrt; `fuseCurrentMissingOrUnderspecified` reicht.
 5. `source_current` bei DCDC-Komponenten gilt fuer den energieliefernden Ausgangsstrom.
 6. `usb_net_type` wird in die Ampacity-Pruefung einbezogen. USB-Supply und USB-GND werden als gemeinsam gefuehrte Kabeladern behandelt, soweit die sichtbare USB-Wire dies hergibt.
-7. Regel 6 wird sofort implementiert, aber mit einem Code-Feature-Flag versehen.
+7. Regel 7 wird sofort implementiert, aber mit einem Code-Feature-Flag versehen.
 8. Ampacity-Vergleiche verwenden eine Toleranz von `0.01 A`: Fehler nur bei `ampacityA + 0.01 < requiredA`.
+9. Digitale LED-Strip-`suppl_in`-Handles werden zusaetzlich gegen `handle.Imax` geprueft. Eine passende Sicherung darf hoechstens `Imax` haben; ohne passende Sicherung muss `Imax` mindestens `1.25 * source_current` der Quelle abdecken.
 
 ## Gesamtpruefung
 
@@ -470,10 +533,11 @@ Nach Einarbeitung der Entscheidungen ist das Konzept in sich konsistent und mit 
 - Die benoetigten Netzsichten existieren bereits, insbesondere `componentLinkedElementaryBasedNets` als Sicherungsgrenze.
 - `source_current` ist in den relevanten Quellenkomponenten vorhanden und wird bereits in der Simulation als Stromlimit verwendet.
 - `internalConnections.kind === "fuse"` und `nominalCurrentField` passen zur vorgeschlagenen Fuse-Graph-Auswertung.
+- `HandleDataType.Imax` existiert bereits und ist bei digitalen LED-Strip-`suppl_in`-Handles gepflegt.
 - AWG26/AWG28 sind in der vorhandenen AWG-Normalisierung bereits bekannt; fuer Ampacity brauchen sie nur die festgelegten Sonderstromwerte.
 - Die Regeln verwenden keine Lastschaetzung. Sie pruefen Schutzgrenzen durch Quelle, Sicherung oder explizit sichtbare Topologie und bleiben damit innerhalb der Projektvorgabe, keine heuristischen Techniken ohne explizite Anforderung einzufuehren.
-- Regel 6 bleibt fachlich die empfindlichste Regel. Durch Warn-Severity, klare Meldung und Feature-Flag ist sie kontrollierbar.
+- Regel 7 bleibt fachlich die empfindlichste Regel. Durch Warn-Severity, klare Meldung und Feature-Flag ist sie kontrollierbar.
 
 ## Empfehlung
 
-Die Regeln 1 bis 3 sind der fachlich wertvollste Kern und passen besonders gut zur vorhandenen Netzmodellierung. Sie sollten zuerst umgesetzt werden. Regeln 4 und 5 sind ebenfalls sinnvoll, aber als Warnungen. Regel 6 kann gemaess Entscheidung direkt mit umgesetzt werden, sollte aber technisch leicht deaktivierbar bleiben und in Tests besonders auf false-positive-arme Topologien begrenzt werden.
+Die Regeln 1 bis 4 sind der fachlich wertvollste Kern und passen besonders gut zur vorhandenen Netzmodellierung. Sie sollten zuerst umgesetzt werden. Regeln 5 und 6 sind ebenfalls sinnvoll, aber als Warnungen. Regel 7 kann gemaess Entscheidung direkt mit umgesetzt werden, sollte aber technisch leicht deaktivierbar bleiben und in Tests besonders auf false-positive-arme Topologien begrenzt werden.
