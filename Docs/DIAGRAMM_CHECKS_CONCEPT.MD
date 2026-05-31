@@ -966,6 +966,7 @@ Aktueller Stand:
 
 - Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `pinWireCrossSectionTooLarge`, `pinTotalCrossSectionTooLarge`, `pinWireCrossSectionDifficult`, `pinTotalCrossSectionDifficult`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
 - Deaktiviert: `supplyInputOnlyInternallyPowered`, weil die Meldung bei LED-Streifen zu oft irrefuehrend war und durch `supplyInputWithoutSource` bzw. `powerMissing` besser abgedeckt wird.
+- Geplant: Leitungsquerschnitt-gegen-Quelle/Sicherung-Regelgruppe aus `Docs/LEITUNGSQUERSCHNITT_ABSICHERUNG_KONZEPT.MD`. Diese Regeln pruefen Schutzgrenzen durch `source_current`, Sicherungsnennwerte und explizite GND-Topologie, nicht geschaetzte Laststroeme.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
 - Diagnose-/Entwicklerregeln `componentDefinitionIncompleteForChecks` und `ambiguousMultiFunctionHandle` werden technisch erzeugt, aber im normalen `user-friendly`-Modus ausgeblendet. Sie sind in `diagnostic` und `diagnostic-with-suppression-markers` sichtbar.
 - Einige Regeln sind konservativ umgesetzt, um False Positives zu reduzieren: passive Verbinder wie `SolderJoint`, `WAGO_2X` und `WAGO_3X` werden z.B. bei `mainsWireConnectedToLowVoltageComponent` nicht als ungeeignete Endkomponente bewertet.
@@ -1381,7 +1382,37 @@ Moegliche Logik:
 - Bei mehreren auswertbaren Wires `pinTotalCrossSectionDifficult` melden.
 - Severity `warning`, weil Anschliessen oder Anloeten bei diesen Querschnitten schwierig sein kann, aber noch nicht zwingend ausgeschlossen ist.
 
-#### `powerWireCrossSectionTooSmall` NICHT IMPLEMENTIEREN (später nahc simulation)
+#### Leitungsquerschnitt gegen Quellen und Sicherungen GEPLANT
+
+Geplante Regelgruppe aus `Docs/LEITUNGSQUERSCHNITT_ABSICHERUNG_KONZEPT.MD`.
+
+Regel-IDs:
+
+- `sourceWireCrossSectionTooSmall`
+- `unfusedSupplyWireCrossSectionTooSmall`
+- `fusedSupplyWireCrossSectionTooSmall`
+- `componentGroundWireCrossSectionSmallerThanSupply`
+- `ledGroundWireCrossSectionSmallerThanSupply`
+- `connectorGroundWireCrossSectionSmallerThanBranch`
+
+Fachlicher Zweck:
+
+- Wires direkt an Energiequellen mit `source_current` gegen `1.25 * source_current` pruefen.
+- Ungesicherte Supply-Teilnetze mit direkter Quellenanbindung ebenfalls gegen `1.25 * source_current` pruefen.
+- Supply-Teilnetze hinter Sicherungen gegen die wirksamen Sicherungsnennwerte pruefen.
+- GND-/Rueckleiter an Komponenten und LED-Anschlussbereichen gegen die zugehoerigen Supply-Querschnitte plausibilisieren.
+- GND-Verteilerleitungen zwischen reinen Verbindungselementen als Warnung gegen nachgelagerte GND-Abgaenge pruefen.
+
+Wichtige Entscheidungen:
+
+- Die Regelgruppe schaetzt keine Laststroeme und ersetzt keinen normativen Nachweis.
+- Leitungsverlegung und Umgebungstemperatur werden im Diagramm-Export unter `checkSettings.wireAmpacity` gespeichert; alte Diagramme verwenden `surface` und `25`.
+- AWG26 und AWG28 sind USB-Sonderfaelle mit festen Grenzen `1.3 A` bzw. `0.85 A`, unabhaengig von Verlegung und Temperatur.
+- Bei nicht auswertbarem Sicherungsnennwert wird keine neue Diagnose erzeugt; `fuseCurrentMissingOrUnderspecified` deckt diesen Fall ab.
+- Ampacity-Vergleiche verwenden `0.01 A` Toleranz.
+- Die Connector-GND-Regel wird mit Code-Feature-Flag umgesetzt, damit sie bei zu vielen false positives schnell deaktivierbar bleibt.
+
+#### `powerWireCrossSectionTooSmall` NICHT IMPLEMENTIEREN (spaeter nach Simulation)
 
 Warnung, wenn ein Power-Wire anhand bekannter Lastdaten wahrscheinlich zu duenn ist.
 
@@ -1493,6 +1524,7 @@ Die folgende Tabelle bewertet die vorgeschlagenen Regeln nach fachlicher Anzeige
 | `wireWithoutPhysicalParameters` | 11 | `info` oder `warning` | 40 | 150 | `edge` | Vorbereitung fuer Simulation. Sollte von haerteren Wire-Fehlern wie fehlendem Handle unterdrueckt werden. |
 | `pinWireCrossSectionTooLarge` / `pinTotalCrossSectionTooLarge` | 11 | `error` | 80 | 30 | `handle` | Mechanischer Anschlussgrenzwert. Summiert nur auswertbare Wire-Querschnitte am Pin und ignoriert fehlende/ungueltige Querschnitte in dieser Regel. |
 | `pinWireCrossSectionDifficult` / `pinTotalCrossSectionDifficult` | 11 | `warning` | 55 | 105 | `handle` | Warnbereich fuer mechanisch schwieriges Anschliessen/Anloeten. Wird nicht erzeugt, wenn der absolute Grenzwert bereits ueberschritten ist. |
+| Leitungsquerschnitt gegen Quellen und Sicherungen | 12 | `error`/`warning` | 85 | 32 | `edge`/`net`/`component` | Geplante Schutzgrenzen-Regelgruppe. Fehler fuer Quelle-/Sicherungs-Unterdimensionierung, Warnungen fuer GND-Plausibilitaet. Keine Lastschaetzung; Details in `Docs/LEITUNGSQUERSCHNITT_ABSICHERUNG_KONZEPT.MD`. |
 | `clockedLedClockMissing` | 12 | `error` | 85 | 46 | `component`/`handle` | Sehr konkret fuer Clock-LEDs. Sollte generisches `signalSinkWithoutSource` fuer den Clock-Pin unterdruecken; bei LED-zu-LED-Weiterleitung muss Clock vom selben vorgelagerten Segment kommen wie Data. |
 | `dataDirectionWrong` | 13 | `error` | 80 | 48 | `net`/`handle` | Konkreter als allgemeine Quellen-/Senkenfehler. Kann `signalSinkWithoutSource` oder `multipleSignalSources` fuer denselben digitalen Pfad unterdruecken. |
 | `digitalBackupPairMismatch` | 14 | `warning` oder `error` | 75 | 70 | `component`/`handle` | `error` fuer fehlenden/falschen Backup-Pfad; `warning`, wenn erster Strip-Backup toleriert am Data-Netz statt empfohlen an GND liegt. Bei LED-zu-LED-Weiterleitung muss Backup vom selben vorgelagerten Segment kommen wie Data. |

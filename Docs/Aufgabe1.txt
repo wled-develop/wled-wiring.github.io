@@ -1,0 +1,53 @@
+Prüfe folgendes Konzept auf elektrotechnische Sinnhaftigkeit und Kompatibilität mit der bereits vorhandene Diagramm Implementierung. Erzeuge ein detailliertes Umsetzungskonzept und schriebe in eine Separate Datei in Docs. Bei Offenen Entscheidungen bzw. Fragen schreibe sie auch dort.
+
+Prüfung Leitungsquerschnitt: Im Diagramm Check soll eine Prüfung geben, ob die Leitungsquerschnitte und Pins der Komponenten ausreichend durch die Sicherungen abgesichert sind.
+(1) Leitungen in supply oder gnd Netzen, die von einer der beiden Seiten direkt an eine Komponente mit einem Field mit id=="source_current" angeschlossen sind oder [zu solchen Komponenten rein über pure Verbindungselemente (SolderJoint, WAGO_2X, WAGO_3X) verbunden sind und im supply Netz sind]:
+ - der Querschnitt der Leitung ist zu gering, wenn der maximale tragbare Strom der Leitug kleiner ist als 125% vom source_current Wert (Annahmen: Quellen liefern dauerhaft maximal 125%, dann schalten sie selbst wegen Überlast ab). Die Fehlermeldung soll etwa so lauten (in Deutsch, andere Sparachen übersetzen): Die Leitung ist direkt an eine Energiequelle angeschlossen und diese Quelle kann im Normal- oder Fehlerfall mehr Strom liefern, als die Leitung ohne Überhitzen vertragen kann. Wählen Sie einen größeren Querschnitt oder eien Energiequelle mit kleinerem Stromlimit.
+
+(2) Leitungen in einem "Component-Linked Elementary based Net" vom typ `suppl_net_type`, wobei dieses Component-Linked Elementary based Net eine Leitung vom typ (1) oben beinhaltet (Also Netz direkt an einer Quelle), ausgenommen die Leitungen selbst die unter (1) fallen:
+- der Querschnitt der Leitung ist zu gering, wenn der maximale tragbare Strom der Leitung kleiner ist als 125% vom source_current Wert der Energiequelle (Annahmen: Quellen liefern dauerhaft maximal 125%, dann schalten sie selbst wegen Überlast ab). Die Fehlermeldung soll etwa so lauten (in Deutsch, sprachlich zu korrigieren, andere Sparachen übersetzen): Die Leitung ist in einem Netz, welches direkt an eine Energiequelle angeschlossen ist und diese Quelle kann im Normal- oder Fehlerfall mehr Strom liefern, als die Leitung ohne Überhitzen vertragen kann. Wählen Sie einen größeren Querschnitt, oder eine Energiequelle mit kleinerem Stromlimit, oder bauen Sie dazwischen eine passende Sicherung ein.
+
+(3) Leitungen in einem "Component-Linked Elementary based Net" vom typ `suppl_net_type`, wobei dieses Component-Linked Elementary based Net keine Leitung vom typ (1) oben beinhaltet (Also Netz nicht direkt an einer Quelle, sondern nur von Quelle aus über eine Sicherung erreichbar):
+- der Querschnitt der Leitung ist zu gering, wenn der maximale tragbare Strom der Leitung kleiner ist als Nominalwert der Sicherung. Wenn vom Netz aus zu einer Quelle mehrere Sicherungen in Reihe sind, dann ist der Fehler nur dann, wenn die Bedienung für alle Sicherungen gilt. Wenn Netz über mehrere Parallelpfade erreichbar ist, dann muss die Bedienung für jeden Pfad geprüft werden. Die erfüllung der Bedienung in einem Pfad reicht für den Fehler.
+Als Sicherung gilt eine separate Sicherung Komponente (miniOTO) oder eine internalConnection der Komponente mit kind=fuse.
+Die Fehlermeldung soll etwa so lauten (in Deutsch, sprachlich zu korrigieren, andere Sparachen übersetzen): Die Leitung ist in einem Netz, welches über eine Sicherung an die Quelle angeschlossen ist. Der Nominalwert der Sicherung passt jedoch nicht zum Querschnitt der Leitung. Erhöhe den Querschnitt oder, wenn nicht so viel Strom gebraucht wird, verringere den Nominalwert der Sicherung. 
+
+(4) Leitungen vom typ gnd_net_type, die an einer Komponente (ausgenommen SolderJoint, WAGO_2X, WAGO_3x und LED Strips) angebunden sind: der Querschnitt der Leitung muss mindestens so hoch sein, wie der maximale Querschnitt von allen an diese Komponente angeschlossenen Leitungen in component-linked Netzen vom Typ suppl_net_type. Wenn keine suppl_net_type angeschlossen ist, dann keine Prüfung.
+Bei Verletzung eine Warnung ausgeben (in Deutsch, sprachlich zu korrigieren, andere Sparachen übersetzen): Die Masseleitungen an einer Komponente sollen in der Regel mindestens den Querschnitt von angeschlossenen Versorgungsleitungen haben. Prüfe es für dein Aufbau genau.
+
+(5) Leitungen vom Typ gnd_net_type, die an einer LED Strip Komponente angebunden sind: der Querschnitt der Leitung muss mindestens so hoch sein, wie der maximale Querschnitt von an diese Komponente und diesem Anschlussbereich (Anschlussbereiche _start, middle_N, _end) angeschlossenen Leitungen in component-linked Netzen vom Typ suppl_net_type. Wenn keine suppl_net_type in diesem Anschlussbereich angeschlossen ist, dann die Prüfung die nächstliegende (entlang des Streifens in positive oder negative Richtung) angeschlossene suppl_net_type Leitung nehmen. Wenn gar keine suppl_net_type angeschlossen ist, dann keine Prüfung.
+Bei Verletzung eine Warnung ausgeben (in Deutsch, sprachlich zu korrigieren, andere Sparachen übersetzen): Die Masseleitungen an einer Komponente sollen in der Regel mindestens den Querschnitt von angeschlossenen Versorgungsleitungen haben. Prüfe es für dein Aufbau genau.
+
+(6) Leitungen vom typ gnd_net_type, die nur zwischen reinen Verbindungselementen wie SolderJoint, WAGO_2X, WAGO_3X verlaufen. Beginnend mit den Verbindungselementen, die auch Leitungen direkt zu Komponenten haben, ausgenommen jedoch Leitungen vom Typ (1), prüfen ob eine Verbindung von dem Verbindungselement zum anderen Verbindungselement mindestens den Querschnitt hat, wie der maximale Querschnitt vom Verbindungselement zu einer der Komponenten. Danach auch nächste Abschnitte prüfen, wenn diese Verbindungselemente verbinden, welche nur mit anderen Verbindungselementen verbunden sind. Gleiche Regel, dass der Leitungsquerschnitt nicht niedriger sein darf, als bereits geprüfte Querschnitt.
+Bei Verletzung eine Warnung ausgeben (in Deutsch, sprachlich zu korrigieren, andere Sparachen übersetzen): Die Masseleitungen, die parallel zu Versorgungsleitungen und zu gleichen Komponenten geführt werden, sollen in der Regel mindestens den Querschnitt haben wie die Versorgungsleitung. Die Prüfung hat eine verdächtige Stelle gefunden. Da hier jedoch keine Verlegung eingegeben ist, kann es auch eine falsch-positive Meldung sein. Prüfen Sie es genau manuell. 
+
+Der maximale tragbare Strom der Leitung ermittelt sich in Abhängigkeit von der Leitungsverlegung (Auf Oberfläche, In Elektrorohr oder In wärmegedämmten Wänden) und Umgebungstemperatur. Je nach Leitungsverlegung gibt es drei Grenzen. Hier sind die für mm2 und AWG Leitungen:
+"wires": {
+        "crosssections" : [0.25, 0.34, 0.5, 0.75, 1, 1.5, 2.5, 4, 6],
+        "awgs" : [23, 22, 20, 18, 17, 15, 13, 11, 9],
+        "max_currents" : [
+            [4.5, 6, 7.5, 12, 15, 19.5, 27, 36, 46],
+            [2.8, 4, 6, 9, 11, 16.5, 23, 30, 38],
+            [2, 3, 5, 7, 9, 15.5, 18.5, 25, 32]
+        ]
+    },
+    "wires_us": {
+        "crosssections" : [0.205, 0.324, 0.519, 0.823, 1.31, 2.08, 3.31, 5.26, 8.34],
+        "awgs" : [24, 22, 20, 18, 16, 14, 12, 10, 8],
+        "max_currents" : [
+            [3.7, 5.7, 7.8, 13.2, 17.8, 22.7, 31.1, 39.7, 52.3],
+            [2.3, 3.8, 6.2,  9.9, 14.4, 19.2, 26.2, 33.0, 43.0],
+            [1.6, 2.9, 5.2,  7.7, 12.1, 15.9, 21.5, 27.6, 36.4]
+        ]
+    },
+crosssections ist hier in mm2, Strom in A
+
+Der Einfluss der Temperatur wird durch den Temperaturfaktor berücksichtigt:
+"tempcoeff" :{
+        "temps" : [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+        "factors" : [1.22, 1.17, 1.12, 1.06, 1, 0.94, 0.87, 0.79, 0.71, 0.61, 0.5]
+    },
+
+Temperaturen sind hier in °C.
+
+In Sidebar unter Tools soll ein Button geben "Leitungsverlegung" (in Deutsch, passend übersetzen in andere Sprachen), der ein Bereich öffnet, wo man Leitungsverlegung und Umgebungstemperatur einstellen kann. Default soll "Auf Oberfläche" und 25°C sein.
