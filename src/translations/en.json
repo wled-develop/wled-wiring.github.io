@@ -789,6 +789,7 @@
       "blockedTitle": "Simulation not started",
       "blockedDescription": "Run a current diagram check without errors before starting the simulation.",
       "diagramCheckDebugBypass": "Debug mode: simulation starts without diagram-check gating.",
+      "diagramCheckSettingsBypass": "Advanced setting enabled: simulation starts even if diagram-check errors exist.",
       "diagramCheckGate": {
         "not-checked": {
           "title": "Diagram check required",
@@ -936,6 +937,14 @@
       "rerouteAllDisabledEmpty": "There are no wires in the diagram",
       "rerouteAllDescription": "Routes short component pairs first and keeps wire IDs, connections, and properties.",
       "rerouteAllSuccess": "All wires were re-routed."
+    },
+    "advancedSettings": {
+      "title": "Advanced settings",
+      "simulationSettingsButton": "Simulation settings",
+      "simulationSettingsDescription": "Options for starting the electrical simulation.",
+      "simulationSettingsTitle": "Simulation settings",
+      "allowSimulationWithDiagramCheckErrorsLabel": "Start simulation even when diagram checks report errors",
+      "allowSimulationWithDiagramCheckErrorsDescription": "Use this only when you deliberately want to inspect a diagram that still has check errors. Warnings never block simulation."
     },
     "export": {
       "title": "Save / export / examples",

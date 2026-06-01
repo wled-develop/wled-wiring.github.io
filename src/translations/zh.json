@@ -760,6 +760,7 @@
       "blockedTitle": "Simulation not started",
       "blockedDescription": "Run a current diagram check without errors before starting the simulation.",
       "diagramCheckDebugBypass": "Debug mode: simulation starts without diagram-check gating.",
+      "diagramCheckSettingsBypass": "已启用高级设置：即使布线图检查存在错误，也会启动模拟。",
       "diagramCheckGate": {
         "not-checked": {
           "title": "Diagram check required",
@@ -907,6 +908,14 @@
       "rerouteAllDisabledEmpty": "图中没有导线",
       "rerouteAllDescription": "优先布线距离较短的组件对，并保留导线 ID、连接和属性。",
       "rerouteAllSuccess": "所有导线已重新布线。"
+    },
+    "advancedSettings": {
+      "title": "高级设置",
+      "simulationSettingsButton": "模拟设置",
+      "simulationSettingsDescription": "电气模拟启动选项。",
+      "simulationSettingsTitle": "模拟设置",
+      "allowSimulationWithDiagramCheckErrorsLabel": "即使布线图检查存在错误也启动模拟",
+      "allowSimulationWithDiagramCheckErrorsDescription": "仅在你明确需要检查仍含有检查错误的布线图时使用。警告不会阻止模拟。"
     },
     "export": {
       "title": "保存 / 导出 / 示例",

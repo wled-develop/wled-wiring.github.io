@@ -9,6 +9,7 @@ import {ComponentPage} from './ComponentPage';
 import {ImportExportPage} from './ImportExportPage';
 import {DiagramCheckPage} from './DiagramCheckPage';
 import {ToolsPage} from './ToolsPage';
+import {AdvancedSettingsPage} from './AdvancedSettingsPage';
 import { SimulationPage } from '../simulation/SimulationPage';
 import { ENABLE_SIMULATION_CONTROLS } from '../simulation/simulationFeatureFlags';
 
@@ -72,6 +73,12 @@ const Sidebar = () => {
     key: '5',
     label: <span>{t('sidebar.tools.title')}</span>,
     children: <ToolsPage />,
+    style: panelStyle,
+  },
+  {
+    key: '6',
+    label: <span>{t('sidebar.advancedSettings.title')}</span>,
+    children: <AdvancedSettingsPage />,
     style: panelStyle,
   },
 ];

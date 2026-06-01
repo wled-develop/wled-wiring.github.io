@@ -10,6 +10,7 @@ import { logSimulationDebug } from "./simulationDebug";
 import { runSimulationInWorker, type SimulationWorkerRun } from "./runSimulationInWorker";
 import { useSimulationResultStore, type SimulationDisplayMode } from "./simulationResultStore";
 import { DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK } from "./simulationFeatureFlags";
+import { useSimulationSettingsStore } from "./simulationSettingsStore";
 import type {
   LedSimulationColorMode,
   SimulationCheckIssue,
@@ -25,7 +26,7 @@ import type { ComponentDataType, EdgeDataType } from "../types";
 import { getComponentDisplayName } from "../utils/componentDisplayName";
 
 type SimulationUiStatus = "idle" | "running" | "success" | "failed" | "blocked";
-type SimulationGateState = "ready" | "debug-bypass" | "not-checked" | "stale" | "has-errors";
+type SimulationGateState = "ready" | "debug-bypass" | "settings-bypass" | "not-checked" | "stale" | "has-errors";
 
 const severityColor: Record<SimulationCheckIssue["severity"], string> = {
   error: "red",
@@ -96,6 +97,7 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
   const setSimulationOverlayResult = useSimulationResultStore((state) => state.setResult);
   const diagramCheckResult = useDiagramCheckResultStore((state) => state.result);
   const wireAmpacitySettings = useDiagramCheckSettingsStore((state) => state.settings.wireAmpacity);
+  const allowSimulationWithDiagramCheckErrors = useSimulationSettingsStore((state) => state.allowSimulationWithDiagramCheckErrors);
   const [settings, setSettings] = useState<SimulationSettings>({
     ledColorMode: "RGB_WHITE",
     brightnessPercent: 100,
@@ -127,6 +129,10 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
       return {state: "debug-bypass", errorCount: 0};
     }
 
+    if(allowSimulationWithDiagramCheckErrors) {
+      return {state: "settings-bypass", errorCount: 0};
+    }
+
     if(!diagramCheckResult) {
       return {state: "not-checked", errorCount: 0};
     }
@@ -141,9 +147,9 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
     }
 
     return {state: "ready", errorCount: 0};
-  }, [currentFingerprint, diagramCheckResult]);
+  }, [allowSimulationWithDiagramCheckErrors, currentFingerprint, diagramCheckResult]);
 
-  const simulationBlocked = simulationGate.state !== "ready" && simulationGate.state !== "debug-bypass";
+  const simulationBlocked = simulationGate.state !== "ready" && simulationGate.state !== "debug-bypass" && simulationGate.state !== "settings-bypass";
 
   const colorModeSelectOptions = useMemo(() => (
     colorModeOptions.map((option) => ({
@@ -603,6 +609,14 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
           type="warning"
           showIcon
           message={t("sidebar.simulation.diagramCheckDebugBypass")}
+        />
+      }
+
+      {simulationGate.state === "settings-bypass" &&
+        <Alert
+          type="warning"
+          showIcon
+          message={t("sidebar.simulation.diagramCheckSettingsBypass")}
         />
       }
 

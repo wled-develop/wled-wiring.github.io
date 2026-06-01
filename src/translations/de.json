@@ -789,6 +789,7 @@
       "blockedTitle": "Simulation nicht gestartet",
       "blockedDescription": "Fuehre zuerst eine aktuelle Diagrammpruefung ohne Fehler aus.",
       "diagramCheckDebugBypass": "Debug-Modus: Simulation startet ohne Diagramm-Check-Gating.",
+      "diagramCheckSettingsBypass": "Erweiterte Einstellung aktiv: Simulation startet auch bei Fehlern aus der Diagrammpruefung.",
       "diagramCheckGate": {
         "not-checked": {
           "title": "Diagrammpruefung erforderlich",
@@ -936,6 +937,14 @@
       "rerouteAllDisabledEmpty": "Keine Wires im Diagramm",
       "rerouteAllDescription": "Routet kurze Komponentenpaare zuerst und behält Wire-IDs, Verbindungen und Eigenschaften bei.",
       "rerouteAllSuccess": "Alle Wires wurden neu geroutet."
+    },
+    "advancedSettings": {
+      "title": "Erweiterte Einstellungen",
+      "simulationSettingsButton": "Simulationseinstellungen",
+      "simulationSettingsDescription": "Optionen fuer den Start der elektrischen Simulation.",
+      "simulationSettingsTitle": "Simulationseinstellungen",
+      "allowSimulationWithDiagramCheckErrorsLabel": "Simulation auch bei Fehlern aus Diagrammpruefungen starten",
+      "allowSimulationWithDiagramCheckErrorsDescription": "Nur verwenden, wenn du ein Diagramm bewusst trotz vorhandener Pruefungsfehler untersuchen moechtest. Warnungen blockieren die Simulation nie."
     },
     "export": {
       "title": "Speichern / Export / Beispiele",

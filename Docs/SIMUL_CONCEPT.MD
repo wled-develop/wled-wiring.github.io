@@ -6,7 +6,9 @@ Die Simulation soll aus dem aktuellen Diagramm ein elektrisches Simulationsmodel
 
 Voraussetzung fuer jede normale Simulation ist ein aktueller, fehlerfreier Diagramm-Check. Das Check-Ergebnis wird zusammen mit einem Diagramm-Fingerprint gespeichert. Wenn beim Klick auf `Simulate` kein Check-Ergebnis vorliegt, der Fingerprint nicht mehr zum aktuellen Diagramm passt oder Check-Meldungen mit Severity `error` existieren, startet die Simulation nicht. Stattdessen wird eine Meldung angezeigt, dass zuerst die Diagramm-Check-Meldungen korrigiert bzw. die Pruefung erneut ausgefuehrt werden muessen. Warnungen blockieren die Simulation nicht.
 
-Fuer Entwicklungs- und Regressionstestfaelle gibt es in `src/simulation/simulationFeatureFlags.ts` den Schalter `DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK`. Wenn dieser explizit auf `true` gesetzt wird, wird dieses Diagramm-Check-Gating uebersprungen, damit teilweise modellierte, aber fuer die Simulation ausreichende Testdiagramme simuliert werden koennen.
+Im Sidebar-Bereich `Erweiterte Einstellungen` gibt es unter `Simulationseinstellungen` die fluechtige Option `Simulation auch bei Fehlern aus Diagrammpruefungen starten`. Sie ist standardmaessig deaktiviert, wird nicht im Diagramm gespeichert und ueberspringt bei Aktivierung das Diagramm-Check-Gating fuer die aktuelle App-Sitzung. Sie ist fuer bewusstes Untersuchen noch fehlerhafter Diagramme gedacht; die Simulation zeigt dabei eine Warnung an.
+
+Fuer Entwicklungs- und Regressionstestfaelle gibt es zusaetzlich in `src/simulation/simulationFeatureFlags.ts` den Schalter `DEBUG_BYPASS_SIMULATION_DIAGRAM_CHECK`. Wenn dieser explizit auf `true` gesetzt wird, wird dieses Diagramm-Check-Gating ebenfalls uebersprungen, damit teilweise modellierte, aber fuer die Simulation ausreichende Testdiagramme simuliert werden koennen.
 
 Der erste Simulationsumfang ist bewusst begrenzt:
 
@@ -17,7 +19,7 @@ Der erste Simulationsumfang ist bewusst begrenzt:
 
 Die grobe Pipeline:
 
-1. Vorhandenes Diagramm-Check-Ergebnis pruefen, solange dessen Diagramm-Fingerprint unveraendert ist; im Debug-Bypass wird dieser Schritt uebersprungen.
+1. Vorhandenes Diagramm-Check-Ergebnis pruefen, solange dessen Diagramm-Fingerprint unveraendert ist; im Debug-Bypass oder aktivem Advanced-Setting-Bypass wird dieser Schritt uebersprungen.
 2. Bei fehlendem, veraltetem oder fehlerhaftem Check-Ergebnis abbrechen und Meldung anzeigen; Warnungen blockieren die Simulation erstmal nicht.
 3. Aus dem Diagramm-JSON wird ein Simulationsmodell aufgebaut.
 4. Das Modell wird simuliert.
