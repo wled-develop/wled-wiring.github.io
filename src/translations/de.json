@@ -187,6 +187,7 @@
       "handleId": "Anschluss-ID",
       "handleType": "Anschluss-Typ",
       "functions": "Funktionen",
+      "relatedToHandle": "Bezogene Anschluesse",
       "borderColor": "Randfarbe",
       "borderType": "Randtyp",
       "borderLineWidth": "Randbreite",

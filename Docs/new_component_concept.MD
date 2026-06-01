@@ -209,6 +209,7 @@ type ComponentHandleDefinition = {
   Imax?: number;
   maxCrossSectionAbsolute?: number;
   maxCrossSectionWarning?: number;
+  relatedToHandle?: string[];
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;
@@ -231,6 +232,7 @@ Beim Normalisieren wird daraus der heutige `HandleDataType` erzeugt:
 - `voltage.outDependency` wird zu `VoutDependency`.
 - `Imax` wird unveraendert zu `Imax` und beschreibt den maximal erlaubten absoluten Pin-Strom in Ampere.
 - `maxCrossSectionAbsolute` und `maxCrossSectionWarning` werden unveraendert uebernommen und beschreiben den maximal anklemmbare Leiterquerschnitt in mm2. Wenn beide gesetzt sind, muss `maxCrossSectionWarning < maxCrossSectionAbsolute` gelten.
+- `relatedToHandle` wird unveraendert uebernommen und beschreibt Bezuege zu anderen Handle-IDs derselben Komponente, aktuell vor allem GND-zu-Supply-Anschlussbereiche.
 - `behavior.*` wird auf die bestehenden Felder gemappt.
 - `behavior.internallyProtected` wird zu `internallyProtected`; nicht gesetzt bedeutet `false`.
 

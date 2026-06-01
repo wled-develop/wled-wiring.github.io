@@ -60,6 +60,7 @@ const normalizeHandle = (handle: ComponentHandleDefinition): HandleDataType => {
     Imax: handle.Imax,
     maxCrossSectionAbsolute: handle.maxCrossSectionAbsolute,
     maxCrossSectionWarning: handle.maxCrossSectionWarning,
+    relatedToHandle: handle.relatedToHandle,
     controllableBy: handle.behavior?.controllableBy,
     internallyProtected: handle.behavior?.internallyProtected,
     functions: handle.functions,

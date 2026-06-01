@@ -1,6 +1,6 @@
 # Diagramm Checks Konzept und aktueller Implementierungsstand
 
-Stand: 2026-05-31
+Stand: 2026-06-01
 
 Dieses Dokument beschreibt den aktuellen Stand der Diagramm-Checks im Projekt. Die Implementierung liegt im Wesentlichen in:
 
@@ -43,7 +43,9 @@ Ein `CheckHandle` enthaelt unter anderem:
 
 `HandleDataType.maxCrossSectionAbsolute?: number` beschreibt den absolut maximal anklemmbare Leiterquerschnitt in mm2. `HandleDataType.maxCrossSectionWarning?: number` beschreibt den groessten Leiterquerschnitt in mm2, der ohne Warnung akzeptiert werden soll. Wenn beide Werte gesetzt sind, muss `maxCrossSectionWarning < maxCrossSectionAbsolute` gelten. Wenn ein Attribut fehlt, ist fuer diese Stufe kein pin-spezifischer Querschnittsgrenzwert definiert.
 
-Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `Imax`, Querschnittsgrenzen, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten.
+`HandleDataType.relatedToHandle?: string[]` beschreibt eine fachliche Bezugnahme auf andere Handles derselben Komponente. Aktuell wird dies vor allem fuer GND-Pins genutzt, um festzuhalten, zu welchem Versorgungspin bzw. Anschlussbereich der GND-Pin gehoert. Die Werte sind Handle-IDs.
+
+Nur sichtbare Handles werden beruecksichtigt. Handles werden ausgefiltert, wenn ihre `hideConditions` anhand der aktuellen `selectFields` der Komponente greifen. Es werden sowohl `data.handles` als auch `data.repeatedHandleArray` einer Node einbezogen. Konkrete wiederholte Handles aus `data.repeatedHandleArray`, z.B. `R_middle_4`, sind aus Template-Handles wie `R_middle` erzeugt. Fuer die Pruefung muessen sie die fachlichen Metadaten des Templates erben koennen, insbesondere `functions`, Toleranzen, `Vout`/`VoutDependency`, `Imax`, Querschnittsgrenzen, `relatedToHandle`, `controllableBy`, `mustBeConnected` und `hideConditions`, weil aeltere gespeicherte Diagramme diese Werte an den konkreten Middle-Handles teilweise nicht enthalten. Bei wiederholten Handles wird `relatedToHandle` auf denselben Wiederholindex angepasst: aus `GND_middle` mit `relatedToHandle: ["5V_middle"]` wird fuer Index 1 `GND_middle_1` mit `relatedToHandle: ["5V_middle_1"]`.
 
 ### Funktionen an Handles
 

@@ -187,6 +187,7 @@
       "handleId": "Handle ID",
       "handleType": "Handle type",
       "functions": "Functions",
+      "relatedToHandle": "Related handles",
       "borderColor": "Border color",
       "borderType": "Border type",
       "borderLineWidth": "Border line width",

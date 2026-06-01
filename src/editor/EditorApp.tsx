@@ -788,6 +788,19 @@ const HandlesEditor = ({handles, fields, selectedHandleId, onSelectedHandleIdCha
                 />
               </Form.Item>
             </Flex>
+            <Form.Item label={t('componentEditor.fields.relatedToHandle')}>
+              <Select
+                allowClear
+                mode="multiple"
+                optionFilterProp="label"
+                value={activeHandle.relatedToHandle ?? []}
+                options={handleOptions(handles).filter((option) => option.value !== activeHandle.id)}
+                onChange={(relatedToHandle) => updateActiveHandle((item) => ({
+                  ...item,
+                  relatedToHandle: relatedToHandle.length > 0 ? relatedToHandle : undefined,
+                }))}
+              />
+            </Form.Item>
             <Space wrap>
               {(['repeated', 'repeatAtFirst', 'mustBeConnected', 'changeColorAutomatically', 'internallyProtected'] as const).map((key) => (
                 <Checkbox

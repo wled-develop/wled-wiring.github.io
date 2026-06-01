@@ -139,6 +139,21 @@ const repeatedHandleTemplateId = (handle: HandleDataType) => (
     : undefined
 );
 
+const resolveRepeatedRelatedHandleIds = (
+  node: Node<ComponentDataType>,
+  relatedToHandle: string[] | undefined,
+  repeatIndex: number | undefined,
+) => {
+  if (repeatIndex === undefined) return relatedToHandle;
+
+  return relatedToHandle?.map((relatedHandleId) => {
+    const relatedTemplate = node.data.handles?.find((candidate) => (
+      candidate.hid === relatedHandleId && candidate.repeated === 'yes'
+    ));
+    return relatedTemplate ? `${relatedHandleId}_${repeatIndex}` : relatedHandleId;
+  });
+};
+
 const hydrateRepeatedHandle = (
   node: Node<ComponentDataType>,
   handle: HandleDataType,
@@ -148,7 +163,12 @@ const hydrateRepeatedHandle = (
     ? node.data.handles?.find((candidate) => candidate.hid === templateId && candidate.repeated === 'yes')
     : undefined;
 
-  return template ? { ...template, ...handle } : handle;
+  const hydrated = template ? { ...template, ...handle } : handle;
+
+  return {
+    ...hydrated,
+    relatedToHandle: resolveRepeatedRelatedHandleIds(node, hydrated.relatedToHandle, handle.repeatIndex),
+  };
 };
 
 const repeatedVisibleHandles = (node: Node<ComponentDataType>) => (

@@ -96,6 +96,7 @@ export type ComponentHandleDefinition = {
   Imax?: number;
   maxCrossSectionAbsolute?: number;
   maxCrossSectionWarning?: number;
+  relatedToHandle?: string[];
   behavior?: {
     repeated?: boolean;
     repeatAtFirst?: boolean;

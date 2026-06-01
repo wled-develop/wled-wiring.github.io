@@ -183,7 +183,8 @@
       "rotatable": "可旋转",
       "resizableX": "可沿 X 调整",
       "resizableY": "可沿 Y 调整",
-      "noBackgroundImage": "无背景图片"
+      "noBackgroundImage": "无背景图片",
+      "relatedToHandle": "相关连接点"
     },
     "sections": {
       "applyHandles": "应用连接点",

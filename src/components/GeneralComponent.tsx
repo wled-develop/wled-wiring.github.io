@@ -14,7 +14,7 @@ import { Handle, NodeProps, NodeToolbar, Position,
 
 import { useTranslation } from "react-i18next";
 
-import { ComponentDataType, edgePoint, type GeneralComponent, type TextAlignType } from '../types';
+import { ComponentDataType, edgePoint, type GeneralComponent, type HandleDataType, type TextAlignType } from '../types';
 import { colorNameToRGBString, stripCheckAndDivideIfMiddleConnection} from '../utils/utils_functions';
 import { useZustandStore, findPathBetweenTwoHandles} from '../utils/pathfinder_functions.ts';
 import { buildUpdatedComponentData, getComponentTemplateData, getComponentUpdateChanges } from '../utils/componentTemplateUpdates.ts';
@@ -54,6 +54,17 @@ type PinTooltipLayout = {
     arrowStyle: CSSProperties;
     placement: 'top' | 'bottom';
 };
+
+const repeatedRelatedHandleIds = (
+    relatedToHandle: string[] | undefined,
+    repeatedTemplates: HandleDataType[],
+    repeatIndex: number,
+) => (
+    relatedToHandle?.map((relatedHandleId) => {
+        const relatedTemplate = repeatedTemplates.find((handle) => handle.hid===relatedHandleId);
+        return relatedTemplate ? `${relatedHandleId}_${repeatIndex}` : relatedHandleId;
+    })
+);
 
 export function GeneralComponent({id, data, selected, dragging, width, height}:NodeProps<GeneralComponent>) {
     const {t} = useTranslation(['main']);
@@ -983,12 +994,18 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                         takeSnapshot('resize component');
                         const newnodeLength=nodeLength+1;
                         let newrepeatedHandleArray=structuredClone(compData.repeatedHandleArray);
+                        const repeatedHandleTemplates=compData.handles.filter((handleData)=>(handleData.repeated=="yes"));
                         compData.handles.map((handleData)=> {
                             if(handleData.repeated=="yes") {
                                 const newHandle = structuredClone(handleData);
                                 newHandle.repeated="no";
                                 newHandle.xalign="start";
                                 newHandle.repeatIndex = (newnodeLength || 2)-1;
+                                newHandle.relatedToHandle=repeatedRelatedHandleIds(
+                                    newHandle.relatedToHandle,
+                                    repeatedHandleTemplates,
+                                    newHandle.repeatIndex,
+                                );
                                 newHandle.hid=newHandle.hid+"_"+String(newHandle.repeatIndex);
                                 newHandle.x=newHandle.x+((newnodeLength || 2)-1)*nodeBasicSizeX;
                                 if (newrepeatedHandleArray == undefined) {

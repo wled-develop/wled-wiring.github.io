@@ -189,6 +189,11 @@ export const validateComponentPackage = (componentPackage: ComponentPackage): Co
         addIssue(issues, 'error', `component.handles[${index}].functions`, `Unknown handle function "${handleFunction}".`);
       }
     });
+    handle.relatedToHandle?.forEach((relatedHandleId) => {
+      if (!handleIdSet.has(relatedHandleId)) {
+        addIssue(issues, 'error', `component.handles[${index}].relatedToHandle`, `Unknown handle "${relatedHandleId}".`);
+      }
+    });
   });
 
   const fields = definition.fields ?? [];
