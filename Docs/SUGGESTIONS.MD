@@ -1,4 +1,4 @@
-# Vorschlag: Lokales Diagramm-Autosave und Wiederherstellung
+# Implementiert: Lokales Diagramm-Autosave und Wiederherstellung
 
 ## Ziel
 

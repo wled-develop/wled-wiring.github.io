@@ -80,6 +80,14 @@ import { SimulationOverlay } from './simulation/SimulationOverlay.tsx';
 import { initializeLedSimulationOptionValues } from './simulation/ledStripSimulationOptions.ts';
 import { ENABLE_COMPONENT_EDITOR_FOOTER_LINK } from './editor/componentEditorFeatureFlags.ts';
 import { wirePhysicalDefaultsForConnection } from './wires/wireDefaults.ts';
+import { useDiagramCheckSettingsStore } from './check/checkSettingsStore.ts';
+import { parseImportedFlowObject, type ImportedFlow } from './utils/diagramModel.ts';
+import {
+  clearAutosave,
+  readAutosave,
+  writeReactFlowAutosave,
+} from './utils/autosaveStorage.ts';
+import { useAutosaveSettingsStore } from './utils/autosaveSettingsStore.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -115,12 +123,14 @@ const FlowApp = () => {
   const [selectedNodes, setSelectedNodes] = useState([] as Node[]);
   const [selectedEdges, setSelectedEdges] = useState([] as Edge[]);
   const orthogonalWireDragSnapshotRef = useRef<OrthogonalWireDragSnapshot | null>(null);
+  const autosaveRestoreCheckedRef = useRef(false);
 
   const [isLegalNoticeModalOpen, setIsLegalNoticeModalOpen] = useState(false);
   const [isDataPrivacyModalOpen, setIsDataPrivacyModalOpen] = useState(false);
   const [isContributeModalOpen, setIsContributeModalOpen] = useState(false);
   const [isLinksModalOpen, setIsLinksModalOpen] = useState(false);
   const [panOnDrag, setPanOnDrag] = useState(true);
+  const [autosaveReady, setAutosaveReady] = useState(false);
 
   //const [mouseXYPosition, setmouseXYPosition] = useState({x:0, y:0} as XYPoint);
 
@@ -136,6 +146,9 @@ const FlowApp = () => {
 
   const reactFlow = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
+  const diagramCheckSettings = useDiagramCheckSettingsStore((state) => state.settings);
+  const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
+  const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
 
   const getDiagramSnapshot = useCallback((): DiagramSnapshot => ({
     nodes: reactFlow.getNodes(),
@@ -187,6 +200,46 @@ const FlowApp = () => {
     });
   }, [modalApi, notificationApi, setNodes, t, undoRedo, updateNodeInternals]);
 
+  const applyImportedFlow = useCallback((
+    flow: ImportedFlow,
+    options?: {
+      notify?: boolean;
+      askForUpdates?: boolean;
+      rflow?: ReactFlowInstance;
+    },
+  ) => {
+    const targetFlow = options?.rflow ?? reactFlow;
+    setNodes(flow.nodes);
+    setEdges(flow.edges);
+    targetFlow.setViewport(flow.viewport);
+    setDiagramCheckSettingsFromExport(flow.checkSettings);
+    undoRedo.clearHistory();
+    setTimeout(() => {
+      flow.nodes.forEach((node) => updateNodeInternals(node.id));
+      if(options?.askForUpdates !== false) {
+        askForComponentTemplateUpdates(flow.nodes);
+      }
+    }, 0);
+    SetTriggerState((value) => value + 1);
+
+    if(options?.notify) {
+      notificationApi['success']({
+        message: t('message.loadModelSuccessShort'),
+        description: t('message.loadModelSuccess'),
+      });
+    }
+  }, [
+    askForComponentTemplateUpdates,
+    notificationApi,
+    reactFlow,
+    setDiagramCheckSettingsFromExport,
+    setEdges,
+    setNodes,
+    t,
+    undoRedo,
+    updateNodeInternals,
+  ]);
+
   const loadModelFromLink = useCallback((modelLink: string, rflow: ReactFlowInstance = reactFlow) => {
     if(modelLink.length==24 || modelLink.length==17 || modelLink.length==18) {
       const linktofile="https://raw.githubusercontent.com/wled-development/wled-wiring-store/refs/heads/main/"+modelLink+".json";
@@ -203,19 +256,20 @@ const FlowApp = () => {
           throw new Error('Model file could not be loaded');
         })
         .then((data) => {
-          const loadedNodes = data.nodes || [];
-          rflow.setNodes(loadedNodes);
-          rflow.setEdges(data.edges || []);
-          rflow.setViewport(data.viewport);
-          undoRedo.clearHistory();
+          const flow = parseImportedFlowObject(data);
+          applyImportedFlow(flow, {
+            askForUpdates: false,
+            rflow,
+          });
           messageApi.destroy();
           notificationApi['success']({
             message: t('message.loadModelSuccessShort'),
             description: t('message.loadModelSuccess'),
           });
           setTimeout(() => {
-            askForComponentTemplateUpdates(loadedNodes);
+            askForComponentTemplateUpdates(flow.nodes);
           }, 0);
+          setAutosaveReady(true);
         })
         .catch(() => {
           messageApi.destroy();
@@ -223,20 +277,109 @@ const FlowApp = () => {
             message: t('message.loadModelErrorShort'),
             description: t('message.loadModelError'),
           });
+          setAutosaveReady(true);
         });
     } else {
       notificationApi['error']({
         message: t('message.loadModelErrorShort'),
         description: t('message.loadModelWrongLink'),
       });
+      setAutosaveReady(true);
     }
-  }, [askForComponentTemplateUpdates, messageApi, notificationApi, reactFlow, t, undoRedo]);
+  }, [applyImportedFlow, askForComponentTemplateUpdates, messageApi, notificationApi, reactFlow, t]);
 
   const onInit:OnInit = useCallback((rflow) => {
     if(link) {
       loadModelFromLink(link, rflow);
     }
   }, [link, loadModelFromLink]);
+
+  useEffect(() => {
+    if(autosaveRestoreCheckedRef.current) return;
+    autosaveRestoreCheckedRef.current = true;
+
+    if(link) return;
+
+    if(!autosaveEnabled) {
+      setAutosaveReady(true);
+      return;
+    }
+
+    const autosave = readAutosave();
+    if(!autosave || (autosave.diagram.nodes.length === 0 && autosave.diagram.edges.length === 0)) {
+      setAutosaveReady(true);
+      return;
+    }
+
+    modalApi.confirm({
+      title: t('autosave.restoreTitle'),
+      content: (
+        <div>
+          <p>{t('autosave.restoreDescription')}</p>
+          <p>{t('autosave.savedAt', {
+            value: new Date(autosave.savedAt).toLocaleString(),
+          })}</p>
+          {autosave.documentFileName &&
+            <p>{t('autosave.documentFileName', { name: autosave.documentFileName })}</p>
+          }
+          {autosave.lastManualSaveAt &&
+            <p>{t('autosave.lastManualSaveAt', {
+              value: new Date(autosave.lastManualSaveAt).toLocaleString(),
+            })}</p>
+          }
+        </div>
+      ),
+      okText: t('autosave.continueButton'),
+      cancelText: t('autosave.newDiagramButton'),
+      onOk: () => {
+        applyImportedFlow(autosave.diagram, {
+          askForUpdates: true,
+          notify: true,
+        });
+        setAutosaveReady(true);
+      },
+      onCancel: () => {
+        clearAutosave();
+        setAutosaveReady(true);
+      },
+    });
+
+  }, [applyImportedFlow, autosaveEnabled, link, modalApi, t]);
+
+  const saveAutosaveNow = useCallback(() => {
+    if(!autosaveEnabled || !autosaveReady) return;
+
+    try {
+      writeReactFlowAutosave(reactFlow);
+    } catch {
+      notificationApi['warning']({
+        message: t('autosave.saveFailedTitle'),
+        description: t('autosave.saveFailedDescription'),
+      });
+    }
+  }, [autosaveEnabled, autosaveReady, notificationApi, reactFlow, t]);
+
+  useEffect(() => {
+    if(!autosaveEnabled || !autosaveReady) return;
+
+    const timeout = window.setTimeout(saveAutosaveNow, 1500);
+    return () => window.clearTimeout(timeout);
+  }, [autosaveEnabled, autosaveReady, diagramCheckSettings, edges, nodes, saveAutosaveNow]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if(document.visibilityState === 'hidden') {
+        saveAutosaveNow();
+      }
+    };
+
+    window.addEventListener('pagehide', saveAutosaveNow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', saveAutosaveNow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [saveAutosaveNow]);
 
   //const [{ canDrop, isOver }, drop] = useDrop(() => ({
   const [,drop] = useDrop(() => ({

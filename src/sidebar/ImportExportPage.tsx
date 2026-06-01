@@ -1,5 +1,5 @@
 
-import { useReactFlow, useUpdateNodeInternals, getViewportForBounds, Rect, type Edge, type Node} from '@xyflow/react';
+import { useReactFlow, useUpdateNodeInternals, getViewportForBounds, Rect, type Node} from '@xyflow/react';
 import { Flex, Button, Divider, theme, Modal, Tooltip, message, Select, Input, Typography } from 'antd';
 import {CopyOutlined} from '@ant-design/icons'
 import { useState } from 'react';
@@ -9,25 +9,15 @@ import { useTranslation } from "react-i18next";
 import { toPng, toJpeg, toSvg } from 'html-to-image';
 
 import {
-  normalizeDiagramCheckSettings,
-  type DiagramCheckSettings,
   useDiagramCheckSettingsStore,
 } from '../check/checkSettingsStore';
 import { getCurrentURL, getAdaptedBounds } from '../utils/utils_functions';
 import { createDiagramExportJson } from '../utils/exportModel';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from '../utils/componentTemplateUpdates';
 import { useUndoRedo } from '../utils/undoRedo';
-
-type ImportedFlow = {
-  nodes: Node[];
-  edges: Edge[];
-  viewport: {
-    x: number;
-    y: number;
-    zoom: number;
-  };
-  checkSettings: DiagramCheckSettings;
-};
+import { parseImportedFlow, type ImportedFlow } from '../utils/diagramModel';
+import { markAutosaveManuallySaved } from '../utils/autosaveStorage';
+import { useAutosaveSettingsStore } from '../utils/autosaveSettingsStore';
 
 type WritableFileHandle = {
   name: string;
@@ -114,38 +104,6 @@ const cloneBounds = (bounds: Rect): Rect => ({
   height: bounds.height,
 });
 
-const isObject = (value: unknown): value is Record<string, unknown> => (
-  typeof value === 'object' && value !== null
-);
-
-const readNumber = (value: unknown, fallback: number) => (
-  typeof value === 'number' && Number.isFinite(value) ? value : fallback
-);
-
-const parseImportedFlow = (jsonData: string): ImportedFlow => {
-  const parsed = JSON.parse(jsonData) as unknown;
-
-  if (!isObject(parsed) || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-    throw new Error('Invalid WLED wiring model file');
-  }
-
-  const viewport = isObject(parsed.viewport) ? parsed.viewport : {};
-
-  return {
-    nodes: parsed.nodes as Node[],
-    edges: parsed.edges as Edge[],
-    viewport: {
-      x: readNumber(viewport.x, 0),
-      y: readNumber(viewport.y, 0),
-      zoom: readNumber(viewport.zoom, 1),
-    },
-    checkSettings: normalizeDiagramCheckSettings(
-      isObject(parsed.checkSettings) ? parsed.checkSettings : undefined,
-    ),
-  };
-};
-
-
 export const ImportExportPage = () => {
   const {t} = useTranslation(['main']);
   const { token } = theme.useToken();
@@ -155,6 +113,7 @@ export const ImportExportPage = () => {
   const [modalApi, modalContextHolder] = Modal.useModal();
   const { clearHistory, takeSnapshot } = useUndoRedo();
   const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
+  const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
   const [documentFileName, setDocumentFileName] = useState(DefaultModelFileName);
   const [modelFileHandle, setModelFileHandle] = useState<WritableFileHandle | null>(null);
   const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
@@ -333,6 +292,16 @@ export const ImportExportPage = () => {
     new Blob([createDiagramExportJson(reactFlow)], { type: 'application/json' })
   );
 
+  const markCurrentModelAsManuallySaved = (fileName: string) => {
+    if(!autosaveEnabled) return;
+
+    try {
+      markAutosaveManuallySaved(reactFlow, sanitizeModelFileName(fileName));
+    } catch {
+      // Manual save succeeded; autosave metadata is best effort.
+    }
+  };
+
   const saveModelToHandle = async (fileHandle: WritableFileHandle) => {
     const writable = await fileHandle.createWritable();
     await writable.write(createModelBlob());
@@ -343,6 +312,7 @@ export const ImportExportPage = () => {
     const nextFileName = sanitizeModelFileName(fileName);
     downloadBlob(createModelBlob(), nextFileName);
     setDocumentFileName(nextFileName);
+    markCurrentModelAsManuallySaved(nextFileName);
     messageApi.open({
       type: 'success',
       content: t('message.saveModelDownloadStarted'),
@@ -354,7 +324,9 @@ export const ImportExportPage = () => {
     if (modelFileHandle) {
       try {
         await saveModelToHandle(modelFileHandle);
-        setDocumentFileName(sanitizeModelFileName(modelFileHandle.name));
+        const nextFileName = sanitizeModelFileName(modelFileHandle.name);
+        setDocumentFileName(nextFileName);
+        markCurrentModelAsManuallySaved(nextFileName);
         messageApi.open({
           type: 'success',
           content: t('message.saveModelSuccess'),
@@ -379,7 +351,9 @@ export const ImportExportPage = () => {
         });
         await saveModelToHandle(fileHandle);
         setModelFileHandle(fileHandle);
-        setDocumentFileName(sanitizeModelFileName(fileHandle.name));
+        const nextFileName = sanitizeModelFileName(fileHandle.name);
+        setDocumentFileName(nextFileName);
+        markCurrentModelAsManuallySaved(nextFileName);
         messageApi.open({
           type: 'success',
           content: t('message.saveModelSuccess'),

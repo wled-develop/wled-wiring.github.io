@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useDiagramCheckSettingsStore } from '../check/checkSettingsStore';
 import { useSimulationSettingsStore } from '../simulation/simulationSettingsStore';
+import { clearAutosave } from '../utils/autosaveStorage';
+import { useAutosaveSettingsStore } from '../utils/autosaveSettingsStore';
 
 export const AdvancedSettingsPage = () => {
   const {t} = useTranslation(['main']);
@@ -14,6 +16,8 @@ export const AdvancedSettingsPage = () => {
   const setWireAmpacitySettings = useDiagramCheckSettingsStore((state) => state.setWireAmpacitySettings);
   const allowSimulationWithDiagramCheckErrors = useSimulationSettingsStore((state) => state.allowSimulationWithDiagramCheckErrors);
   const setAllowSimulationWithDiagramCheckErrors = useSimulationSettingsStore((state) => state.setAllowSimulationWithDiagramCheckErrors);
+  const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
+  const setAutosaveEnabled = useAutosaveSettingsStore((state) => state.setAutosaveEnabled);
 
   return (
     <>
@@ -38,6 +42,20 @@ export const AdvancedSettingsPage = () => {
         <Typography.Text type="secondary">
           {t('sidebar.advancedSettings.simulationSettingsDescription')}
         </Typography.Text>
+        <Form layout="vertical" style={{width: '100%'}}>
+          <Form.Item
+            label={t('sidebar.advancedSettings.autosaveEnabledLabel')}
+            extra={t('sidebar.advancedSettings.autosaveEnabledDescription')}
+          >
+            <Switch
+              checked={autosaveEnabled}
+              onChange={(checked) => {
+                setAutosaveEnabled(checked);
+                if(!checked) clearAutosave();
+              }}
+            />
+          </Form.Item>
+        </Form>
       </Space>
       <Drawer
         title={t('sidebar.tools.wireInstallationTitle')}

@@ -1,6 +1,17 @@
 {
   "title": "Willkommen bei WLED Wiring Designer!",
   "dragComponents": "Beginne mit dem Ziehen von Komponenten auf die Arbeitsfläche oder lade ein Beispiel",
+  "autosave": {
+    "restoreTitle": "Automatisch gespeichertes Diagramm gefunden",
+    "restoreDescription": "Ein lokal automatisch gespeichertes Diagramm ist vorhanden. Moechtest du es fortsetzen oder ein neues Diagramm starten?",
+    "savedAt": "Automatisch gespeichert: {{value}}",
+    "lastManualSaveAt": "Zuletzt manuell gespeichert: {{value}}",
+    "documentFileName": "Dateiname: {{name}}",
+    "continueButton": "Autosave fortsetzen",
+    "newDiagramButton": "Neues Diagramm starten",
+    "saveFailedTitle": "Autosave fehlgeschlagen",
+    "saveFailedDescription": "Das Diagramm konnte in diesem Browser nicht lokal gespeichert werden."
+  },
   "componentGroupTypes": {
     "controller": "Controller",
     "led": "LEDs",
@@ -944,7 +955,9 @@
       "simulationSettingsDescription": "Optionen fuer den Start der elektrischen Simulation.",
       "simulationSettingsTitle": "Simulationseinstellungen",
       "allowSimulationWithDiagramCheckErrorsLabel": "Simulation auch bei Fehlern aus Diagrammpruefungen starten",
-      "allowSimulationWithDiagramCheckErrorsDescription": "Nur verwenden, wenn du ein Diagramm bewusst trotz vorhandener Pruefungsfehler untersuchen moechtest. Warnungen blockieren die Simulation nie."
+      "allowSimulationWithDiagramCheckErrorsDescription": "Nur verwenden, wenn du ein Diagramm bewusst trotz vorhandener Pruefungsfehler untersuchen moechtest. Warnungen blockieren die Simulation nie.",
+      "autosaveEnabledLabel": "Diagramm automatisch lokal speichern",
+      "autosaveEnabledDescription": "Speichert eine Wiederherstellungskopie in diesem Browser. Beim Deaktivieren wird der aktuelle Autosave geloescht."
     },
     "export": {
       "title": "Speichern / Export / Beispiele",
