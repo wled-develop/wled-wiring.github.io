@@ -18,7 +18,7 @@ export type AmpacityResult =
       ok: true;
       ampacityA: number;
       crosssectionMm2: number;
-      source: 'metric-table' | 'awg-table' | 'usb-awg-special';
+      source: 'metric-table' | 'awg-table' | 'usb-awg-special' | 'usb-metric-special';
     }
   | {
       ok: false;
@@ -65,6 +65,10 @@ const TEMPERATURE_FACTORS = [1.22, 1.17, 1.12, 1.06, 1, 0.94, 0.87, 0.79, 0.71, 
 const USB_AWG_SPECIAL_AMPACITY_A = new Map<number, number>([
   [26, 1.3],
   [28, 0.85],
+]);
+const USB_METRIC_SPECIAL_AMPACITY_A = new Map<number, number>([
+  [0.25, 3.5],
+  [0.14, 1.5],
 ]);
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -129,6 +133,7 @@ export const wireAmpacityA = (
   unit: string | null | undefined,
   installation: WireInstallationType = DEFAULT_WIRE_AMPACITY_SETTINGS.installation,
   ambientTempC = DEFAULT_WIRE_AMPACITY_SETTINGS.ambientTempC,
+  physType?: string | null,
 ): AmpacityResult => {
   if (unit === 'AWG' && typeof crosssection === 'number') {
     const specialAmpacityA = USB_AWG_SPECIAL_AMPACITY_A.get(crosssection);
@@ -156,6 +161,17 @@ export const wireAmpacityA = (
 
   const normalized = normalizeWireCrosssectionToMm2(crosssection, unit);
   if (!normalized.ok) return { ok: false, reason: ampacityErrorReason(normalized.reason) };
+  if (physType === 'usb' && unit === 'mm2' && typeof crosssection === 'number') {
+    const specialAmpacityA = USB_METRIC_SPECIAL_AMPACITY_A.get(crosssection);
+    if (specialAmpacityA !== undefined) {
+      return {
+        ok: true,
+        ampacityA: specialAmpacityA,
+        crosssectionMm2: normalized.crosssectionMm2,
+        source: 'usb-metric-special',
+      };
+    }
+  }
 
   return {
     ok: true,

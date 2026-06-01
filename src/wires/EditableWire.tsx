@@ -41,7 +41,9 @@ import { useSimulationResultStore } from "../simulation/simulationResultStore.ts
 import {
   DEFAULT_USB_WIRE_AWG,
   GENERAL_WIRE_AWG_PRESETS,
+  GENERAL_WIRE_MM2_PRESETS,
   USB_WIRE_AWG_PRESETS,
+  USB_WIRE_MM2_PRESETS,
 } from "./wireDefaults.ts";
 
 const ROUNDN=1;
@@ -1685,7 +1687,7 @@ export default function EditableWire ({
     </>
   );
 
-  const crosssectionsMM2=[0.25, 0.34, 0.5, 0.75, 1, 1.5, 2.5, 4, 6];
+  const crosssectionsMM2 = activeWireScopeUsesOnlyUsbPresets ? [...USB_WIRE_MM2_PRESETS] : [...GENERAL_WIRE_MM2_PRESETS];
   const crosssectionsAWG = activeWireScopeUsesOnlyUsbPresets ? [...USB_WIRE_AWG_PRESETS] : [...GENERAL_WIRE_AWG_PRESETS];
   const activeCrosssectionUnit = aggregatedValueOrUndefined(activeWireCrosssectionUnit);
   const activeCrosssectionOptions = activeCrosssectionUnit === "AWG" ? crosssectionsAWG : crosssectionsMM2;
@@ -1720,7 +1722,7 @@ export default function EditableWire ({
       style={{width:70}}
       onChange={(value)=>{
         const physCrosssectionvalue = value === "mm2"
-          ? crosssectionsMM2[3]
+          ? crosssectionsMM2[0]
           : activeWireScopeUsesOnlyUsbPresets
             ? DEFAULT_USB_WIRE_AWG
             : crosssectionsAWG[3];

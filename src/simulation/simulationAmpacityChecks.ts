@@ -78,8 +78,16 @@ const requiredFullLoadMode = (model: SimulationModel) => {
 const isRequiredFullLoadSimulation = (model: SimulationModel) => {
   const requiredMode = requiredFullLoadMode(model);
   if(requiredMode === undefined) return true;
+  if(model.settings.brightnessPercent !== 100) return false;
 
-  return model.settings.brightnessPercent === 100 && model.settings.ledColorMode === requiredMode;
+  if(requiredMode === "RGB_WHITE") {
+    return (
+      model.settings.ledColorMode === "RGB_WHITE" ||
+      model.settings.ledColorMode === "SEPARATE_AND_RGB_WHITE"
+    );
+  }
+
+  return model.settings.ledColorMode === requiredMode;
 };
 
 const edgeLabel = (edge: Edge<EdgeDataType>) => {
@@ -136,12 +144,9 @@ export const createSimulationWireAmpacityIssues = (
       "simulation-wire-ampacity:full-load-required",
       "info",
       "wireAmpacityFullLoadRequired.title",
-      "wireAmpacityFullLoadRequired.description",
-      {
-        mode: requiredMode === "SEPARATE_AND_RGB_WHITE"
-          ? "Separate + RGB white"
-          : "RGB white",
-      },
+      requiredMode === "SEPARATE_AND_RGB_WHITE"
+        ? "wireAmpacityFullLoadRequired.descriptionRgbw"
+        : "wireAmpacityFullLoadRequired.descriptionRgb",
     )];
   }
 
@@ -156,6 +161,7 @@ export const createSimulationWireAmpacityIssues = (
       edge.data?.physCrosssectionUnit,
       settings.installation,
       settings.ambientTempC,
+      edge.data?.physType,
     );
     if(!ampacity.ok) return [];
     if(wireCurrent.currentA <= ampacity.ampacityA + AMPACITY_TOLERANCE_A) return [];

@@ -553,6 +553,12 @@
               "description": "Die Leitung ist direkt an eine Energiequelle angeschlossen. Die Leitung kann {{ampacity}} A tragen, erforderlich sind {{required}} A.",
               "recommendation": "Waehlen Sie einen groesseren Querschnitt oder eine Energiequelle mit kleinerem Stromlimit."
             },
+            "sourceGroundWireCrossSectionTooSmall": {
+              "title": "GND-Leitung an Quelle zu klein",
+              "shortDescription": "Eine direkt quellennahe GND-Leitung ist fuer das Stromlimit der Quelle zu klein.",
+              "description": "Die GND-Leitung ist direkt an eine Energiequelle angeschlossen. Die Leitung kann {{ampacity}} A tragen, erforderlich sind {{required}} A.",
+              "recommendation": "Waehlen Sie einen groesseren Querschnitt oder eine Energiequelle mit kleinerem Stromlimit. Alternativ verlegen oder isolieren Sie die GND-Leitung so, dass ein Kurzschluss mit Versorgungsleitungen auch im Fehlerfall ausgeschlossen ist."
+            },
             "unfusedSupplyWireCrossSectionTooSmall": {
               "title": "Ungesicherte Supply-Leitung zu klein",
               "shortDescription": "Eine Leitung liegt in einem direkt quellenangebundenen Supply-Netz und ist zu klein.",
@@ -861,7 +867,9 @@
         },
         "wireAmpacityFullLoadRequired": {
           "title": "Volllast-Simulation fuer Leitungsstrom erforderlich",
-          "description": "Die Strombelastbarkeit der Leitungen kann nur nach einer Simulation mit 100% Helligkeit und {{mode}} zuverlaessig bewertet werden. Fuehre die Simulation mit diesen LED-Einstellungen aus, um die Leitungs-Stromgrenzen zu pruefen."
+          "description": "Die Strombelastbarkeit der Leitungen kann nur nach einer Volllast-Simulation zuverlaessig bewertet werden.",
+          "descriptionRgb": "Die Strombelastbarkeit der Leitungen kann bei RGB-Streifen nur nach einer Simulation mit 100% Helligkeit und RGB-Weiss zuverlaessig bewertet werden. Separates + RGB-Weiss ist fuer reine RGB-Streifen gleichwertig und wird ebenfalls akzeptiert.",
+          "descriptionRgbw": "Die Strombelastbarkeit der Leitungen kann nur nach einer Volllast-Simulation mit 100% Helligkeit und Separates + RGB-Weiss zuverlaessig bewertet werden, weil im Diagramm RGBW-Streifen vorhanden sind."
         },
         "ledStripSupplyVoltageLow": {
           "title": "Versorgungsspannung am LED-Streifen zu niedrig",

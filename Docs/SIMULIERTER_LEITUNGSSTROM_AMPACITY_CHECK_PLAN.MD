@@ -10,10 +10,10 @@ Wenn `abs(simulierter Strom) > wireAmpacityA(...) + Toleranz`, wird ein Fehler e
 
 Die Regel darf nur als belastbare Bewertung laufen, wenn die Simulation bei voller LED-Last ausgefuehrt wurde:
 
-- Nur RGB-Streifen im Diagramm: `brightnessPercent === 100` und `ledColorMode === "RGB_WHITE"`.
+- Nur RGB-Streifen im Diagramm: `brightnessPercent === 100` und `ledColorMode === "RGB_WHITE"`; `ledColorMode === "SEPARATE_AND_RGB_WHITE"` ist fuer reine RGB-Streifen gleichwertig und wird ebenfalls akzeptiert.
 - RGBW-Streifen vorhanden, egal ob nur RGBW oder gemischt RGB + RGBW: `brightnessPercent === 100` und `ledColorMode === "SEPARATE_AND_RGB_WHITE"`.
 
-Wenn eine andere Simulationseinstellung verwendet wird, soll statt der Fehlerbewertung ein Info-Issue erscheinen: Fuer die Bewertung der Strombelastbarkeit muss bei voller Helligkeit und RGB-Weiss bzw. Separate + RGB-Weiss simuliert werden.
+Wenn eine andere Simulationseinstellung verwendet wird, soll statt der Fehlerbewertung ein Info-Issue erscheinen: Fuer die Bewertung der Strombelastbarkeit muss bei voller Helligkeit und RGB-Weiss simuliert werden; sobald RGBW-Streifen vorhanden sind, ist volle Helligkeit mit Separate + RGB-Weiss erforderlich.
 
 ## Architekturentscheidung
 
@@ -46,7 +46,7 @@ Die bestehende Diagramm-Check-Regelgruppe `src/check/wireProtection.ts` bleibt f
    - Ermitteln, ob das Modell keine digitalen LED-Streifen, nur RGB-LED-Streifen oder mindestens einen RGBW-LED-Streifen enthaelt.
    - Zulaessige Bewertungsmodi:
      - keine LED-Streifen: volle Lastanforderung gilt als erfuellt, wenn keine LED-spezifische Last reduziert werden kann; alternativ kein Info-Issue noetig.
-     - nur RGB: `brightnessPercent === 100` und `ledColorMode === "RGB_WHITE"`.
+     - nur RGB: `brightnessPercent === 100` und `ledColorMode === "RGB_WHITE"` oder `"SEPARATE_AND_RGB_WHITE"`, weil beide Modi fuer reine RGB-Streifen dieselbe Volllast bedeuten.
      - RGBW vorhanden: `brightnessPercent === 100` und `ledColorMode === "SEPARATE_AND_RGB_WHITE"`.
    - Keine heuristischen Namensregeln verwenden.
 
@@ -81,7 +81,7 @@ Die bestehende Diagramm-Check-Regelgruppe `src/check/wireProtection.ts` bleibt f
 7. [ ] Tests ergaenzen
    - Simulation-Fixture mit ueberlasteter Leitung bei korrektem Volllastmodus.
    - Fixture mit gleicher Schaltung bei reduzierter Helligkeit oder falschem Farbmodus: nur Info-Issue, kein Ampacity-Error.
-   - RGB-only-Fall: `RGB_WHITE` bei 100% erlaubt.
+   - RGB-only-Fall: `RGB_WHITE` und `SEPARATE_AND_RGB_WHITE` bei 100% erlaubt.
    - RGBW- oder gemischter Fall: nur `SEPARATE_AND_RGB_WHITE` bei 100% erlaubt.
    - USB-Power-Pair-Fall mit Leiterbewertung, falls vorhandene Testinfrastruktur das sinnvoll abbildet.
    - Bestehende Regressionen weiter ausfuehren: `npm run test:ltspice` und relevante Diagramm-/Simulationstestskripte.

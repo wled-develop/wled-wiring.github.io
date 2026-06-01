@@ -132,6 +132,7 @@ Sidebar:
 Empfohlene Rule-IDs:
 
 - `sourceWireCrossSectionTooSmall`
+- `sourceGroundWireCrossSectionTooSmall`
 - `unfusedSupplyWireCrossSectionTooSmall`
 - `fusedSupplyWireCrossSectionTooSmall`
 - `ledSupplyInputNotAdequatelyProtected`
@@ -222,7 +223,8 @@ Praezise Erkennung:
    - Markiere alle Supply-Wires in diesem reinen Connector-Bereich als direkt quellenangebunden.
    - Stoppe an jeder Nicht-Connector-Komponente und an Sicherungsgrenzen.
 5. Fuer jede markierte Wire:
-   - `ampacityA + 0.01 < 1.25 * source_current` ergibt `sourceWireCrossSectionTooSmall`.
+   - `ampacityA + 0.01 < 1.25 * source_current` ergibt fuer Supply-/USB-Quellleitungen `sourceWireCrossSectionTooSmall` mit Severity `error`.
+   - `ampacityA + 0.01 < 1.25 * source_current` ergibt fuer direkt angeschlossene GND-Quellleitungen `sourceGroundWireCrossSectionTooSmall` mit Severity `warning`.
 
 Wichtig:
 
@@ -234,6 +236,10 @@ Wichtig:
 Deutscher Meldungsvorschlag:
 
 "Die Leitung ist direkt an eine Energiequelle angeschlossen. Diese Quelle kann im Normal- oder Fehlerfall mehr Strom liefern, als die Leitung ohne Ueberhitzung sicher tragen kann. Waehlen Sie einen groesseren Querschnitt oder eine Energiequelle mit kleinerem Stromlimit."
+
+GND-Meldung:
+
+"Die GND-Leitung ist direkt an eine Energiequelle angeschlossen. Diese Quelle kann im Normal- oder Fehlerfall mehr Strom liefern, als die Leitung ohne Ueberhitzung sicher tragen kann. Waehlen Sie einen groesseren Querschnitt oder eine Energiequelle mit kleinerem Stromlimit. Alternativ verlegen oder isolieren Sie die GND-Leitung so, dass ein Kurzschluss mit Versorgungsleitungen auch im Fehlerfall ausgeschlossen ist."
 
 ## Regel 2: Ungesichertes Supply-Teilnetz mit direkter Quellenanbindung
 

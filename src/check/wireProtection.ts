@@ -40,6 +40,7 @@ type FuseBoundary = {
 
 type SourceDiscovery = {
   directSourceEdgeIds: Set<string>;
+  directGroundSourceEdgeIds: Set<string>;
   directSourceEdgeRequiredA: Map<string, number>;
   directSourceNetRequiredA: Map<string, number>;
   sourceNetLimits: Map<string, SourceLimit[]>;
@@ -188,6 +189,7 @@ const evaluatedWire = (
     edge.data?.physCrosssectionUnit,
     settings.installation,
     settings.ambientTempC,
+    edge.data?.physType,
   );
 
   return result.ok
@@ -210,12 +212,16 @@ const addDirectSourceEdge = (
   options: {
     isRelevantNet: (net: CheckNet | undefined) => boolean;
     addSourceNetLimit?: boolean;
+    isGroundSourceEdge?: boolean;
   },
 ) => {
   const net = edgeNetById.get(edge.id);
   if (!options.isRelevantNet(net) || !net) return;
 
   discovery.directSourceEdgeIds.add(edge.id);
+  if (options.isGroundSourceEdge) {
+    discovery.directGroundSourceEdgeIds.add(edge.id);
+  }
   discovery.directSourceEdgeRequiredA.set(
     edge.id,
     Math.max(discovery.directSourceEdgeRequiredA.get(edge.id) || 0, source.requiredCurrentA),
@@ -271,6 +277,7 @@ const discoverSources = (
 ): SourceDiscovery => {
   const discovery: SourceDiscovery = {
     directSourceEdgeIds: new Set<string>(),
+    directGroundSourceEdgeIds: new Set<string>(),
     directSourceEdgeRequiredA: new Map<string, number>(),
     directSourceNetRequiredA: new Map<string, number>(),
     sourceNetLimits: new Map<string, SourceLimit[]>(),
@@ -297,6 +304,7 @@ const discoverSources = (
         handle.connectedEdges.forEach((edge) => addDirectSourceEdge(edge, source, groundEdgeNetById, discovery, {
           isRelevantNet: netHasGroundClassification,
           addSourceNetLimit: false,
+          isGroundSourceEdge: true,
         }));
       });
   });
@@ -445,13 +453,20 @@ const checkSourceAndSupplyProtection = (
     const key = `source:${edge.id}`;
     if (issueEdgeKeys.has(key)) return;
     issueEdgeKeys.add(key);
+    const isGroundSourceEdge = discovery.directGroundSourceEdgeIds.has(edge.id);
     issues.push(translatedIssue(
-      'sourceWireCrossSectionTooSmall',
+      isGroundSourceEdge ? 'sourceGroundWireCrossSectionTooSmall' : 'sourceWireCrossSectionTooSmall',
       `source-wire-cross-section-too-small-${edge.id}`,
-      'error',
+      isGroundSourceEdge ? 'warning' : 'error',
       { ampacity: formatAmp(evaluated.ampacityA), required: formatAmp(requiredA) },
       [edgeTarget(edge)],
-      issueOptions('edge', edge.id, 'source-wire-cross-section-too-small', 85, 25),
+      issueOptions(
+        'edge',
+        edge.id,
+        isGroundSourceEdge ? 'source-ground-wire-cross-section-too-small' : 'source-wire-cross-section-too-small',
+        85,
+        25,
+      ),
     ));
   });
 

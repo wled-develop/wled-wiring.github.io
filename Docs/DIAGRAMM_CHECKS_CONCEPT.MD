@@ -967,7 +967,7 @@ Die folgenden Regeln waren als fachliche und technische Kandidaten fuer naechste
 
 Aktueller Stand:
 
-- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `sourceWireCrossSectionTooSmall`, `unfusedSupplyWireCrossSectionTooSmall`, `fusedSupplyWireCrossSectionTooSmall`, `ledSupplyInputNotAdequatelyProtected`, `componentGroundWireCrossSectionSmallerThanSupply`, `ledGroundWireCrossSectionSmallerThanSupply`, `connectorGroundWireCrossSectionSmallerThanBranch`, `pinWireCrossSectionTooLarge`, `pinTotalCrossSectionTooLarge`, `pinWireCrossSectionDifficult`, `pinTotalCrossSectionDifficult`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
+- Implementiert: `wireConnectedToHiddenOrMissingHandle`, `mainsWireConnectedToLowVoltageComponent`, `groundAndSupplyPolaritySwapped`, `componentHasOnlyOneTerminalConnected`, `supplyVoltageUnknown`, `fuseBypassed`, `wireWithoutPhysicalParameters`, `sourceWireCrossSectionTooSmall`, `sourceGroundWireCrossSectionTooSmall`, `unfusedSupplyWireCrossSectionTooSmall`, `fusedSupplyWireCrossSectionTooSmall`, `ledSupplyInputNotAdequatelyProtected`, `componentGroundWireCrossSectionSmallerThanSupply`, `ledGroundWireCrossSectionSmallerThanSupply`, `connectorGroundWireCrossSectionSmallerThanBranch`, `pinWireCrossSectionTooLarge`, `pinTotalCrossSectionTooLarge`, `pinWireCrossSectionDifficult`, `pinTotalCrossSectionDifficult`, `clockedLedClockMissing`, `dataDirectionWrong`, `digitalBackupPairMismatch`, `signalOutputWithoutConsumer`, `capacitorPolarityMismatch`, `mainsConnectorIncomplete`, `protectiveEarthMissingForMetalOrMainsDevice`, `fuseCurrentMissingOrUnderspecified`, `unusedRequiredFunctionalGroup`, `controlledOutputWithoutControlInput`, `analogLedColorChannelUnconnected`, `analogLedColorChannelMultiplePwmSignals`, `duplicateParallelWire`, `isolatedComponent`, `componentDefinitionIncompleteForChecks`, `ambiguousMultiFunctionHandle`, `sn74Ahct125nDirectLedOutputMissingSeriesResistor`.
 - Deaktiviert: `supplyInputOnlyInternallyPowered`, weil die Meldung bei LED-Streifen zu oft irrefuehrend war und durch `supplyInputWithoutSource` bzw. `powerMissing` besser abgedeckt wird.
 - Umgesetzt: Leitungsquerschnitt-gegen-Quelle/Sicherung-Regelgruppe aus `Docs/LEITUNGSQUERSCHNITT_ABSICHERUNG_KONZEPT.MD`. Diese Regeln pruefen Schutzgrenzen durch `source_current`, Sicherungsnennwerte und explizite GND-Topologie, nicht geschaetzte Laststroeme.
 - Bewusst nicht implementiert, weil im Konzept so markiert: `mixedDigitalSignalTypes`, `levelShifterSupplyMismatch`, `powerWireCrossSectionTooSmall`.
@@ -1355,7 +1355,7 @@ Fuer reine logische Signalverbindungen ist das oft egal. Fuer Versorgung und spa
 Moegliche Logik:
 
 - Wires in Netzen mit `suppl_net_type`, `gnd_net_type` oder `usb_net_type` betrachten.
-- Bei USB-Wires gelten Laenge und Querschnitt pro Leiter. Fuer neue USB-Wires sollen `AWG24`, `AWG26` und `AWG28` als Presets angeboten werden; `AWG26` ist der Default fuer neue bzw. bewusst migrierte USB-Wires.
+- Bei USB-Wires gelten Laenge und Querschnitt pro Leiter. Fuer neue USB-Wires sollen `AWG24`, `AWG26` und `AWG28` als Presets angeboten werden; `AWG26` ist der Default fuer neue bzw. bewusst migrierte USB-Wires. Es werden auch als mm2 Werte 0.14 und 0.25 angeboten.
 - Edge-Daten auf physikalische Laenge und Querschnitt pruefen.
 - Severity `warning`
 
@@ -1392,6 +1392,7 @@ Implementierte Regelgruppe aus `Docs/LEITUNGSQUERSCHNITT_ABSICHERUNG_KONZEPT.MD`
 Regel-IDs:
 
 - `sourceWireCrossSectionTooSmall`
+- `sourceGroundWireCrossSectionTooSmall`
 - `unfusedSupplyWireCrossSectionTooSmall`
 - `fusedSupplyWireCrossSectionTooSmall`
 - `ledSupplyInputNotAdequatelyProtected`
@@ -1401,7 +1402,7 @@ Regel-IDs:
 
 Fachlicher Zweck:
 
-- Wires direkt an Energiequellen mit `source_current` gegen `1.25 * source_current` pruefen.
+- Wires direkt an Energiequellen mit `source_current` gegen `1.25 * source_current` pruefen. Supply- und USB-Quellleitungen bleiben Fehler; direkte GND-Quellleitungen werden als Warnung gemeldet.
 - Fuer Regel 1 werden Supply- und USB-Quellleitungen in `componentLinkedElementaryBasedNets` bewertet; GND-Quellleitungen werden bewusst in `elementaryNets` bewertet.
 - Ungesicherte Supply-Teilnetze mit direkter Quellenanbindung ebenfalls gegen `1.25 * source_current` pruefen.
 - Supply-Teilnetze hinter Sicherungen gegen die wirksamen Sicherungsnennwerte pruefen.

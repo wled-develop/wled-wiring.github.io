@@ -2530,6 +2530,7 @@ export const diagramCheckRules: DiagramCheckRule[] = [
       'fuseBypassed',
       'wireWithoutPhysicalParameters',
       'sourceWireCrossSectionTooSmall',
+      'sourceGroundWireCrossSectionTooSmall',
       'unfusedSupplyWireCrossSectionTooSmall',
       'fusedSupplyWireCrossSectionTooSmall',
       'ledSupplyInputNotAdequatelyProtected',

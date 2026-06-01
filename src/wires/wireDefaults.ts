@@ -3,7 +3,9 @@ import type { Edge, Node } from "@xyflow/react";
 import type { ComponentDataType, EdgeDataType, HandleDataType } from "../types";
 
 export const GENERAL_WIRE_AWG_PRESETS = [24, 22, 20, 18, 16, 14, 12, 10, 8] as const;
+export const GENERAL_WIRE_MM2_PRESETS = [0.25, 0.34, 0.5, 0.75, 1, 1.5, 2.5, 4, 6] as const;
 export const USB_WIRE_AWG_PRESETS = [24, 26, 28] as const;
+export const USB_WIRE_MM2_PRESETS = [0.25, 0.14] as const;
 export const DEFAULT_USB_WIRE_AWG = 26;
 
 const handleHasFunction = (

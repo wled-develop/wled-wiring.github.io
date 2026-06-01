@@ -553,6 +553,12 @@
               "description": "This wire is directly connected to an energy source. The wire can carry {{ampacity}} A; {{required}} A is required.",
               "recommendation": "Choose a larger cross section or an energy source with a lower current limit."
             },
+            "sourceGroundWireCrossSectionTooSmall": {
+              "title": "Ground wire at source is too small",
+              "shortDescription": "A ground wire directly at an energy source is too small for the source current limit.",
+              "description": "This ground wire is directly connected to an energy source. The wire can carry {{ampacity}} A; {{required}} A is required.",
+              "recommendation": "Choose a larger cross section or an energy source with a lower current limit. Alternatively, route or insulate the ground wire so that a short circuit with supply wires is excluded even under fault conditions."
+            },
             "unfusedSupplyWireCrossSectionTooSmall": {
               "title": "Unfused supply wire is too small",
               "shortDescription": "A wire in a directly source-connected supply net is too small.",
@@ -861,7 +867,9 @@
         },
         "wireAmpacityFullLoadRequired": {
           "title": "Full-load simulation required for wire ampacity",
-          "description": "Wire ampacity can only be evaluated reliably after a simulation at 100% brightness with {{mode}}. Run the simulation with those LED settings to check wire current limits."
+          "description": "Wire ampacity can only be evaluated reliably after a full-load simulation.",
+          "descriptionRgb": "For RGB strips, wire ampacity can only be evaluated reliably after a simulation at 100% brightness with RGB white. Separate + RGB white is equivalent for RGB-only strips and is also accepted.",
+          "descriptionRgbw": "Wire ampacity can only be evaluated reliably after a full-load simulation at 100% brightness with Separate + RGB white, because the diagram contains RGBW strips."
         },
         "ledStripSupplyVoltageLow": {
           "title": "LED strip supply voltage is too low",

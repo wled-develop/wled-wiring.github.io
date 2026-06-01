@@ -524,6 +524,12 @@
               "description": "这根导线直接连接到电源。导线可承载 {{ampacity}} A，需要 {{required}} A。",
               "recommendation": "请选择更大的截面积，或使用限流值更低的电源。"
             },
+            "sourceGroundWireCrossSectionTooSmall": {
+              "title": "电源附近 GND 导线过细",
+              "shortDescription": "直接连接到电源的 GND 导线无法承受该电源限流值。",
+              "description": "这根 GND 导线直接连接到电源。导线可承载 {{ampacity}} A，需要 {{required}} A。",
+              "recommendation": "请选择更大的截面积，或使用限流值更低的电源。或者，对 GND 导线进行布线或绝缘处理，确保即使在故障情况下也不会与供电导线发生短路。"
+            },
             "unfusedSupplyWireCrossSectionTooSmall": {
               "title": "未熔断保护的供电导线过细",
               "shortDescription": "直接连接电源的供电网络中有一根导线过细。",
@@ -832,7 +838,9 @@
         },
         "wireAmpacityFullLoadRequired": {
           "title": "导线载流能力需要满载模拟",
-          "description": "只有在 100% 亮度并使用 {{mode}} 进行模拟后，才能可靠评估导线载流能力。请使用这些 LED 设置重新运行模拟，以检查导线电流限制。"
+          "description": "只有在满载模拟后，才能可靠评估导线载流能力。",
+          "descriptionRgb": "对于 RGB 灯带，只有在 100% 亮度并使用 RGB 白光进行模拟后，才能可靠评估导线载流能力。对于纯 RGB 灯带，Separate + RGB white 与 RGB 白光等效，也会被接受。",
+          "descriptionRgbw": "由于图中包含 RGBW 灯带，只有在 100% 亮度并使用 Separate + RGB white 进行满载模拟后，才能可靠评估导线载流能力。"
         },
         "ledStripSupplyVoltageLow": {
           "title": "LED 灯带供电电压过低",
