@@ -1,6 +1,6 @@
 # Konzept: Leitungsquerschnitt gegen Quellen und Sicherungen pruefen
 
-Stand: 2026-05-31
+Stand: 2026-06-01
 
 Dieses Dokument bewertet die vorgeschlagene Diagramm-Check-Erweiterung fuer Leitungsquerschnitte und beschreibt ein kompatibles Umsetzungskonzept. Die Aufgabe stammt aus `Docs/Aufgabe1.txt`.
 
@@ -357,7 +357,7 @@ Deutscher Meldungsvorschlag:
 
 Ziel:
 
-GND-Wires an einer Komponente sollen mindestens den groessten Querschnitt der an diese Komponente angeschlossenen Supply-Wires haben.
+GND-Wires an einer Komponente sollen mindestens den groessten Querschnitt der an diese Komponente angeschlossenen Supply-Wires haben, die ueber `relatedToHandle` vom jeweiligen GND-Handle referenziert sind.
 
 Implementierungshinweis:
 
@@ -373,11 +373,13 @@ Ausnahmen:
 Algorithmus:
 
 1. Pro Nicht-Connector-/Nicht-LED-Komponente:
-   - Sammle direkt angeschlossene Wires, deren `componentLinkedNet` `suppl_net_type` hat.
-   - Ermittle den maximalen auswertbaren Querschnitt.
-2. Wenn kein Supply-Querschnitt vorhanden ist, keine Pruefung.
-3. Sammle direkt angeschlossene GND-Wires.
-4. Jede GND-Wire mit kleinerem Querschnitt erzeugt `componentGroundWireCrossSectionSmallerThanSupply`.
+   - Sammle sichtbare GND-Handles mit `relatedToHandle`.
+   - Fuer jedes GND-Handle werden nur die referenzierten Handles derselben Komponente als Supply-Bezug betrachtet.
+2. Pro GND-Handle:
+   - Sammle direkt angeschlossene Wires der referenzierten Handles, deren `componentLinkedNet` `suppl_net_type` hat.
+   - Ermittle den maximalen auswertbaren Querschnitt dieser referenzierten Supply-Wires.
+3. Wenn ein GND-Handle kein `relatedToHandle` besitzt oder keine referenzierte Supply-Wire mit auswertbarem Querschnitt vorhanden ist, keine Pruefung fuer diesen GND-Handle.
+4. Jede direkt angeschlossene GND-Wire dieses Handles mit kleinerem Querschnitt erzeugt `componentGroundWireCrossSectionSmallerThanSupply`.
 
 Deutscher Meldungsvorschlag:
 

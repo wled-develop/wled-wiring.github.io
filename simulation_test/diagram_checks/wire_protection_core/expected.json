@@ -3,7 +3,8 @@
   "filterIssueIdIncludes": [
     "source-wire-cross-section-too-small",
     "fused-supply-wire-cross-section-too-small",
-    "led-supply-input-not-adequately-protected"
+    "led-supply-input-not-adequately-protected",
+    "component-ground-wire-cross-section-smaller-than-supply"
   ],
   "expectedIssues": [
     {
@@ -25,6 +26,11 @@
       "idIncludes": "led-supply-input-not-adequately-protected",
       "ruleId": "network-rules",
       "severity": "error"
+    },
+    {
+      "idIncludes": "component-ground-wire-cross-section-smaller-than-supply-wire-component-gnd-small",
+      "ruleId": "network-rules",
+      "severity": "warning"
     }
   ]
 }

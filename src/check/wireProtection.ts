@@ -543,6 +543,30 @@ const edgeCrosssectionMm2 = (
   settings: WireAmpacitySettings,
 ) => evaluatedWire(edge, settings)?.crosssectionMm2;
 
+const maxRelatedSupplyCrosssectionMm2 = (
+  context: DiagramCheckContext,
+  handlesById: Map<string, CheckHandle>,
+  gndHandle: CheckHandle,
+  settings: WireAmpacitySettings,
+) => {
+  const relatedHandleIds = gndHandle.handle.relatedToHandle || [];
+  if (relatedHandleIds.length === 0) return undefined;
+
+  const relatedSupplyCrosssections = relatedHandleIds.flatMap((handleId) => {
+    const relatedHandle = handlesById.get(handleId);
+    if (!relatedHandle || !context.getNetByHandle(relatedHandle)?.classifications.includes('suppl_net_type')) {
+      return [];
+    }
+
+    return relatedHandle.connectedEdges
+      .map((edge) => edgeCrosssectionMm2(edge, settings))
+      .filter((value): value is number => value !== undefined);
+  });
+
+  const maxCrosssectionMm2 = Math.max(0, ...relatedSupplyCrosssections);
+  return maxCrosssectionMm2 > 0 ? maxCrosssectionMm2 : undefined;
+};
+
 const checkComponentGroundCrosssections = (
   context: DiagramCheckContext,
   settings: WireAmpacitySettings,
@@ -554,22 +578,19 @@ const checkComponentGroundCrosssections = (
     .filter((node) => node.data.group !== 'led')
     .flatMap((node) => {
       const handles = context.handles.filter((handle) => handle.node.id === node.id);
-      const supplyEdges = handles.flatMap((handle) => (
-        handle.connectedEdges.filter(() => context.getNetByHandle(handle)?.classifications.includes('suppl_net_type'))
-      ));
-      const maxSupplyMm2 = Math.max(
-        0,
-        ...supplyEdges
-          .map((edge) => edgeCrosssectionMm2(edge, settings))
-          .filter((value): value is number => value !== undefined),
-      );
-      if (maxSupplyMm2 <= 0) return [];
+      const handlesById = new Map(handles.map((handle) => [handle.handle.hid, handle]));
 
       return handles
         .filter((handle) => hasFunction(handle, 'gnd'))
-        .flatMap((handle) => handle.connectedEdges.map((edge) => ({ handle, edge })))
+        .flatMap((handle) => {
+          const maxSupplyMm2 = maxRelatedSupplyCrosssectionMm2(context, handlesById, handle, settings);
+          if (maxSupplyMm2 === undefined) return [];
+
+          return handle.connectedEdges
+            .map((edge) => ({ handle, edge, maxSupplyMm2 }));
+        })
         .filter(({ handle }) => context.getNetByHandle(handle)?.classifications.includes('gnd_net_type'))
-        .flatMap(({ handle, edge }) => {
+        .flatMap(({ handle, edge, maxSupplyMm2 }) => {
           const crosssectionMm2 = edgeCrosssectionMm2(edge, settings);
           if (crosssectionMm2 === undefined || crosssectionMm2 + CROSSSECTION_TOLERANCE_MM2 >= maxSupplyMm2) return [];
 

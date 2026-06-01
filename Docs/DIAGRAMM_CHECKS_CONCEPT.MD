@@ -1406,7 +1406,7 @@ Fachlicher Zweck:
 - Ungesicherte Supply-Teilnetze mit direkter Quellenanbindung ebenfalls gegen `1.25 * source_current` pruefen.
 - Supply-Teilnetze hinter Sicherungen gegen die wirksamen Sicherungsnennwerte pruefen.
 - Supply-Eingaenge digitaler LED-Strips gegen deren `handle.Imax` pruefen, weil LED-Strips Versorgung intern weiterleiten koennen und dadurch teilweise wie Leitungen wirken.
-- GND-/Rueckleiter an Komponenten und LED-Anschlussbereichen gegen die zugehoerigen Supply-Querschnitte plausibilisieren.
+- GND-/Rueckleiter an Komponenten und LED-Anschlussbereichen gegen die zugehoerigen Supply-Querschnitte plausibilisieren. Fuer normale Komponenten werden nur Supply-Handles herangezogen, die der jeweilige GND-Handle ueber `relatedToHandle` referenziert.
 - GND-Verteilerleitungen zwischen reinen Verbindungselementen als Warnung gegen nachgelagerte GND-Abgaenge pruefen.
 
 Wichtige Entscheidungen:
@@ -1419,7 +1419,7 @@ Wichtige Entscheidungen:
 - Nur `suppl_in`-Handles werden fuer diese LED-Eingangsregel geprueft; GND bleibt ueber die LED-GND-Regel abgedeckt.
 - Bei nicht auswertbarem Sicherungsnennwert wird keine neue Diagnose erzeugt; `fuseCurrentMissingOrUnderspecified` deckt diesen Fall ab.
 - Ampacity-Vergleiche verwenden `0.01 A` Toleranz.
-- Die normale Komponenten-GND-Regel `componentGroundWireCrossSectionSmallerThanSupply` ist mit `ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK` als Code-Feature-Flag kapselbar.
+- Die normale Komponenten-GND-Regel `componentGroundWireCrossSectionSmallerThanSupply` ist mit `ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK` als Code-Feature-Flag kapselbar und vergleicht pro GND-Handle nur gegen die ueber `relatedToHandle` zugeordneten Supply-Handles.
 - Die Connector-GND-Regel wird mit Code-Feature-Flag umgesetzt, damit sie bei zu vielen false positives schnell deaktivierbar bleibt.
 - Regression-Coverage liegt in `simulation_test/diagram_checks/wire_protection_core`.
 

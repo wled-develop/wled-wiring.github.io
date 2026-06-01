@@ -129,7 +129,22 @@
         "group": "electronics",
         "handles": [
           { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"] },
-          { "hid": "GND", "name": "GND", "functions": ["gnd"] }
+          { "hid": "GND", "name": "GND", "functions": ["gnd"], "relatedToHandle": ["VIN"] }
+        ]
+      }
+    },
+    {
+      "id": "component-ground-related-only",
+      "type": "general-component-type",
+      "position": { "x": 440, "y": 360 },
+      "data": {
+        "technicalID": "TEST_COMPONENT_RELATED_ONLY",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN_SAFE", "name": "VIN safe", "functions": ["suppl_in"] },
+          { "hid": "VIN_BIG", "name": "VIN big", "functions": ["suppl_in"] },
+          { "hid": "GND", "name": "GND", "functions": ["gnd"], "relatedToHandle": ["VIN_SAFE"] }
         ]
       }
     },
@@ -260,6 +275,9 @@
     { "id": "wire-led-imax", "source": "psu-led", "target": "led-imax", "sourceHandle": "VOUT", "targetHandle": "VCC_start", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
     { "id": "wire-component-supply", "source": "supply-ref", "target": "component-ground", "sourceHandle": "VOUT", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 1.5, "physCrosssectionUnit": "mm2" } },
     { "id": "wire-component-gnd-small", "source": "supply-ref", "target": "component-ground", "sourceHandle": "GND", "targetHandle": "GND", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-component-related-supply", "source": "supply-ref", "target": "component-ground-related-only", "sourceHandle": "VOUT", "targetHandle": "VIN_SAFE", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-component-unrelated-supply", "source": "supply-ref", "target": "component-ground-related-only", "sourceHandle": "VOUT", "targetHandle": "VIN_BIG", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-component-related-gnd-ok", "source": "supply-ref", "target": "component-ground-related-only", "sourceHandle": "GND", "targetHandle": "GND", "data": { "physType": "single", "physLength": 1, "physCrosssection": 1.5, "physCrosssectionUnit": "mm2" } },
     { "id": "wire-usb-awg26-ok", "source": "usb-psu-ok", "target": "usb-device-ok", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 26, "physCrosssectionUnit": "AWG" } },
     { "id": "wire-usb-awg28-small", "source": "usb-psu-small", "target": "usb-device-small", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 28, "physCrosssectionUnit": "AWG" } },
     { "id": "wire-led-split-source", "source": "psu-led-split", "target": "fuse-led-split", "sourceHandle": "VOUT", "targetHandle": "IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
