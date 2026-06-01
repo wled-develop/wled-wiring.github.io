@@ -506,7 +506,7 @@ const FlowApp = () => {
 
     stripCheckAndDivideIfMiddleConnection(reactFlow, handleAndNodeArray);
 
-  }, [PFEnabled, setNodes, setEdges, reactFlow, undoRedo]);
+  }, [PFEnabled, nodes, setNodes, setEdges, reactFlow, undoRedo]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds1) => {

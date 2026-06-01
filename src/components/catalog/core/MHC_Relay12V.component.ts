@@ -182,6 +182,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VIN1", "VIN2"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
@@ -215,6 +216,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VIN1", "VIN2"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,

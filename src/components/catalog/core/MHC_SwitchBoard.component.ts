@@ -88,6 +88,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VIN"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
@@ -215,6 +216,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VOUT1"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
@@ -281,6 +283,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VOUT2"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
@@ -347,6 +350,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VOUT3"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,

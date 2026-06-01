@@ -826,6 +826,14 @@
           "title": "引脚电流超过限制",
           "description": "引脚电流 {{current}} A 超过最大值 {{limit}} A。"
         },
+        "wireAmpacityExceeded": {
+          "title": "导线电流超过载流能力",
+          "description": "模拟电流 {{current}} A 超过 {{crosssection}} {{conductor}} 的导线载流能力 {{limit}} A。对于常见导线类型，此截面积过小。请使用更耐高温/更高电流等级的导线，或增大导线截面积。"
+        },
+        "wireAmpacityFullLoadRequired": {
+          "title": "导线载流能力需要满载模拟",
+          "description": "只有在 100% 亮度并使用 {{mode}} 进行模拟后，才能可靠评估导线载流能力。请使用这些 LED 设置重新运行模拟，以检查导线电流限制。"
+        },
         "ledStripSupplyVoltageLow": {
           "title": "LED 灯带供电电压过低",
           "description": "已连接的 LED 灯带供电点处 VLED 为 {{voltage}} V，低于最小值 {{limit}} V。请提高电源电压；如果电源正在限流，请提高可用功率。"

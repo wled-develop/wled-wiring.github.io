@@ -1423,17 +1423,22 @@ Wichtige Entscheidungen:
 - Die Connector-GND-Regel wird mit Code-Feature-Flag umgesetzt, damit sie bei zu vielen false positives schnell deaktivierbar bleibt.
 - Regression-Coverage liegt in `simulation_test/diagram_checks/wire_protection_core`.
 
-#### `powerWireCrossSectionTooSmall` NICHT IMPLEMENTIEREN (spaeter nach Simulation)
+#### Simulierter Leitungsstrom gegen Stromtragfaehigkeit
 
-Warnung, wenn ein Power-Wire anhand bekannter Lastdaten wahrscheinlich zu duenn ist.
+Umgesetzt als Simulation-Check, nicht als Diagramm-Check. Die alte Idee `powerWireCrossSectionTooSmall` wird nicht als schaetzende Diagramm-Regel umgesetzt.
 
-Diese Regel braucht zusaetzliche Strom-/Lastinformationen und ist daher eher ein spaeterer Ausbau oder eine Bruecke zur Simulation.
+Fachlicher Zweck:
 
-Moegliche Logik:
+- Nach erfolgreicher Simulation wird pro auswertbarer Leitung der absolute simulierte Strom gegen `wireAmpacityA` aus `src/wires/wireAmpacity.ts` geprueft.
+- Leitungsverlegung und Umgebungstemperatur werden aus denselben `checkSettings.wireAmpacity`-Einstellungen verwendet wie die Diagramm-Check-Regeln.
+- Wenn der simulierte Strom die Stromtragfaehigkeit ueberschreitet, erzeugt die Simulation ein Error-Issue am Wire. Die Meldung weist darauf hin, dass der Querschnitt fuer handelsuebliche Leitungstypen zu gering ist und entweder eine besonders temperatur-/stromstabile Leitung oder ein groesserer Querschnitt verwendet werden soll.
+- Die Bewertung laeuft nur bei LED-Volllast: reine RGB-Streifen mit `100%` und `RGB_WHITE`, RGBW- oder gemischte Diagramme mit `100%` und `SEPARATE_AND_RGB_WHITE`.
+- Bei anderen LED-Einstellungen erzeugt die Simulation ein Info-Issue, dass fuer die Leitungsstrombewertung eine Volllast-Simulation noetig ist.
+- USB-Power-Pair-Wires werden ueber ihre simulierten Leiterergebnisse getrennt bewertet; das sichtbare Target bleibt die USB-Wire.
 
-- Supply-Netz, Verbraucher und Sicherungswerte aggregieren.
-- Drahtquerschnitt gegen geschaetzte Maximalstroeme pruefen.
-- Als konservative Warnung formulieren, solange keine echte Simulation laeuft.
+Wichtige Entscheidung:
+
+- Es werden keine Laststroeme geraten oder aggregiert. Grundlage ist ausschliesslich der simulierte Wire-Strom.
 
 #### `duplicateParallelWire` 
 

@@ -52,6 +52,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["V"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,

@@ -855,6 +855,14 @@
           "title": "Pin-Stromgrenze ueberschritten",
           "description": "Der Pin-Strom {{current}} A ueberschreitet den Maximalwert {{limit}} A."
         },
+        "wireAmpacityExceeded": {
+          "title": "Leitungsstrom ueberschreitet Stromtragfaehigkeit",
+          "description": "Der simulierte Strom {{current}} A ueberschreitet die Stromtragfaehigkeit {{limit}} A fuer {{crosssection}} {{conductor}}. Fuer handelsuebliche Leitungstypen ist dieser Querschnitt zu gering. Verwende eine besonders temperatur- bzw. stromstabile Leitung oder vergroessere den Querschnitt."
+        },
+        "wireAmpacityFullLoadRequired": {
+          "title": "Volllast-Simulation fuer Leitungsstrom erforderlich",
+          "description": "Die Strombelastbarkeit der Leitungen kann nur nach einer Simulation mit 100% Helligkeit und {{mode}} zuverlaessig bewertet werden. Fuehre die Simulation mit diesen LED-Einstellungen aus, um die Leitungs-Stromgrenzen zu pruefen."
+        },
         "ledStripSupplyVoltageLow": {
           "title": "Versorgungsspannung am LED-Streifen zu niedrig",
           "description": "VLED an einem angeschlossenen Versorgungspunkt des LED-Streifens ist {{voltage}} V und liegt unter dem Minimum {{limit}} V. Erhoehe die Netzteilspannung oder die verfuegbare Leistung, falls das Netzteil im Stromlimit arbeitet."

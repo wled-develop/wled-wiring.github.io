@@ -2,6 +2,11 @@ import type { Edge, Node } from "@xyflow/react";
 
 import i18next from "../i18n";
 import type { ComponentDataType, EdgeDataType } from "../types";
+import {
+  DEFAULT_WIRE_AMPACITY_SETTINGS,
+  type WireAmpacitySettings,
+} from "../wires/wireAmpacity";
+import { createSimulationWireAmpacityIssues } from "./simulationAmpacityChecks";
 import { buildSimulationModel } from "./buildSimulationModel";
 import { createSimulationFingerprint } from "./simulationFingerprint";
 import { sparseLinearSystemSolver } from "./sparseLinearSystemSolver";
@@ -1558,9 +1563,11 @@ const createSolvedCheckIssues = (
 };
 
 const createSimulationResult = (
+  edges: Edge<EdgeDataType>[],
   model: SimulationModel,
   diagramFingerprint: string,
   checkIssues: SimulationCheckIssue[],
+  wireAmpacitySettings: WireAmpacitySettings,
   linearModel: LinearDcModel,
   values: number[],
   voltageSourceStates: VoltageSourceStateByElementId,
@@ -1647,7 +1654,18 @@ const createSimulationResult = (
     ...usbAggregatedWireResults,
   ];
   const solvedCheckIssues = createSolvedCheckIssues(model, linearModel, values, circuitVoltages, voltageSourceStates, dcdcInputStates);
-  const allCheckIssues = [...checkIssues, ...solvedCheckIssues, ...usbConsistencyIssues];
+  const wireAmpacityIssues = createSimulationWireAmpacityIssues(
+    model,
+    edges,
+    wireResults,
+    wireAmpacitySettings,
+  );
+  const allCheckIssues = [
+    ...checkIssues,
+    ...solvedCheckIssues,
+    ...usbConsistencyIssues,
+    ...wireAmpacityIssues,
+  ];
 
   return {
     modelVersion: 1,
@@ -1687,6 +1705,7 @@ export const runSimulation = (
   nodes: Node<ComponentDataType>[],
   edges: Edge<EdgeDataType>[],
   settings: SimulationSettings,
+  wireAmpacitySettings: WireAmpacitySettings = DEFAULT_WIRE_AMPACITY_SETTINGS,
 ): RunSimulationResult => {
   const diagramFingerprint = createSimulationFingerprint(nodes, edges);
   const modelResult = buildSimulationModel(nodes, edges, settings);
@@ -1838,9 +1857,11 @@ export const runSimulation = (
   }
 
   const result = createSimulationResult(
+    edges,
     modelResult.model,
     diagramFingerprint,
     modelResult.issues,
+    wireAmpacitySettings,
     linearModel,
     solverResult.values ?? [],
     voltageSourceStates,

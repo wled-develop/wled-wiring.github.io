@@ -855,6 +855,14 @@
           "title": "Pin current limit exceeded",
           "description": "Pin current {{current}} A exceeds the maximum {{limit}} A."
         },
+        "wireAmpacityExceeded": {
+          "title": "Wire current exceeds ampacity",
+          "description": "The simulated current {{current}} A exceeds the wire ampacity {{limit}} A for {{crosssection}} {{conductor}}. For common wire types this cross-section is too small. Use a wire type rated for higher temperature/current or increase the cross-section."
+        },
+        "wireAmpacityFullLoadRequired": {
+          "title": "Full-load simulation required for wire ampacity",
+          "description": "Wire ampacity can only be evaluated reliably after a simulation at 100% brightness with {{mode}}. Run the simulation with those LED settings to check wire current limits."
+        },
         "ledStripSupplyVoltageLow": {
           "title": "LED strip supply voltage is too low",
           "description": "VLED at a connected LED strip supply point is {{voltage}} V, below the minimum {{limit}} V. Increase the power supply voltage, or increase the available power if the power supply is current-limiting."

@@ -20,6 +20,7 @@ import type {
   SimulationTarget,
 } from "./simulationTypes";
 import { useDiagramCheckResultStore } from "../check/diagramCheckResultStore";
+import { useDiagramCheckSettingsStore } from "../check/checkSettingsStore";
 import type { ComponentDataType, EdgeDataType } from "../types";
 import { getComponentDisplayName } from "../utils/componentDisplayName";
 
@@ -94,6 +95,7 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
   const setDisplayMode = useSimulationResultStore((state) => state.setDisplayMode);
   const setSimulationOverlayResult = useSimulationResultStore((state) => state.setResult);
   const diagramCheckResult = useDiagramCheckResultStore((state) => state.result);
+  const wireAmpacitySettings = useDiagramCheckSettingsStore((state) => state.settings.wireAmpacity);
   const [settings, setSettings] = useState<SimulationSettings>({
     ledColorMode: "RGB_WHITE",
     brightnessPercent: 100,
@@ -158,14 +160,14 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
     new Map(edges.map((edge) => [edge.id, edge]))
   ), [edges]);
 
-  const componentLabel = (nodeId: string) => {
+  const componentLabel = useCallback((nodeId: string) => {
     const node = nodeById.get(nodeId);
     if(!node) return nodeId;
 
     return getComponentDisplayName(node.data, node.id, t);
-  };
+  }, [nodeById, t]);
 
-  const pinLabel = (nodeId: string, handleId: string) => {
+  const pinLabel = useCallback((nodeId: string, handleId: string) => {
     const node = nodeById.get(nodeId);
     const handle = node ? allNodeHandles(node).find((candidate) => candidate.hid === handleId) : undefined;
     const pin = handle?.name || handleId;
@@ -174,9 +176,9 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
       component: componentLabel(nodeId),
       pin,
     });
-  };
+  }, [componentLabel, nodeById, t]);
 
-  const targetLabel = (target: SimulationTarget) => {
+  const targetLabel = useCallback((target: SimulationTarget) => {
     if(target.type === "node") return componentLabel(target.nodeId);
 
     if(target.type === "pin") {
@@ -203,9 +205,9 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
     }
 
     return target.elementId;
-  };
+  }, [componentLabel, edgeById, nodes, pinLabel, t]);
 
-  const formatIssueMessageOptions = (
+  const formatIssueMessageOptions = useCallback((
     options: SimulationIssueMessage["options"],
   ) => {
     if(!options) return undefined;
@@ -221,16 +223,16 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
         }).format(value.value),
       ];
     }));
-  };
+  }, [i18n.language, i18n.resolvedLanguage]);
 
-  const issueMessageText = (
+  const issueMessageText = useCallback((
     message: SimulationIssueMessage | undefined,
     fallback: string,
   ) => (
     message
       ? String(t(message.key, formatIssueMessageOptions(message.options)))
       : fallback
-  );
+  ), [formatIssueMessageOptions, t]);
 
   const clearSimulationHighlights = useCallback(() => {
     reactFlow.setNodes((currentNodes) => currentNodes.map((node) => ({
@@ -362,6 +364,7 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
       nodes: reactFlow.getNodes(),
       edges: reactFlow.getEdges(),
       settings,
+      wireAmpacitySettings,
     });
     simulationWorkerRunRef.current = workerRun;
 

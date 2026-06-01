@@ -1132,6 +1132,7 @@ Erste Checks:
 - Spannung am angeschlossenen LED-Streifen-Versorgungspunkt unter Mindestspannung. Pro LED-Streifen wird dafuer nur eine zusammengefasste Meldung erzeugt. Sie weist darauf hin, dass Netzteilspannung bzw. bei Stromlimit/Degradation die verfuegbare Netzteilleistung erhoeht werden muss.
 - Spannung ueber die Laenge des LED-Streifens unter der aus der LED-Kennlinie berechneten Warn- oder Fehlergrenze, obwohl die angeschlossenen Versorgungspunkte im erlaubten Bereich liegen. Pro LED-Streifen wird dafuer nur eine zusammengefasste Meldung erzeugt. Sie weist darauf hin, dass der Spannungsabfall ueber den Streifen zu hoch ist, weitere Einspeisungen noetig sind und die Farbwiedergabe je nach Grenzwert etwas oder deutlich verfaelscht werden kann.
 - Spannung am LED-Streifen ueber Maximalspannung.
+- Simulierter Wire-Strom ueber der Stromtragfaehigkeit aus `wireAmpacityA`. Bewertet wird nur nach einer Volllast-Simulation: bei reinen RGB-Streifen `100%` und `RGB_WHITE`, sobald RGBW-Streifen vorkommen `100%` und `SEPARATE_AND_RGB_WHITE`. Bei anderen LED-Einstellungen erzeugt die Simulation genau ein Info-Issue, dass fuer die Leitungsstrombewertung eine Volllast-Simulation noetig ist. USB-Power-Pair-Wires werden leiterweise ueber `conductorResults` bewertet.
 - Mehrere Spannungsquellen mit unterschiedlicher Spannung im selben Supply/GND-System.
 - Nicht versorgtes Teilnetz wurde ignoriert.
 - Strom ueber 150% des PSU- oder DCDC-Limits: Simulation abbrechen.

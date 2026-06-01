@@ -156,6 +156,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["3V3"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,

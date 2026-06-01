@@ -1,6 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 
 import type { ComponentDataType, EdgeDataType } from "../types";
+import type { WireAmpacitySettings } from "../wires/wireAmpacity";
 import type { RunSimulationResult } from "./runSimulation";
 import type { SimulationSettings } from "./simulationTypes";
 import type { SimulationWorkerRequest, SimulationWorkerResponse } from "./simulationWorker";
@@ -10,6 +11,7 @@ type RunSimulationInWorkerOptions = {
   nodes: Node<ComponentDataType>[];
   edges: Edge<EdgeDataType>[];
   settings: SimulationSettings;
+  wireAmpacitySettings: WireAmpacitySettings;
 };
 
 export type SimulationWorkerRun = {
@@ -22,12 +24,13 @@ export const runSimulationInWorker = ({
   nodes,
   edges,
   settings,
+  wireAmpacitySettings,
 }: RunSimulationInWorkerOptions): SimulationWorkerRun => {
   let worker: Worker | null = null;
 
   const runFallback = async () => {
     const {runSimulation} = await import("./runSimulation");
-    return runSimulation(nodes, edges, settings);
+    return runSimulation(nodes, edges, settings, wireAmpacitySettings);
   };
 
   const promise = new Promise<RunSimulationResult>((resolve, reject) => {
@@ -73,6 +76,7 @@ export const runSimulationInWorker = ({
         nodes,
         edges,
         settings,
+        wireAmpacitySettings,
       } satisfies SimulationWorkerRequest);
     } catch {
       fallback();

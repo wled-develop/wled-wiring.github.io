@@ -250,6 +250,7 @@ export default defineComponent({
         "functions": [
           "gnd"
         ],
+        "relatedToHandle": ["VCC"],
         "voltage": {
           "out": 0,
           "toleranceMin": 0,
