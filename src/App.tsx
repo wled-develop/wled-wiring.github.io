@@ -88,6 +88,7 @@ import {
   writeReactFlowAutosave,
 } from './utils/autosaveStorage.ts';
 import { useAutosaveSettingsStore } from './utils/autosaveSettingsStore.ts';
+import { useDiagramSaveStatusStore } from './utils/diagramSaveStatusStore.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -124,6 +125,8 @@ const FlowApp = () => {
   const [selectedEdges, setSelectedEdges] = useState([] as Edge[]);
   const orthogonalWireDragSnapshotRef = useRef<OrthogonalWireDragSnapshot | null>(null);
   const autosaveRestoreCheckedRef = useRef(false);
+  const diagramDirtyTrackingReadyRef = useRef(false);
+  const skipNextDirtyMarkRef = useRef(false);
 
   const [isLegalNoticeModalOpen, setIsLegalNoticeModalOpen] = useState(false);
   const [isDataPrivacyModalOpen, setIsDataPrivacyModalOpen] = useState(false);
@@ -149,6 +152,9 @@ const FlowApp = () => {
   const diagramCheckSettings = useDiagramCheckSettingsStore((state) => state.settings);
   const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
   const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
+  const hasUnsavedChanges = useDiagramSaveStatusStore((state) => state.hasUnsavedChanges);
+  const markDiagramUnsaved = useDiagramSaveStatusStore((state) => state.markUnsaved);
+  const markDiagramSaved = useDiagramSaveStatusStore((state) => state.markSaved);
 
   const getDiagramSnapshot = useCallback((): DiagramSnapshot => ({
     nodes: reactFlow.getNodes(),
@@ -206,8 +212,13 @@ const FlowApp = () => {
       notify?: boolean;
       askForUpdates?: boolean;
       rflow?: ReactFlowInstance;
+      markSaved?: boolean;
     },
   ) => {
+    if(options?.markSaved) {
+      skipNextDirtyMarkRef.current = true;
+    }
+
     const targetFlow = options?.rflow ?? reactFlow;
     setNodes(flow.nodes);
     setEdges(flow.edges);
@@ -228,8 +239,13 @@ const FlowApp = () => {
         description: t('message.loadModelSuccess'),
       });
     }
+
+    if(options?.markSaved) {
+      markDiagramSaved();
+    }
   }, [
     askForComponentTemplateUpdates,
+    markDiagramSaved,
     notificationApi,
     reactFlow,
     setDiagramCheckSettingsFromExport,
@@ -259,6 +275,7 @@ const FlowApp = () => {
           const flow = parseImportedFlowObject(data);
           applyImportedFlow(flow, {
             askForUpdates: false,
+            markSaved: true,
             rflow,
           });
           messageApi.destroy();
@@ -334,17 +351,19 @@ const FlowApp = () => {
       onOk: () => {
         applyImportedFlow(autosave.diagram, {
           askForUpdates: true,
+          markSaved: true,
           notify: true,
         });
         setAutosaveReady(true);
       },
       onCancel: () => {
         clearAutosave();
+        markDiagramSaved();
         setAutosaveReady(true);
       },
     });
 
-  }, [applyImportedFlow, autosaveEnabled, link, modalApi, t]);
+  }, [applyImportedFlow, autosaveEnabled, link, markDiagramSaved, modalApi, t]);
 
   const saveAutosaveNow = useCallback(() => {
     if(!autosaveEnabled || !autosaveReady) return;
@@ -365,6 +384,38 @@ const FlowApp = () => {
     const timeout = window.setTimeout(saveAutosaveNow, 1500);
     return () => window.clearTimeout(timeout);
   }, [autosaveEnabled, autosaveReady, diagramCheckSettings, edges, nodes, saveAutosaveNow]);
+
+  useEffect(() => {
+    if(!autosaveReady) return;
+
+    if(!diagramDirtyTrackingReadyRef.current) {
+      diagramDirtyTrackingReadyRef.current = true;
+      markDiagramSaved();
+      return;
+    }
+
+    if(skipNextDirtyMarkRef.current) {
+      skipNextDirtyMarkRef.current = false;
+      markDiagramSaved();
+      return;
+    }
+
+    markDiagramUnsaved();
+  }, [autosaveReady, diagramCheckSettings, edges, markDiagramSaved, markDiagramUnsaved, nodes]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if(!hasUnsavedChanges) return;
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

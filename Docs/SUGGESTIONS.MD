@@ -67,6 +67,8 @@ Autosave sollte nicht bei jedem einzelnen Render schreiben, sondern gedrosselt:
 
 Wichtig: Browser begrenzen Arbeit in `beforeunload`; deshalb nicht nur darauf verlassen.
 
+Zusaetzlich zur Wiederherstellung ueber Autosave soll die App bei aktivem Tab-/Browser-Schliessen warnen, wenn seit dem letzten manuellen Speichern, Laden oder Restore ungesicherte Diagrammaenderungen vorhanden sind. Dafuer wird ein Dirty-Status gefuehrt und per `beforeunload` an den Browser gemeldet. Der konkrete Dialogtext ist browserseitig vorgegeben; eigene Texte werden von modernen Browsern in der Regel ignoriert.
+
 ## Restore-Flow beim App-Start
 
 1. App startet mit dem normalen leeren Startdiagramm.
@@ -115,6 +117,25 @@ Trotzdem sollte der Restore-Dialog klar sagen, dass ein lokal zwischengespeicher
 - Es gibt genau einen Autosave-Slot pro Browser/App-Origin, nicht einen Slot pro Dokumentname.
 - Der Restore-Dialog zeigt keine Vorschau und keine Diagrammstatistik.
 - Erfolgreiches manuelles Speichern markiert den Autosave mit `lastManualSaveAt` als gesichert.
+
+## Verbesserungsidee: Mehrere Browser-Tabs
+
+Das aktuelle Autosave-Verhalten ist fuer mehrere gleichzeitig geoeffnete Tabs nur eingeschraenkt geeignet, weil alle Tabs denselben lokalen Autosave-Slot verwenden. Dadurch gewinnt im Zweifel der zuletzt schreibende Tab. Das ist zwar einfach, kann aber zu ueberraschenden Situationen fuehren, wenn ein aelterer Tab im Hintergrund ein neueres Diagramm ueberschreibt.
+
+Empfohlene Verbesserungsrichtung:
+
+- Jeder Tab bekommt beim Start eine temporaere `tabId`, z.B. aus `crypto.randomUUID()`.
+- Der Autosave-Snapshot speichert zusaetzlich `tabId`, `baseSavedAt` und optional eine stabile `diagramFingerprint`.
+- Beim Schreiben liest der Tab zuerst den aktuellen Snapshot aus `localStorage`.
+- Wenn der aktuelle Snapshot von einer anderen `tabId` stammt und neuer ist als die eigene zuletzt gelesene Basis, wird nicht still ueberschrieben.
+- Die UI zeigt dann einen Konflikthinweis mit klaren Aktionen:
+  - `Diese Version behalten und Autosave ueberschreiben`
+  - `Andere Version laden`
+  - `Als Datei exportieren`
+- Ueber das Browser-`storage`-Event oder einen `BroadcastChannel` koennen andere Tabs informiert werden, dass ein neuer Autosave existiert.
+- Ein Hintergrund-Tab sollte nicht beim `visibilitychange` nach `hidden` blind speichern, wenn er seit laengerer Zeit nicht aktiv war und inzwischen ein anderer Tab gespeichert hat.
+
+Eine erste pragmatische Stufe waere ein reiner Warnmodus: Wenn ein anderer Tab speichert, zeigt der aktuelle Tab eine AntD-Warnung wie "Dieses Diagramm wurde in einem anderen Tab geaendert". Erst eine zweite Stufe muesste echte Konfliktauflosung und Mehrfach-Snapshots anbieten.
 
 ## Minimaler Implementierungsplan
 

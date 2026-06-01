@@ -18,6 +18,7 @@ import { useUndoRedo } from '../utils/undoRedo';
 import { parseImportedFlow, type ImportedFlow } from '../utils/diagramModel';
 import { markAutosaveManuallySaved } from '../utils/autosaveStorage';
 import { useAutosaveSettingsStore } from '../utils/autosaveSettingsStore';
+import { useDiagramSaveStatusStore } from '../utils/diagramSaveStatusStore';
 
 type WritableFileHandle = {
   name: string;
@@ -114,6 +115,7 @@ export const ImportExportPage = () => {
   const { clearHistory, takeSnapshot } = useUndoRedo();
   const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
   const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
+  const markDiagramSaved = useDiagramSaveStatusStore((state) => state.markSaved);
   const [documentFileName, setDocumentFileName] = useState(DefaultModelFileName);
   const [modelFileHandle, setModelFileHandle] = useState<WritableFileHandle | null>(null);
   const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
@@ -313,6 +315,7 @@ export const ImportExportPage = () => {
     downloadBlob(createModelBlob(), nextFileName);
     setDocumentFileName(nextFileName);
     markCurrentModelAsManuallySaved(nextFileName);
+    markDiagramSaved();
     messageApi.open({
       type: 'success',
       content: t('message.saveModelDownloadStarted'),
@@ -327,6 +330,7 @@ export const ImportExportPage = () => {
         const nextFileName = sanitizeModelFileName(modelFileHandle.name);
         setDocumentFileName(nextFileName);
         markCurrentModelAsManuallySaved(nextFileName);
+        markDiagramSaved();
         messageApi.open({
           type: 'success',
           content: t('message.saveModelSuccess'),
@@ -354,6 +358,7 @@ export const ImportExportPage = () => {
         const nextFileName = sanitizeModelFileName(fileHandle.name);
         setDocumentFileName(nextFileName);
         markCurrentModelAsManuallySaved(nextFileName);
+        markDiagramSaved();
         messageApi.open({
           type: 'success',
           content: t('message.saveModelSuccess'),
@@ -382,6 +387,7 @@ export const ImportExportPage = () => {
     clearHistory();
     setDocumentFileName(sanitizeModelFileName(fileName));
     setModelFileHandle(fileHandle);
+    markDiagramSaved();
     messageApi.open({
       type: 'success',
       content: t('message.loadModelSuccess'),
