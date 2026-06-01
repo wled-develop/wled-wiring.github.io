@@ -15,7 +15,7 @@ import type { DiagramCheckIssue, DiagramCheckIssueFingerprint, DiagramCheckTarge
 const AMPACITY_TOLERANCE_A = 0.01;
 const CROSSSECTION_TOLERANCE_MM2 = 0.0001;
 const ENABLE_CONNECTOR_GROUND_BACKBONE_CHECK = true;
-const ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK = false;
+const ENABLE_COMPONENT_GROUND_CROSSSECTION_CHECK = true;
 
 type EvaluatedWire = {
   edge: Edge<EdgeDataType>;
