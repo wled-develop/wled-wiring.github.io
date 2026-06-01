@@ -59,7 +59,7 @@ export const wirePhysicalDefaultsForConnection = (
   isUsbPowerPairConnection(nodes, connection)
     ? usbWirePhysicalDefaults()
     : {
-      physCrosssection: 0.75,
+      physCrosssection: 0.5,
       physCrosssectionUnit: "mm2",
       physType: "single",
     }

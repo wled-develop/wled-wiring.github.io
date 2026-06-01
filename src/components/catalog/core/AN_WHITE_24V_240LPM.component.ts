@@ -61,7 +61,7 @@ export default defineComponent({
           "toleranceMax": 24
         },
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -90,7 +90,7 @@ export default defineComponent({
         ],
         "voltage": {},
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "preferredLineDirection": "left"
         }
@@ -122,7 +122,7 @@ export default defineComponent({
           "toleranceMax": 24
         },
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -151,7 +151,7 @@ export default defineComponent({
         ],
         "voltage": {},
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "preferredLineDirection": "right"
         }
@@ -183,7 +183,7 @@ export default defineComponent({
           "toleranceMax": 24
         },
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
@@ -213,7 +213,7 @@ export default defineComponent({
         ],
         "voltage": {},
         "maxCrossSectionAbsolute": 0.75,
-        "maxCrossSectionWarning": 0.5,
+        
         "behavior": {
           "repeated": true,
           "repeatAtFirst": false
