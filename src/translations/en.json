@@ -604,13 +604,13 @@
               "title": "Wire may be difficult to connect",
               "shortDescription": "The wire cross section is still allowed for this pin, but critical.",
               "description": "{{handle}} has one connected wire with {{total}} mm2. From {{limit}} mm2 upward, connecting or soldering this wire to the pin may be difficult.",
-              "recommendation": "Check whether the connection is practical and whether this cross section is really necessary or can be reduced."
+              "recommendation": "Check whether the connection is practical and whether this cross section is really necessary or can be reduced. If a large cross section is used to minimize voltage drop, it is often possible to solder a short, thinner transition piece directly at the pin. Still consider the ampacity and model the transition accurately."
             },
             "pinTotalCrossSectionDifficult": {
               "title": "Wires may be difficult to connect together",
               "shortDescription": "The total connected wire cross section is still allowed for this pin, but critical.",
               "description": "{{handle}} has connected wires with {{total}} mm2 in total. From {{limit}} mm2 upward, connecting or soldering these wires together to the pin may be difficult.",
-              "recommendation": "Check whether the connection is practical and whether these cross sections are really necessary or can be reduced."
+              "recommendation": "Check whether the connection is practical and whether these cross sections are really necessary or can be reduced. If large cross sections are used to minimize voltage drop, it is often possible to solder a short, thinner transition piece directly at the pin. Still consider the ampacity and model the transition accurately."
             },
             "duplicateParallelWire": {
               "title": "Duplicate parallel connection",

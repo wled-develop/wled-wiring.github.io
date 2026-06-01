@@ -269,6 +269,8 @@ Graphmodell:
 3. Quellen:
    - Netze mit Regel-1-Quelle.
 
+LED-Strip-`suppl_in`-Handles werden in dieser Netzsicht nicht untereinander verbunden. Die interne Versorgung eines LED-Streifens bildet damit fuer Regel 3 eine Schutzbereichsgrenze: Wires an unterschiedlichen Anschlussbereichen werden nicht allein durch den Strip in dasselbe abgesicherte Teilnetz gelegt.
+
 Pfadbewertung:
 
 - Fuer einen Pfad von einem Netz zur Quelle ist die Leitung geschuetzt, wenn mindestens eine Sicherung auf diesem Pfad `nominalCurrentA <= ampacityA + 0.01` hat.
@@ -327,6 +329,7 @@ Graphmodell:
 - Wiederverwendung des Fuse-Graphs aus Regel 3.
 - Start ist das `componentLinkedElementaryBasedNet` des jeweiligen LED-`suppl_in`-Handles.
 - Quellen sind die Netze mit Regel-1-Quelle bzw. mit `source_current`-Quelle.
+- Weil LED-`suppl_in`-zu-`suppl_in` in dieser Netzsicht getrennt bleibt, wird jeder Einspeisepunkt gegen seine eigenen sichtbaren Pfade zur Quelle bewertet.
 - Eine Sicherung mit unbekanntem Nennwert macht den betroffenen Pfad unentscheidbar. In diesem Fall keine harte Regel-4-Meldung erzeugen; die vorhandene Diagnose `fuseCurrentMissingOrUnderspecified` beschreibt die fehlende Sicherungsinformation.
 
 Algorithmus:

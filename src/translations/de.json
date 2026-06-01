@@ -604,13 +604,13 @@
               "title": "Leitung ist schwer anzuschliessen",
               "shortDescription": "Der Leitungsquerschnitt ist fuer diesen Pin noch zulaessig, aber kritisch.",
               "description": "An {{handle}} ist eine Leitung mit {{total}} mm2 angeschlossen. Ab {{limit}} mm2 kann das Anschliessen oder Anloeten an diesem Pin schwierig sein.",
-              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob der Querschnitt wirklich notwendig ist oder verkleinert werden kann."
+              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob der Querschnitt wirklich notwendig ist oder verkleinert werden kann. Wenn ein hoher Querschnitt verwendet wird, um den Spannungsabfall zu minimieren, kann oft direkt am Pin ein kurzes, duenneres Stueck als Uebergang angeloetet werden. Beachte dabei aber die Stromtragfaehigkeit und modelliere den Uebergang sauber."
             },
             "pinTotalCrossSectionDifficult": {
               "title": "Leitungen sind schwer zusammen anzuschliessen",
               "shortDescription": "Die Summe der Leitungsquerschnitte ist fuer diesen Pin noch zulaessig, aber kritisch.",
               "description": "An {{handle}} sind Leitungen mit zusammen {{total}} mm2 angeschlossen. Ab {{limit}} mm2 kann das gemeinsame Anschliessen oder Anloeten an diesem Pin schwierig sein.",
-              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob die Querschnitte wirklich notwendig sind oder verkleinert werden koennen."
+              "recommendation": "Pruefe, ob die Verbindung gut moeglich ist und ob die Querschnitte wirklich notwendig sind oder verkleinert werden koennen. Wenn hohe Querschnitte verwendet werden, um den Spannungsabfall zu minimieren, kann oft direkt am Pin ein kurzes, duenneres Stueck als Uebergang angeloetet werden. Beachte dabei aber die Stromtragfaehigkeit und modelliere den Uebergang sauber."
             },
             "duplicateParallelWire": {
               "title": "Doppelte parallele Verbindung",

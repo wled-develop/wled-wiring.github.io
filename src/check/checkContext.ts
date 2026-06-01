@@ -608,7 +608,10 @@ const shouldLinkDigitalNetsThroughResistor = (
 const getComponentConnectionPairs = (
   handles: CheckHandle[],
   childNetByHandleKey: Map<string, CheckNet>,
-  options: { skipFusePassThroughPairs?: boolean } = {},
+  options: {
+    skipFusePassThroughPairs?: boolean;
+    skipLedSupplyInputPassThroughPairs?: boolean;
+  } = {},
 ) => {
   const handlesByNode = new Map<string, CheckHandle[]>();
   const pairs: [string, string][] = [];
@@ -624,6 +627,7 @@ const getComponentConnectionPairs = (
         const candidateNet = childNetByHandleKey.get(candidate.key);
         if (!net || !candidateNet || net.id === candidateNet.id) return;
         if (options.skipFusePassThroughPairs && isFusePassThrough(handle, candidate)) return;
+        if (options.skipLedSupplyInputPassThroughPairs && isLedSupplyInputPassThrough(handle, candidate)) return;
         if (
           shouldLinkThroughComponent(handle, candidate) ||
           shouldLinkDigitalNetsThroughResistor(handle, candidate, net, candidateNet)
@@ -647,6 +651,11 @@ const isFusePassThrough = (a: CheckHandle, b: CheckHandle) => (
     )
   )))
 );
+
+const isLedSupplyInputPassThrough = (a: CheckHandle, b: CheckHandle) => {
+  if (a.node.id !== b.node.id || a.key === b.key) return false;
+  return a.node.data.group === 'led' && isSupplyInputPassThrough(a, b);
+};
 
 const isSupplyInputPassThrough = (a: CheckHandle, b: CheckHandle) => {
   if (a.node.id !== b.node.id || a.key === b.key) return false;
@@ -702,7 +711,10 @@ export function createDiagramCheckContext(
     createGroupedNets(
       elementaryNets,
       'component-linked-elementary-based',
-      getComponentConnectionPairs(handles, elementaryNetByHandleKey, { skipFusePassThroughPairs: true }),
+      getComponentConnectionPairs(handles, elementaryNetByHandleKey, {
+        skipFusePassThroughPairs: true,
+        skipLedSupplyInputPassThroughPairs: true,
+      }),
     ),
     componentLinkedNetByHandleKey,
   );

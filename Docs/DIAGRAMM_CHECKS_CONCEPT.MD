@@ -196,6 +196,7 @@ Technische Einbindung:
 - Neue oder angepasste Regeln waehlen bewusst die passende Netzsicht:
   - Component-Linked Nets fuer allgemeine elektrische/versorgungsbezogene Zusammenhaenge inklusive Sicherungen.
   - Component-Linked Elementary based Nets fuer Schutzbereichs-, Fuse-Bypass- und "direkt verbunden ohne Sicherung"-Checks.
+- Component-Linked Elementary based Nets trennen zusaetzlich LED-Strip-`suppl_in`-zu-`suppl_in`-Verbindungen, damit Anschlussbereiche eines LED-Streifens fuer Schutzbereichs- und Sicherungschecks eigene Teilnetze bleiben.
 - Die Regel `fuseBypassed` verwendet diese Netzsicht, damit auch Bypaesse erkannt werden, die nicht schon im selben Elementary Net liegen, sondern ueber andere Component-Link-Regeln ohne Fuse entstehen.
 - Im Debug-Modus wird diese Netzsicht zusammen mit Elementary, Fused und Component-Linked Nets angezeigt, damit Unterschiede zwischen abgesicherten und direkt verbundenen Bereichen nachvollziehbar sind.
 
@@ -1412,6 +1413,7 @@ Wichtige Entscheidungen:
 - Leitungsverlegung und Umgebungstemperatur werden im Diagramm-Export unter `checkSettings.wireAmpacity` gespeichert; alte Diagramme verwenden `surface` und `25`.
 - AWG26 und AWG28 sind USB-Sonderfaelle mit festen Grenzen `1.3 A` bzw. `0.85 A`, unabhaengig von Verlegung und Temperatur.
 - Fuer digitale LED-Strip-`suppl_in`-Handles muss auf jedem Pfad zur Quelle entweder eine Sicherung mit `nominalCurrentA <= handle.Imax + 0.01` liegen oder `handle.Imax + 0.01 >= 1.25 * source_current` gelten.
+- LED-Strip-`suppl_in`-Handles werden in `componentLinkedElementaryBasedNets` nicht untereinander verbunden. Dadurch bewertet Regel 3/4 den jeweiligen Anschlussbereich statt ein ueber den Strip zusammengefasstes Supply-Netz.
 - Nur `suppl_in`-Handles werden fuer diese LED-Eingangsregel geprueft; GND bleibt ueber die LED-GND-Regel abgedeckt.
 - Bei nicht auswertbarem Sicherungsnennwert wird keine neue Diagnose erzeugt; `fuseCurrentMissingOrUnderspecified` deckt diesen Fall ab.
 - Ampacity-Vergleiche verwenden `0.01 A` Toleranz.

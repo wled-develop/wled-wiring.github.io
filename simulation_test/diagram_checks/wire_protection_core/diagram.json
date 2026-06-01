@@ -190,6 +190,67 @@
           { "hid": "USB", "name": "USB", "functions": ["usb_full"] }
         ]
       }
+    },
+    {
+      "id": "psu-led-split",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 760 },
+      "data": {
+        "technicalID": "TEST_PSU",
+        "technicalVersion": 1,
+        "group": "psu",
+        "inputFields": [
+          { "technicalID": "source_current", "type": "number_input", "name": "I", "value": 10, "min": 0, "max": 100, "step": 1, "unit": "A", "fieldWidth": 70, "color": "black" }
+        ],
+        "handles": [
+          { "hid": "VOUT", "name": "VOUT", "functions": ["suppl_out"] }
+        ]
+      }
+    },
+    {
+      "id": "fuse-led-split",
+      "type": "general-component-type",
+      "position": { "x": 160, "y": 760 },
+      "data": {
+        "technicalID": "TEST_FUSE",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "IN", "name": "IN", "functions": ["suppl_in"] },
+          { "hid": "OUT", "name": "OUT", "functions": ["suppl_out"] }
+        ],
+        "internalConnections": [
+          { "kind": "fuse", "fromHandle": "IN", "toHandle": "OUT", "fuseId": "F1", "nominalCurrent": 5 }
+        ]
+      }
+    },
+    {
+      "id": "led-split",
+      "type": "general-component-type",
+      "position": { "x": 340, "y": 760 },
+      "data": {
+        "technicalID": "TEST_DIGITAL_LED_SPLIT",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "VCC_start", "name": "VCC start", "functions": ["suppl_in"], "Imax": 10 },
+          { "hid": "VCC_end", "name": "VCC end", "functions": ["suppl_in"], "Imax": 10 },
+          { "hid": "DATA_start", "name": "DATA", "functions": ["dig_in"] }
+        ]
+      }
+    },
+    {
+      "id": "load-led-end",
+      "type": "general-component-type",
+      "position": { "x": 560, "y": 760 },
+      "data": {
+        "technicalID": "TEST_LOAD",
+        "technicalVersion": 1,
+        "group": "electronics",
+        "handles": [
+          { "hid": "VIN", "name": "VIN", "functions": ["suppl_in"] }
+        ]
+      }
     }
   ],
   "edges": [
@@ -200,6 +261,9 @@
     { "id": "wire-component-supply", "source": "supply-ref", "target": "component-ground", "sourceHandle": "VOUT", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 1.5, "physCrosssectionUnit": "mm2" } },
     { "id": "wire-component-gnd-small", "source": "supply-ref", "target": "component-ground", "sourceHandle": "GND", "targetHandle": "GND", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.75, "physCrosssectionUnit": "mm2" } },
     { "id": "wire-usb-awg26-ok", "source": "usb-psu-ok", "target": "usb-device-ok", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 26, "physCrosssectionUnit": "AWG" } },
-    { "id": "wire-usb-awg28-small", "source": "usb-psu-small", "target": "usb-device-small", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 28, "physCrosssectionUnit": "AWG" } }
+    { "id": "wire-usb-awg28-small", "source": "usb-psu-small", "target": "usb-device-small", "sourceHandle": "USB", "targetHandle": "USB", "data": { "physType": "usb", "physLength": 1, "physCrosssection": 28, "physCrosssectionUnit": "AWG" } },
+    { "id": "wire-led-split-source", "source": "psu-led-split", "target": "fuse-led-split", "sourceHandle": "VOUT", "targetHandle": "IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-led-split-start", "source": "fuse-led-split", "target": "led-split", "sourceHandle": "OUT", "targetHandle": "VCC_start", "data": { "physType": "single", "physLength": 1, "physCrosssection": 4, "physCrosssectionUnit": "mm2" } },
+    { "id": "wire-led-split-end-too-small", "source": "led-split", "target": "load-led-end", "sourceHandle": "VCC_end", "targetHandle": "VIN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25, "physCrosssectionUnit": "mm2" } }
   ]
 }
