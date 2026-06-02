@@ -490,8 +490,19 @@
             "clockedLedClockMissing": {
               "title": "时钟线缺失或不匹配",
               "shortDescription": "带时钟的 LED 灯带有数据连接，但没有匹配的时钟连接。",
-              "description": "{{component}} 需要与 DATA 匹配的时钟线。在 LED 到 LED 串接时，时钟必须来自同一个上游分段。",
-              "recommendation": "将 Clock_in 连接到匹配的时钟输出。"
+              "description": "{{component}} 需要与 DATA 匹配的时钟线。问题：{{reason}}",
+              "recommendation": "将 Clock_in 连接到独立且匹配的数字时钟信号。",
+              "reasons": {
+                "unconnected": "Clock_in 未连接。",
+                "ledChainMismatch": "在 LED 到 LED 串接时，Clock_in 没有来自同一上游灯带的匹配时钟输出。",
+                "sameAsData": "Clock 和 Data 使用了同一信号路径。",
+                "supply": "Clock_in 连接到了供电电压。",
+                "groundOrBias": "Clock_in 连接到了 GND 或偏置网络。",
+                "noDigitalSource": "Clock_in 没有可到达的数字输出源。",
+                "ledDataOrBackupNet": "时钟路径同时也驱动 LED Data_in 或 Backup_in。",
+                "differentController": "Data 和 Clock 来自不同的控制器。",
+                "noControllerOrigin": "Data 来自控制器，但 Clock 没有可确认的控制器源。"
+              }
             },
             "digitalBackupPairMismatch": {
               "title": "备用数据线不匹配",

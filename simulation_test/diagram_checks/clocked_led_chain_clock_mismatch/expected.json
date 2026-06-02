@@ -1,0 +1,12 @@
+{
+  "case": "clocked_led_chain_clock_mismatch",
+  "filterIssueIdIncludes": [
+    "clocked-led-clock-missing"
+  ],
+  "expectedIssues": [
+    {
+      "severity": "error",
+      "descriptionIncludes": "In LED-to-LED chaining, Clock_in does not come from the matching clock output of the same upstream strip."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "case": "clocked_led_specific_clock_errors",
+  "filterIssueIdIncludes": [
+    "clocked-led-clock-missing"
+  ],
+  "expectedIssues": [
+    {
+      "severity": "error",
+      "descriptionIncludes": "Clock and Data use the same signal path."
+    },
+    {
+      "severity": "error",
+      "descriptionIncludes": "Clock_in is connected to supply voltage."
+    },
+    {
+      "severity": "error",
+      "descriptionIncludes": "Data and Clock come from different controllers."
+    },
+    {
+      "severity": "error",
+      "descriptionIncludes": "The clock path also feeds LED Data_in or Backup_in."
+    }
+  ]
+}

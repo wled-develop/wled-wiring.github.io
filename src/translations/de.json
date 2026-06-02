@@ -519,8 +519,19 @@
             "clockedLedClockMissing": {
               "title": "Clock-Leitung fehlt oder passt nicht",
               "shortDescription": "Ein Clock-LED-Streifen hat Data, aber keine passende Clock-Verbindung.",
-              "description": "{{component}} benoetigt zu DATA eine passende Clock-Leitung. Bei LED-zu-LED muss Clock vom selben vorgelagerten Segment kommen.",
-              "recommendation": "Verbinde Clock_in mit dem passenden Clock-Ausgang."
+              "description": "{{component}} benoetigt zu DATA eine passende Clock-Leitung. Problem: {{reason}}",
+              "recommendation": "Verbinde Clock_in mit einem getrennten passenden digitalen Clock-Signal.",
+              "reasons": {
+                "unconnected": "Clock_in ist nicht verbunden.",
+                "ledChainMismatch": "Bei LED-zu-LED kommt Clock_in nicht vom passenden Clock-Ausgang desselben vorgelagerten Streifens.",
+                "sameAsData": "Clock und Data verwenden denselben Signalpfad.",
+                "supply": "Clock_in ist mit Supply verbunden.",
+                "groundOrBias": "Clock_in ist mit GND oder einem Bias-Netz verbunden.",
+                "noDigitalSource": "Clock_in erreicht keine digitale Ausgangsquelle.",
+                "ledDataOrBackupNet": "Der Clock-Pfad speist zugleich LED-Data_in oder Backup_in.",
+                "differentController": "Data und Clock stammen von unterschiedlichen Controllern.",
+                "noControllerOrigin": "Data stammt von einem Controller, aber Clock hat keinen sicheren Controller-Ursprung."
+              }
             },
             "digitalBackupPairMismatch": {
               "title": "Backup-Datenleitung passt nicht",

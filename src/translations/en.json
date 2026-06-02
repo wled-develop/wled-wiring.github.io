@@ -519,8 +519,19 @@
             "clockedLedClockMissing": {
               "title": "Clock line is missing or mismatched",
               "shortDescription": "A clocked LED strip has data but no matching clock connection.",
-              "description": "{{component}} needs a matching clock line for DATA. In LED-to-LED chaining, clock must come from the same upstream segment.",
-              "recommendation": "Connect Clock_in to the matching clock output."
+              "description": "{{component}} needs a matching clock line for DATA. Problem: {{reason}}",
+              "recommendation": "Connect Clock_in to a separate matching digital clock signal.",
+              "reasons": {
+                "unconnected": "Clock_in is not connected.",
+                "ledChainMismatch": "In LED-to-LED chaining, Clock_in does not come from the matching clock output of the same upstream strip.",
+                "sameAsData": "Clock and Data use the same signal path.",
+                "supply": "Clock_in is connected to supply voltage.",
+                "groundOrBias": "Clock_in is connected to GND or a bias net.",
+                "noDigitalSource": "Clock_in has no reachable digital output source.",
+                "ledDataOrBackupNet": "The clock path also feeds LED Data_in or Backup_in.",
+                "differentController": "Data and Clock come from different controllers.",
+                "noControllerOrigin": "Data comes from a controller, but Clock does not have a safe controller origin."
+              }
             },
             "digitalBackupPairMismatch": {
               "title": "Backup data line does not match",

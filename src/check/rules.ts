@@ -873,6 +873,95 @@ const digitalSignalSourcesForInput = (
     .filter(isDigitalSource)
 );
 
+const digitalSourcesForSignalInput = (
+  context: DiagramCheckContext,
+  input: CheckHandle,
+  allowedFunctions: string[] = ['dig_out', 'dig_clock_out'],
+) => (
+  context.signalReachableHandles(input)
+    .filter((candidate) => candidate.node.id !== input.node.id)
+    .filter((candidate) => allowedFunctions.some((fn) => hasFunction(candidate, fn)))
+);
+
+const signalPathContainsHandle = (
+  context: DiagramCheckContext,
+  input: CheckHandle,
+  target: CheckHandle,
+) => (
+  input.key === target.key ||
+  context.signalReachableHandles(input).some((candidate) => candidate.key === target.key)
+);
+
+const pathHasSupply = (context: DiagramCheckContext, input: CheckHandle) => {
+  const net = context.getNetByHandle(input);
+  return (
+    Boolean(net?.classifications.includes('suppl_net_type')) ||
+    context.signalReachableHandles(input).some((candidate) => hasFunction(candidate, 'suppl_out'))
+  );
+};
+
+const pathHasGroundOrBias = (context: DiagramCheckContext, input: CheckHandle) => {
+  const net = context.getNetByHandle(input);
+  return (
+    Boolean(net?.classifications.includes('gnd_net_type')) ||
+    context.signalReachableHandles(input).some((candidate) => hasFunction(candidate, 'gnd')) ||
+    hasValidDigitalBias(context, input)
+  );
+};
+
+const isLedDataOrBackupSink = (handle: CheckHandle) => (
+  handle.node.data.group === 'led' &&
+  (hasFunction(handle, 'dig_in') || hasFunction(handle, 'dig_backup_in'))
+);
+
+const pathLedDataOrBackupSinks = (
+  context: DiagramCheckContext,
+  input: CheckHandle,
+) => (
+  context.signalReachableHandles(input)
+    .filter((candidate) => candidate.key !== input.key)
+    .filter(isLedDataOrBackupSink)
+);
+
+const sn74Ahct125nPinGroups = [
+  { input: '1A', output: '1Y' },
+  { input: '2A', output: '2Y' },
+  { input: '3A', output: '3Y' },
+  { input: '4A', output: '4Y' },
+];
+
+const sn74Ahct125nChannelInputForOutput = (
+  context: DiagramCheckContext,
+  output: CheckHandle,
+) => {
+  if (output.node.data.technicalID !== 'SN74AHCT125N') return undefined;
+
+  const channel = sn74Ahct125nPinGroups.find((group) => group.output === output.handle.hid);
+  if (!channel) return undefined;
+
+  return context.getHandle(output.node.id, channel.input);
+};
+
+const resolveLogicalDigitalOrigin = (
+  context: DiagramCheckContext,
+  sourceHandle: CheckHandle,
+  visited = new Set<string>(),
+): CheckHandle | undefined => {
+  if (visited.has(sourceHandle.key)) return undefined;
+  visited.add(sourceHandle.key);
+
+  if (sourceHandle.node.data.group === 'controller') return sourceHandle;
+
+  const channelInput = sn74Ahct125nChannelInputForOutput(context, sourceHandle);
+  if (!channelInput) return undefined;
+
+  const upstreamSources = digitalSourcesForSignalInput(context, channelInput, ['dig_out'])
+    .filter((candidate) => candidate.key !== sourceHandle.key);
+  if (upstreamSources.length !== 1) return undefined;
+
+  return resolveLogicalDigitalOrigin(context, upstreamSources[0], visited);
+};
+
 const shouldCheckDigitalSignalVoltage = (
   net: CheckNet,
   digitalSources: CheckHandle[],
@@ -1178,6 +1267,42 @@ const hasResolvedDigitalSink = (context: DiagramCheckContext, handle: CheckHandl
   isFirstLedBackupInputTiedToGround(context, handle)
 );
 
+type ClockedLedClockMissingReason =
+  | 'unconnected'
+  | 'ledChainMismatch'
+  | 'sameAsData'
+  | 'supply'
+  | 'groundOrBias'
+  | 'noDigitalSource'
+  | 'ledDataOrBackupNet'
+  | 'differentController'
+  | 'noControllerOrigin';
+
+const clockedLedClockMissingIssue = (
+  reason: ClockedLedClockMissingReason,
+  node: Node<ComponentDataType>,
+  dataIn: CheckHandle,
+  clockIn: CheckHandle,
+  targets: DiagramCheckTarget[] = [],
+) => translatedIssue(
+  'network-rules',
+  'clockedLedClockMissing',
+  `clocked-led-clock-missing-${clockIn.key}`,
+  'error',
+  {
+    component: componentName(node),
+    reason: checkText(`rules.network-rules.issues.clockedLedClockMissing.reasons.${reason}`),
+  },
+  [
+    ...handleTargets(dataIn),
+    ...handleTargets(clockIn),
+    ...targets,
+  ],
+  handleIssueOptions(clockIn, 'clocked-led-clock-missing', 85, 46, {
+    suppresses: ['digital-sink-without-source'],
+  }),
+);
+
 const checkDigitalBackupPairMismatch = (context: DiagramCheckContext) => {
   const issues: DiagramCheckIssue[] = [];
 
@@ -1259,49 +1384,88 @@ const checkClockedLedClockMissing = (context: DiagramCheckContext) => {
     const clockIn = digitalClockIn(nodeHandles);
     if (!dataIn || !clockIn || dataIn.connectedEdges.length === 0) return;
 
+    if (clockIn.connectedEdges.length === 0) {
+      issues.push(clockedLedClockMissingIssue('unconnected', node, dataIn, clockIn));
+      return;
+    }
+
     const upstreamData = ledUpstreamDataSource(context, dataIn);
     if (upstreamData) {
       const upstreamClockOut = context.handles.find((handle) => (
         handle.node.id === upstreamData.node.id && hasFunction(handle, 'dig_clock_out')
       ));
-      const clockNet = context.getNetByHandle(clockIn);
-      const hasMatchingClock = Boolean(upstreamClockOut && clockNet?.handles.some((handle) => handle.key === upstreamClockOut.key));
+      const hasMatchingClock = Boolean(upstreamClockOut && signalPathContainsHandle(context, clockIn, upstreamClockOut));
       if (hasMatchingClock) return;
 
-      issues.push(translatedIssue(
-        'network-rules',
-        'clockedLedClockMissing',
-        `clocked-led-clock-missing-${clockIn.key}`,
-        'error',
-        { component: componentName(node) },
+      issues.push(clockedLedClockMissingIssue(
+        'ledChainMismatch',
+        node,
+        dataIn,
+        clockIn,
         [
-          ...handleTargets(dataIn),
-          ...handleTargets(clockIn),
           ...handleTargets(upstreamData),
           ...(upstreamClockOut ? handleTargets(upstreamClockOut) : []),
         ],
-        handleIssueOptions(clockIn, 'clocked-led-clock-missing', 85, 46, {
-          suppresses: ['digital-sink-without-source'],
-        }),
       ));
       return;
     }
 
-    if (hasResolvedDigitalSink(context, clockIn)) return;
-    issues.push(translatedIssue(
-      'network-rules',
-      'clockedLedClockMissing',
-      `clocked-led-clock-missing-${clockIn.key}`,
-      'error',
-      { component: componentName(node) },
-      [
-        ...handleTargets(dataIn),
-        ...handleTargets(clockIn),
-      ],
-      handleIssueOptions(clockIn, 'clocked-led-clock-missing', 85, 46, {
-        suppresses: ['digital-sink-without-source'],
-      }),
-    ));
+    if (signalPathContainsHandle(context, dataIn, clockIn)) {
+      issues.push(clockedLedClockMissingIssue('sameAsData', node, dataIn, clockIn));
+      return;
+    }
+
+    if (pathHasSupply(context, clockIn)) {
+      issues.push(clockedLedClockMissingIssue('supply', node, dataIn, clockIn));
+      return;
+    }
+
+    if (pathHasGroundOrBias(context, clockIn)) {
+      issues.push(clockedLedClockMissingIssue('groundOrBias', node, dataIn, clockIn));
+      return;
+    }
+
+    const clockSources = digitalSourcesForSignalInput(context, clockIn);
+    if (clockSources.length === 0) {
+      issues.push(clockedLedClockMissingIssue('noDigitalSource', node, dataIn, clockIn));
+      return;
+    }
+
+    const ledDataOrBackupSinks = pathLedDataOrBackupSinks(context, clockIn);
+    if (ledDataOrBackupSinks.length > 0) {
+      issues.push(clockedLedClockMissingIssue(
+        'ledDataOrBackupNet',
+        node,
+        dataIn,
+        clockIn,
+        ledDataOrBackupSinks.flatMap(handleTargets),
+      ));
+      return;
+    }
+
+    const dataSources = digitalSourcesForSignalInput(context, dataIn, ['dig_out']);
+    const dataOrigins = dataSources
+      .map((source) => resolveLogicalDigitalOrigin(context, source))
+      .filter((origin): origin is CheckHandle => Boolean(origin));
+    const clockOrigins = clockSources
+      .map((source) => resolveLogicalDigitalOrigin(context, source))
+      .filter((origin): origin is CheckHandle => Boolean(origin));
+    const uniqueDataOriginIds = [...new Set(dataOrigins.map((origin) => origin.node.id))];
+    const uniqueClockOriginIds = [...new Set(clockOrigins.map((origin) => origin.node.id))];
+
+    if (uniqueDataOriginIds.length === 1) {
+      if (uniqueClockOriginIds.length === 0) {
+        issues.push(clockedLedClockMissingIssue('noControllerOrigin', node, dataIn, clockIn));
+        return;
+      }
+
+      if (
+        uniqueClockOriginIds.length === 1 &&
+        uniqueClockOriginIds[0] !== uniqueDataOriginIds[0]
+      ) {
+        issues.push(clockedLedClockMissingIssue('differentController', node, dataIn, clockIn));
+      }
+    }
   });
 
   return issues;

@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "TEST_CONTROLLER",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "D1", "name": "D1", "functions": ["dig_out"], "Vout": 3.3 },
+          { "hid": "D2", "name": "D2", "functions": ["dig_out"], "Vout": 3.3 },
+          { "hid": "D3", "name": "D3", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "led1",
+      "type": "general-component-type",
+      "position": { "x": 250, "y": 0 },
+      "data": {
+        "technicalID": "APA102_TEST",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "DATA_IN", "name": "DATA_IN", "functions": ["dig_in"], "tolVmin": 2, "tolVmax": 5.5 },
+          { "hid": "CLOCK_IN", "name": "CLOCK_IN", "functions": ["dig_clock_in"], "tolVmin": 2, "tolVmax": 5.5 },
+          { "hid": "DATA_OUT", "name": "DATA_OUT", "functions": ["dig_out"], "Vout": 5 },
+          { "hid": "CLOCK_OUT", "name": "CLOCK_OUT", "functions": ["dig_clock_out"], "Vout": 5 }
+        ]
+      }
+    },
+    {
+      "id": "led2",
+      "type": "general-component-type",
+      "position": { "x": 500, "y": 0 },
+      "data": {
+        "technicalID": "APA102_TEST",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "DATA_IN", "name": "DATA_IN", "functions": ["dig_in"], "tolVmin": 2, "tolVmax": 5.5 },
+          { "hid": "CLOCK_IN", "name": "CLOCK_IN", "functions": ["dig_clock_in"], "tolVmin": 2, "tolVmax": 5.5 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "controller-data", "source": "controller", "target": "led1", "sourceHandle": "D1", "targetHandle": "DATA_IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "controller-clock", "source": "controller", "target": "led1", "sourceHandle": "D2", "targetHandle": "CLOCK_IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "chain-data", "source": "led1", "target": "led2", "sourceHandle": "DATA_OUT", "targetHandle": "DATA_IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "wrong-chain-clock", "source": "controller", "target": "led2", "sourceHandle": "D3", "targetHandle": "CLOCK_IN", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}

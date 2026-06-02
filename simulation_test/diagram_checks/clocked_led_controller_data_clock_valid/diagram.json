@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    {
+      "id": "controller",
+      "type": "general-component-type",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "technicalID": "TEST_CONTROLLER",
+        "technicalVersion": 1,
+        "group": "controller",
+        "handles": [
+          { "hid": "D1", "name": "D1", "functions": ["dig_out"], "Vout": 3.3 },
+          { "hid": "D2", "name": "D2", "functions": ["dig_out"], "Vout": 3.3 }
+        ]
+      }
+    },
+    {
+      "id": "led",
+      "type": "general-component-type",
+      "position": { "x": 250, "y": 0 },
+      "data": {
+        "technicalID": "APA102_TEST",
+        "technicalVersion": 1,
+        "group": "led",
+        "handles": [
+          { "hid": "DATA", "name": "DATA", "functions": ["dig_in"], "tolVmin": 2, "tolVmax": 5.5 },
+          { "hid": "CLOCK", "name": "CLOCK", "functions": ["dig_clock_in"], "tolVmin": 2, "tolVmax": 5.5 }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    { "id": "data", "source": "controller", "target": "led", "sourceHandle": "D1", "targetHandle": "DATA", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } },
+    { "id": "clock", "source": "controller", "target": "led", "sourceHandle": "D2", "targetHandle": "CLOCK", "data": { "physType": "single", "physLength": 1, "physCrosssection": 0.25 } }
+  ]
+}
