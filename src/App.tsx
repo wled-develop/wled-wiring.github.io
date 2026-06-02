@@ -89,6 +89,7 @@ import {
 } from './utils/autosaveStorage.ts';
 import { useAutosaveSettingsStore } from './utils/autosaveSettingsStore.ts';
 import { useDiagramSaveStatusStore } from './utils/diagramSaveStatusStore.ts';
+import { ENABLE_DIAGRAM_AUTOSAVE } from './utils/autosaveFeatureFlags.ts';
 
 const defaultEdgeOptions = {
   type: "editable-wire-type",
@@ -315,6 +316,11 @@ const FlowApp = () => {
     if(autosaveRestoreCheckedRef.current) return;
     autosaveRestoreCheckedRef.current = true;
 
+    if(!ENABLE_DIAGRAM_AUTOSAVE) {
+      setAutosaveReady(true);
+      return;
+    }
+
     if(link) return;
 
     if(!autosaveEnabled) {
@@ -366,6 +372,7 @@ const FlowApp = () => {
   }, [applyImportedFlow, autosaveEnabled, link, markDiagramSaved, modalApi, t]);
 
   const saveAutosaveNow = useCallback(() => {
+    if(!ENABLE_DIAGRAM_AUTOSAVE) return;
     if(!autosaveEnabled || !autosaveReady) return;
 
     try {
@@ -379,6 +386,7 @@ const FlowApp = () => {
   }, [autosaveEnabled, autosaveReady, notificationApi, reactFlow, t]);
 
   useEffect(() => {
+    if(!ENABLE_DIAGRAM_AUTOSAVE) return;
     if(!autosaveEnabled || !autosaveReady) return;
 
     const timeout = window.setTimeout(saveAutosaveNow, 1500);
@@ -418,6 +426,8 @@ const FlowApp = () => {
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
+    if(!ENABLE_DIAGRAM_AUTOSAVE) return;
+
     const handleVisibilityChange = () => {
       if(document.visibilityState === 'hidden') {
         saveAutosaveNow();

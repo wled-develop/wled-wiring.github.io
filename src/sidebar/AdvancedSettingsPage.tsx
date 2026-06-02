@@ -7,6 +7,7 @@ import { useDiagramCheckSettingsStore } from '../check/checkSettingsStore';
 import { useSimulationSettingsStore } from '../simulation/simulationSettingsStore';
 import { clearAutosave } from '../utils/autosaveStorage';
 import { useAutosaveSettingsStore } from '../utils/autosaveSettingsStore';
+import { ENABLE_DIAGRAM_AUTOSAVE } from '../utils/autosaveFeatureFlags';
 
 export const AdvancedSettingsPage = () => {
   const {t} = useTranslation(['main']);
@@ -42,20 +43,22 @@ export const AdvancedSettingsPage = () => {
         <Typography.Text type="secondary">
           {t('sidebar.advancedSettings.simulationSettingsDescription')}
         </Typography.Text>
-        <Form layout="vertical" style={{width: '100%'}}>
-          <Form.Item
-            label={t('sidebar.advancedSettings.autosaveEnabledLabel')}
-            extra={t('sidebar.advancedSettings.autosaveEnabledDescription')}
-          >
-            <Switch
-              checked={autosaveEnabled}
-              onChange={(checked) => {
-                setAutosaveEnabled(checked);
-                if(!checked) clearAutosave();
-              }}
-            />
-          </Form.Item>
-        </Form>
+        {ENABLE_DIAGRAM_AUTOSAVE && (
+          <Form layout="vertical" style={{width: '100%'}}>
+            <Form.Item
+              label={t('sidebar.advancedSettings.autosaveEnabledLabel')}
+              extra={t('sidebar.advancedSettings.autosaveEnabledDescription')}
+            >
+              <Switch
+                checked={autosaveEnabled}
+                onChange={(checked) => {
+                  setAutosaveEnabled(checked);
+                  if(!checked) clearAutosave();
+                }}
+              />
+            </Form.Item>
+          </Form>
+        )}
       </Space>
       <Drawer
         title={t('sidebar.tools.wireInstallationTitle')}

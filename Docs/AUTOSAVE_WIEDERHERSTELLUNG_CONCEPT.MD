@@ -57,6 +57,15 @@ Nicht speichern:
 
 ## Autosave-Trigger
 
+Autosave ist zusaetzlich durch das Feature-Flag `ENABLE_DIAGRAM_AUTOSAVE` in `src/utils/autosaveFeatureFlags.ts` abgesichert. Wenn dieses Flag `false` ist, muessen alle potenziell teuren Autosave-Pfade deaktiviert sein:
+
+- kein Restore-Check beim App-Start,
+- keine Autosave-Settings-UI,
+- keine gedrosselten Schreib-Timer bei `nodes`-/`edges`-Aenderungen,
+- keine `pagehide`- oder `visibilitychange`-Autosave-Listener,
+- keine `localStorage`-Lese- oder Schreibzugriffe aus `autosaveStorage`,
+- keine Autosave-Metadaten-Aktualisierung nach manuellem Speichern.
+
 Autosave ist als Einstellung unter `Erweiterte Einstellungen` sichtbar und standardmaessig aktiviert. Wird die Einstellung deaktiviert, soll kein weiterer Snapshot geschrieben werden. Ob ein vorhandener Snapshot beim Deaktivieren automatisch geloescht wird oder ein separater Button `Autosave verwerfen` angeboten wird, sollte in der UI eindeutig sein; fuer die erste Implementierung ist automatisches Loeschen beim Deaktivieren am einfachsten und am wenigsten ueberraschend.
 
 Autosave sollte nicht bei jedem einzelnen Render schreiben, sondern gedrosselt:

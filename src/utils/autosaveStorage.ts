@@ -3,6 +3,7 @@ import type { Edge, Node, ReactFlowInstance } from '@xyflow/react';
 import type { DiagramCheckSettings } from '../check/checkSettingsStore';
 import { createDiagramExportObject } from './exportModel';
 import { isObject, parseImportedFlowObject, type ImportedFlow } from './diagramModel';
+import { ENABLE_DIAGRAM_AUTOSAVE } from './autosaveFeatureFlags';
 
 const AUTOSAVE_KEY = 'wled-wiring.diagram.autosave';
 const AUTOSAVE_VERSION = 1;
@@ -42,6 +43,8 @@ const buildSnapshot = (
 });
 
 export const readAutosave = (): DiagramAutosaveSnapshot | null => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return null;
+
   try {
     const raw = window.localStorage.getItem(AUTOSAVE_KEY);
     if(!raw) return null;
@@ -72,12 +75,16 @@ export const writeAutosave = (
     lastManualSaveAt?: string;
   },
 ) => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return;
+
   const previous = readAutosave();
   const snapshot = buildSnapshot(diagram, previous, options);
   window.localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
 };
 
 export const clearAutosave = () => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return;
+
   try {
     window.localStorage.removeItem(AUTOSAVE_KEY);
   } catch {
@@ -94,6 +101,8 @@ export const writeReactFlowAutosave = (
     lastManualSaveAt?: string;
   },
 ) => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return;
+
   writeAutosave(parseImportedFlowObject(createDiagramExportObject(reactFlow)), options);
 };
 
@@ -101,6 +110,8 @@ export const markAutosaveManuallySaved = (
   reactFlow: ReactFlowInstance,
   documentFileName?: string,
 ) => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return;
+
   writeReactFlowAutosave(reactFlow, {
     documentFileName,
     lastManualSaveAt: new Date().toISOString(),

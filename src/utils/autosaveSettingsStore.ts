@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { ENABLE_DIAGRAM_AUTOSAVE } from './autosaveFeatureFlags';
+
 const AUTOSAVE_ENABLED_KEY = 'wled-wiring.autosave.enabled';
 
 type AutosaveSettingsStore = {
@@ -8,6 +10,7 @@ type AutosaveSettingsStore = {
 };
 
 const readInitialAutosaveEnabled = () => {
+  if(!ENABLE_DIAGRAM_AUTOSAVE) return false;
   if(typeof window === 'undefined') return true;
 
   try {
@@ -21,6 +24,11 @@ const readInitialAutosaveEnabled = () => {
 export const useAutosaveSettingsStore = create<AutosaveSettingsStore>((set) => ({
   autosaveEnabled: readInitialAutosaveEnabled(),
   setAutosaveEnabled: (autosaveEnabled) => {
+    if(!ENABLE_DIAGRAM_AUTOSAVE) {
+      set({autosaveEnabled: false});
+      return;
+    }
+
     try {
       window.localStorage.setItem(AUTOSAVE_ENABLED_KEY, String(autosaveEnabled));
     } catch {
