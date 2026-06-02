@@ -1117,7 +1117,7 @@ type SimulationIssueFormattedNumber = {
 };
 ```
 
-`title` und `description` bleiben Fallback-Texte fuer alte oder harte Modellfehler. Fuer uebersetzbare Simulation-Checks werden zusaetzlich `titleMessage` und `descriptionMessage` gesetzt. Die Simulationsergebnisse bleiben dadurch sprachunabhaengig; die UI uebersetzt und formatiert Zahlen erst beim Anzeigen mit der aktuell aktiven Sprache. Die UI formatiert `SimulationTarget`-Labels mit demselben Komponenten-Display-Name-Helfer wie die Diagramm-Checks: `name` (uebersetzt) vor `technicalID` vor Node-ID.
+`title` und `description` bleiben Fallback-Texte fuer alte oder harte Modellfehler. Fuer uebersetzbare Simulation-Checks werden zusaetzlich `titleMessage` und `descriptionMessage` gesetzt. Die Simulationsergebnisse bleiben dadurch sprachunabhaengig; die UI uebersetzt und formatiert Zahlen erst beim Anzeigen mit der aktuell aktiven Sprache. Strom- und Spannungswerte in Simulation-Check-Meldungen werden als `SimulationIssueFormattedNumber` mit genau zwei Nachkommastellen uebergeben; in Deutsch erscheinen sie dadurch mit Komma als Dezimaltrennzeichen, z.B. `5,00 A` oder `12,00 V`. Die UI formatiert `SimulationTarget`-Labels mit demselben Komponenten-Display-Name-Helfer wie die Diagramm-Checks: `name` (uebersetzt) vor `technicalID` vor Node-ID.
 
 Erste Checks:
 

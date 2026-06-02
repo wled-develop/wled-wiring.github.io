@@ -756,6 +756,7 @@ Implementierungsdetails:
 - Gleiche vollstaendige Fingerprints (`scope:key:problem`) werden auf die beste Meldung reduziert.
 - Der Vergleich fuer Duplikate nutzt Severity, dann `specificity`, dann niedrigere `priority`, dann stabile Erzeugungsreihenfolge.
 - Die finale Sortierung nutzt Severity, dann niedrigere `priority`, dann stabile Erzeugungsreihenfolge.
+- Strom- und Spannungswerte in Check-Meldungen werden mit genau zwei Nachkommastellen und gemaess aktiver UI-Sprache formatiert. In Deutsch steht also ein Komma als Dezimaltrennzeichen, z.B. `5,00 A` oder `12,00 V`.
 
 Pseudo-Code:
 

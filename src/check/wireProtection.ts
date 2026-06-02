@@ -201,7 +201,14 @@ const evaluatedWire = (
     : undefined;
 };
 
-const formatAmp = (value: number) => String(Number(value.toFixed(2)));
+const formatLocalizedFixed = (value: number, fractionDigits: number) => (
+  new Intl.NumberFormat(i18next.resolvedLanguage || i18next.language, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value)
+);
+
+const formatAmp = (value: number) => formatLocalizedFixed(value, 2);
 const formatMm2 = (value: number) => String(Number(value.toFixed(3)));
 
 const addDirectSourceEdge = (

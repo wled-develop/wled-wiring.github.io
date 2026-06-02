@@ -56,6 +56,15 @@ const issueText = (
   values?: TranslationValues,
 ) => checkText(`rules.${ruleId}.issues.${issueKey}.${field}`, values);
 
+const formatLocalizedFixed = (value: number, fractionDigits: number) => (
+  new Intl.NumberFormat(i18next.resolvedLanguage || i18next.language, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value)
+);
+
+const formatVoltage = (value: number) => formatLocalizedFixed(value, 2);
+
 const componentName = (node: Node<ComponentDataType>) => getComponentDisplayName(node.data, node.id);
 
 const describeComponentHandle = (handle: CheckHandle) => describeHandle(handle, { includeComponent: false });
@@ -2132,10 +2141,10 @@ const runNetworkRules = (context: DiagramCheckContext, settings: DiagramCheckSet
 
         if (mismatches.length === 0) return;
 
-        const min = input.voltageMin ?? '?';
-        const max = input.voltageMax ?? '?';
+        const min = input.voltageMin !== undefined ? formatVoltage(input.voltageMin) : '?';
+        const max = input.voltageMax !== undefined ? formatVoltage(input.voltageMax) : '?';
         const mismatchDescription = mismatches
-          .map((mismatch) => `${describeHandle(mismatch.source)} (${mismatch.voltage} V)`)
+          .map((mismatch) => `${describeHandle(mismatch.source)} (${formatVoltage(mismatch.voltage)} V)`)
           .join(', ');
 
         issues.push(translatedIssue(
@@ -2259,7 +2268,7 @@ const runNetworkRules = (context: DiagramCheckContext, settings: DiagramCheckSet
         `network-supply-voltage-mismatch-${net.id}`,
         'error',
         {
-          voltage: sourceVoltage,
+          voltage: formatVoltage(sourceVoltage),
           inputs: mismatchedInputs.map(describeHandle).join(', '),
         },
         [
@@ -2293,7 +2302,7 @@ const runNetworkRules = (context: DiagramCheckContext, settings: DiagramCheckSet
         `network-usb-supply-voltage-mismatch-${net.id}`,
         'error',
         {
-          voltage: sourceVoltage,
+          voltage: formatVoltage(sourceVoltage),
           inputs: mismatchedInputs.map(describeHandle).join(', '),
         },
         [

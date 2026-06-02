@@ -153,7 +153,7 @@ const simulationIssueNumber = (
   maximumFractionDigits: fractionDigits,
 });
 
-const simulationIssueVoltage = (value: number) => value.toFixed(2);
+const simulationIssueVoltage = (value: number) => simulationIssueNumber(value, 2);
 const simulationIssueCurrent = (value: number) => simulationIssueNumber(value, 2);
 
 const formatSimulationIssueOptions = (
