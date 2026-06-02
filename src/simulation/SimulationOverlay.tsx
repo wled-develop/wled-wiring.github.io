@@ -1317,9 +1317,12 @@ const LedVoltagePlot = ({
   );
 };
 
-export const SimulationOverlay = () => {
+const ActiveSimulationOverlay = ({
+  simulationResult,
+}: {
+  simulationResult: SimulationResult;
+}) => {
   const {t} = useTranslation(["main"]);
-  const simulationResult = useSimulationResultStore((state) => state.result);
   const displayMode = useSimulationResultStore((state) => state.displayMode);
   const wireHover = useSimulationResultStore((state) => state.wireHover);
   const nodes = useNodes<Node<ComponentDataType>>();
@@ -1554,7 +1557,7 @@ export const SimulationOverlay = () => {
     };
   }, [displayMode, edges, ledPlotDataByKey, nodes, selectedWireActive, simulationResult, viewport, wireHover]);
 
-  if(!simulationResult || (selectedWireActive && !activePlotData) || (
+  if((selectedWireActive && !activePlotData) || (
     overlayData.labels.length === 0 &&
     overlayData.arrows.length === 0 &&
     !activePlotData
@@ -1750,4 +1753,12 @@ export const SimulationOverlay = () => {
       </Modal>
     </>
   );
+};
+
+export const SimulationOverlay = () => {
+  const simulationResult = useSimulationResultStore((state) => state.result);
+
+  if(!simulationResult) return null;
+
+  return <ActiveSimulationOverlay simulationResult={simulationResult} />;
 };

@@ -1,1 +1,1 @@
-export const ENABLE_DIAGRAM_AUTOSAVE = false;
+export const ENABLE_DIAGRAM_AUTOSAVE = true;

@@ -1,4 +1,4 @@
-import { Suspense, lazy, forwardRef, useCallback, useImperativeHandle, useRef, useState, useEffect } from 'react';
+import { Suspense, lazy, forwardRef, memo, useCallback, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { ConfigProvider, theme, message, notification, Button, Modal, Select } from 'antd';
 import { useTranslation } from "react-i18next";
 import { DndProvider } from 'react-dnd-multi-backend'
@@ -105,6 +105,8 @@ const defaultEdgeOptions = {
   } as EdgeDataType
 };
 
+const snapGrid: [number, number] = [1, 1];
+
 const ComponentEditorApp = lazy(() => import('./editor/EditorApp.tsx'));
 
 const exampleOptions = [
@@ -130,6 +132,77 @@ type FlowCanvasProps = {
   notificationApi: AntdNotificationApi;
   modalApi: AntdModalApi;
 };
+
+type FlowControlsProps = {
+  canRedo: boolean;
+  canUndo: boolean;
+  deleteSelectedTitle: string;
+  isPathfindingEnabled: boolean;
+  isSelectionModeEnabled: boolean;
+  onDeleteSelected: () => void;
+  onFitView: () => void;
+  onRedo: () => void;
+  onTogglePathfinding: () => void;
+  onToggleSelectionMode: () => void;
+  onUndo: () => void;
+  selectMultiTitle: string;
+  switchConnectionLineTitle: string;
+};
+
+const FlowControls = memo(({
+  canRedo,
+  canUndo,
+  deleteSelectedTitle,
+  isPathfindingEnabled,
+  isSelectionModeEnabled,
+  onDeleteSelected,
+  onFitView,
+  onRedo,
+  onTogglePathfinding,
+  onToggleSelectionMode,
+  onUndo,
+  selectMultiTitle,
+  switchConnectionLineTitle,
+}: FlowControlsProps) => (
+  <Controls onFitView={onFitView}>
+    <ControlButton
+      onClick={onUndo}
+      disabled={!canUndo}
+      title="Undo (Ctrl+Z)"
+    >
+      <UndoOutlined />
+    </ControlButton>
+    <ControlButton
+      onClick={onRedo}
+      disabled={!canRedo}
+      title="Redo (Ctrl+Shift+Z)"
+    >
+      <RedoOutlined />
+    </ControlButton>
+    <ControlButton
+      onClick={onToggleSelectionMode}
+      className={isSelectionModeEnabled ? "control-button--active" : undefined}
+      aria-pressed={isSelectionModeEnabled}
+      title={selectMultiTitle}
+    >
+      <SelectOutlined />
+    </ControlButton>
+    <ControlButton
+      onClick={onDeleteSelected}
+      title={deleteSelectedTitle}
+    >
+      <DeleteOutlined />
+    </ControlButton>
+    <ControlButton
+      onClick={onTogglePathfinding}
+      title={switchConnectionLineTitle}
+    >
+      {isPathfindingEnabled ? <ConnectionPFIcon/> : <ConnectionIcon/>}
+    </ControlButton>
+  </Controls>
+));
+
+FlowControls.displayName = "FlowControls";
 
 const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
   undoRedo,
@@ -931,6 +1004,26 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
     );
   }, [triggerState, setEdges]);
 
+  const fitViewToDiagram = useCallback(() => {
+    const NodesBounds=reactFlow.getNodes().map((node) => ({id: node.id, rect: reactFlow.getNodesBounds([node.id])}));
+    const Bounds=getAdaptedBounds(reactFlow, NodesBounds);
+    setTimeout(() => {
+      reactFlow.fitBounds(Bounds, {duration: 0});
+    }, 1);
+  }, [reactFlow]);
+
+  const toggleSelectionMode = useCallback(() => {
+    setPanOnDrag((enabled) => !enabled);
+  }, []);
+
+  const deleteSelectedElements = useCallback(() => {
+    reactFlow.deleteElements({nodes: selectedNodes, edges: selectedEdges});
+  }, [reactFlow, selectedEdges, selectedNodes]);
+
+  const togglePathfinding = useCallback(() => {
+    togglePF();
+  }, [togglePF]);
+
 
 
   return (
@@ -960,7 +1053,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
         onBeforeDelete={onBeforeDelete}
         onSelectionChange={onSelectionChange}
         snapToGrid={true}
-        snapGrid={[1,1]}
+        snapGrid={snapGrid}
         panOnDrag={panOnDrag}
         selectionOnDrag={!panOnDrag}
         fitView
@@ -971,56 +1064,21 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
         gap={16}
         />
         <SimulationOverlay />
-        <Controls 
-          onFitView={()=>{
-            const NodesBounds=reactFlow.getNodes().map((node) => ({id: node.id, rect: reactFlow.getNodesBounds([node.id])}));
-            const Bounds=getAdaptedBounds(reactFlow, NodesBounds);
-            setTimeout(() => {
-              reactFlow.fitBounds(Bounds, {duration: 0});
-            }, 1);
-          }}
-        >
-          <ControlButton
-            onClick={undoRedo.undo}
-            disabled={!undoRedo.canUndo}
-            title="Undo (Ctrl+Z)"
-          >
-            <UndoOutlined />
-          </ControlButton>
-          <ControlButton
-            onClick={undoRedo.redo}
-            disabled={!undoRedo.canRedo}
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <RedoOutlined />
-          </ControlButton>
-          <ControlButton
-            onClick={() => {
-              setPanOnDrag((enabled) => !enabled);
-            }}
-            className={!panOnDrag ? "control-button--active" : undefined}
-            aria-pressed={!panOnDrag}
-            title={t('tooltip.selectMulti')}
-          >
-            <SelectOutlined />
-          </ControlButton>
-          <ControlButton
-            onClick={() => {
-              reactFlow.deleteElements({nodes: selectedNodes, edges: selectedEdges});
-            }}
-            title={t('tooltip.deleteSelected')}
-          >
-            <DeleteOutlined />
-          </ControlButton>
-          <ControlButton
-            onClick={() => {
-              togglePF();
-            }}
-            title={t('tooltip.switchConnLineType')}
-          >
-            {PFEnabled?<ConnectionPFIcon/>:<ConnectionIcon/>}
-          </ControlButton>
-        </Controls>
+        <FlowControls
+          canRedo={undoRedo.canRedo}
+          canUndo={undoRedo.canUndo}
+          deleteSelectedTitle={t('tooltip.deleteSelected')}
+          isPathfindingEnabled={PFEnabled}
+          isSelectionModeEnabled={!panOnDrag}
+          onDeleteSelected={deleteSelectedElements}
+          onFitView={fitViewToDiagram}
+          onRedo={undoRedo.redo}
+          onTogglePathfinding={togglePathfinding}
+          onToggleSelectionMode={toggleSelectionMode}
+          onUndo={undoRedo.undo}
+          selectMultiTitle={t('tooltip.selectMulti')}
+          switchConnectionLineTitle={t('tooltip.switchConnLineType')}
+        />
 
         { nodes.length === 0 &&
           <Panel position="top-center">
@@ -1058,6 +1116,8 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
     </div>
   );
 });
+
+FlowCanvas.displayName = "FlowCanvas";
 
 const FlowApp = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
