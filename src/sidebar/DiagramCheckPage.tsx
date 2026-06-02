@@ -26,8 +26,8 @@ const severityColor: Record<DiagramCheckSeverity, string> = {
   info: 'blue',
 };
 
-const SHOW_DIAGRAM_CHECK_DIAGNOSTICS = true;
-const SHOW_NET_DEBUG = true;
+const SHOW_DIAGRAM_CHECK_DIAGNOSTICS = false;
+const SHOW_NET_DEBUG = false;
 
 const netDebugTargets = (net: CheckNet): DiagramCheckTarget[] => {
   const nodeTargets = new Map<string, DiagramCheckTarget>();
@@ -71,6 +71,7 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
   const { t, i18n } = useTranslation(['main']);
   const { token } = theme.useToken();
   const reactFlow = useReactFlow();
+  const diagramCheckResult = useDiagramCheckResultStore((state) => state.result);
   const setDiagramCheckResult = useDiagramCheckResultStore((state) => state.setResult);
   const [issues, setIssues] = useState<DiagramCheckIssue[] | null>(null);
   const [netDebugNets, setNetDebugNets] = useState<CheckNet[] | null>(null);
@@ -204,6 +205,16 @@ export const DiagramCheckPage = ({ isOpen }: DiagramCheckPageProps) => {
     const node = reactFlow.getNode(target.id) as Node<ComponentDataType> | undefined;
     return node?.data.technicalID !== 'SolderJoint';
   }, [reactFlow]);
+
+  useEffect(() => {
+    if (diagramCheckResult !== null) return;
+
+    setIssues(null);
+    setNetDebugNets(null);
+    setEffectiveRoleDebugByNetId({});
+    setActiveIssueKeys([]);
+    clearHighlights();
+  }, [clearHighlights, diagramCheckResult]);
 
   useEffect(() => {
     if (previousLanguageRef.current === i18n.resolvedLanguage) return;

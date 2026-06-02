@@ -10,10 +10,12 @@ export type DiagramCheckResult = {
 
 type DiagramCheckResultState = {
   result: DiagramCheckResult | null;
+  clearResult: () => void;
   setResult: (result: DiagramCheckResult | null) => void;
 };
 
 export const useDiagramCheckResultStore = create<DiagramCheckResultState>((set) => ({
   result: null,
+  clearResult: () => set({result: null}),
   setResult: (result) => set({result}),
 }));

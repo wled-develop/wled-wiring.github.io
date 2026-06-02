@@ -941,6 +941,7 @@ Die Sidebar `DiagramCheckPage` bietet aktuell:
 - Beta-Hinweis
 - Button zum manuellen Starten
 - Speicherung des letzten Check-Ergebnisses inklusive Diagramm-Fingerprint in `useDiagramCheckResultStore`, damit andere Bereiche wie die Simulation verifizieren koennen, ob ein aktueller Check ohne Fehler vorliegt
+- Das gespeicherte und lokal angezeigte Check-Ergebnis wird geloescht, wenn ein anderes Diagramm geladen/importiert wird, ein Diagramm-Snapshot per Undo/Redo wiederhergestellt wird oder relevante Check-Einstellungen geaendert werden. Dadurch werden keine Issues eines alten Diagramms weiter angezeigt.
 - normalen Nutzer-Modus `user-friendly`; die Auswahl fuer die drei Deduplizierungs-/Diagnosemodi `user-friendly`, `diagnostic` und `diagnostic-with-suppression-markers` ist nur sichtbar, wenn `SHOW_DIAGRAM_CHECK_DIAGNOSTICS` auf `true` gesetzt wird
 - Regeluebersicht im Modal
 - leeren Zustand vor dem ersten Check

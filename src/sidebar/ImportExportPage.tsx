@@ -11,6 +11,7 @@ import { toPng, toJpeg, toSvg } from 'html-to-image';
 import {
   useDiagramCheckSettingsStore,
 } from '../check/checkSettingsStore';
+import { useDiagramCheckResultStore } from '../check/diagramCheckResultStore';
 import { getCurrentURL, getAdaptedBounds } from '../utils/utils_functions';
 import { createDiagramExportJson } from '../utils/exportModel';
 import { applyComponentTemplateUpdatesToNodes, findNodeComponentTemplateUpdates } from '../utils/componentTemplateUpdates';
@@ -114,6 +115,7 @@ export const ImportExportPage = () => {
   const [modalApi, modalContextHolder] = Modal.useModal();
   const { clearHistory, takeSnapshot } = useUndoRedo();
   const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
+  const clearDiagramCheckResult = useDiagramCheckResultStore((state) => state.clearResult);
   const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
   const markDiagramSaved = useDiagramSaveStatusStore((state) => state.markSaved);
   const [documentFileName, setDocumentFileName] = useState(DefaultModelFileName);
@@ -380,6 +382,7 @@ export const ImportExportPage = () => {
   };
 
   const applyImportedFlow = (flow: ImportedFlow, fileName: string, fileHandle: WritableFileHandle | null) => {
+    clearDiagramCheckResult();
     reactFlow.setNodes(flow.nodes);
     reactFlow.setEdges(flow.edges);
     reactFlow.setViewport(flow.viewport);

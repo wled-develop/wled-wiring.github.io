@@ -81,6 +81,7 @@ import { initializeLedSimulationOptionValues } from './simulation/ledStripSimula
 import { ENABLE_COMPONENT_EDITOR_FOOTER_LINK } from './editor/componentEditorFeatureFlags.ts';
 import { wirePhysicalDefaultsForConnection } from './wires/wireDefaults.ts';
 import { useDiagramCheckSettingsStore } from './check/checkSettingsStore.ts';
+import { useDiagramCheckResultStore } from './check/diagramCheckResultStore.ts';
 import { parseImportedFlowObject, type ImportedFlow } from './utils/diagramModel.ts';
 import {
   clearAutosave,
@@ -239,6 +240,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
   const updateNodeInternals = useUpdateNodeInternals();
   const diagramCheckSettings = useDiagramCheckSettingsStore((state) => state.settings);
   const setDiagramCheckSettingsFromExport = useDiagramCheckSettingsStore((state) => state.setSettingsFromExport);
+  const clearDiagramCheckResult = useDiagramCheckResultStore((state) => state.clearResult);
   const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
   const hasUnsavedChanges = useDiagramSaveStatusStore((state) => state.hasUnsavedChanges);
   const markDiagramUnsaved = useDiagramSaveStatusStore((state) => state.markUnsaved);
@@ -250,13 +252,14 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
   }), [reactFlow]);
 
   const restoreDiagramSnapshot = useCallback((snapshot: DiagramSnapshot) => {
+    clearDiagramCheckResult();
     setNodes(snapshot.nodes);
     setEdges(snapshot.edges);
     setTimeout(() => {
       snapshot.nodes.forEach((node) => updateNodeInternals(node.id));
     }, 0);
     SetTriggerState((value) => value + 1);
-  }, [setEdges, setNodes, updateNodeInternals]);
+  }, [clearDiagramCheckResult, setEdges, setNodes, updateNodeInternals]);
 
   useImperativeHandle(ref, () => ({
     getDiagramSnapshot,
@@ -308,6 +311,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
     }
 
     const targetFlow = options?.rflow ?? reactFlow;
+    clearDiagramCheckResult();
     setNodes(flow.nodes);
     setEdges(flow.edges);
     targetFlow.setViewport(flow.viewport);
@@ -333,6 +337,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({
     }
   }, [
     askForComponentTemplateUpdates,
+    clearDiagramCheckResult,
     markDiagramSaved,
     notificationApi,
     reactFlow,

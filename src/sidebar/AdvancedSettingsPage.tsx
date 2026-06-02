@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDiagramCheckSettingsStore } from '../check/checkSettingsStore';
+import { useDiagramCheckResultStore } from '../check/diagramCheckResultStore';
 import { useSimulationSettingsStore } from '../simulation/simulationSettingsStore';
 import { clearAutosave } from '../utils/autosaveStorage';
 import { useAutosaveSettingsStore } from '../utils/autosaveSettingsStore';
@@ -15,6 +16,7 @@ export const AdvancedSettingsPage = () => {
   const [simulationSettingsOpen, setSimulationSettingsOpen] = useState(false);
   const wireAmpacitySettings = useDiagramCheckSettingsStore((state) => state.settings.wireAmpacity);
   const setWireAmpacitySettings = useDiagramCheckSettingsStore((state) => state.setWireAmpacitySettings);
+  const clearDiagramCheckResult = useDiagramCheckResultStore((state) => state.clearResult);
   const allowSimulationWithDiagramCheckErrors = useSimulationSettingsStore((state) => state.allowSimulationWithDiagramCheckErrors);
   const setAllowSimulationWithDiagramCheckErrors = useSimulationSettingsStore((state) => state.setAllowSimulationWithDiagramCheckErrors);
   const autosaveEnabled = useAutosaveSettingsStore((state) => state.autosaveEnabled);
@@ -84,10 +86,13 @@ export const AdvancedSettingsPage = () => {
                   label: t('sidebar.tools.wireInstallationTypes.insulatedWall'),
                 },
               ]}
-              onChange={(installation) => setWireAmpacitySettings({
-                ...wireAmpacitySettings,
-                installation,
-              })}
+              onChange={(installation) => {
+                clearDiagramCheckResult();
+                setWireAmpacitySettings({
+                  ...wireAmpacitySettings,
+                  installation,
+                });
+              }}
             />
           </Form.Item>
           <Form.Item label={t('sidebar.tools.ambientTemperatureLabel')}>
@@ -97,10 +102,13 @@ export const AdvancedSettingsPage = () => {
               step={1}
               addonAfter="°C"
               value={wireAmpacitySettings.ambientTempC}
-              onChange={(ambientTempC) => setWireAmpacitySettings({
-                ...wireAmpacitySettings,
-                ambientTempC: ambientTempC ?? 25,
-              })}
+              onChange={(ambientTempC) => {
+                clearDiagramCheckResult();
+                setWireAmpacitySettings({
+                  ...wireAmpacitySettings,
+                  ambientTempC: ambientTempC ?? 25,
+                });
+              }}
               style={{ width: '100%' }}
             />
           </Form.Item>
