@@ -59,6 +59,9 @@
   "ledSimulationOptions": {
     "title": "LED-Simulation",
     "recommended": "empfohlen",
+    "whyButton": "Warum?",
+    "whyTitle": "Warum gibt es diese Optionen?",
+    "whyExplanation": "Es gibt sehr viele LED-Streifen auf dem Markt. Teilweise haben sie gleiche Bezeichnungen und kommen sogar vom gleichen Hersteller, unterscheiden sich aber deutlich in ihren Eigenschaften. Fuer die Modellierung haben wir viele Streifen vermessen und auf dieser Datenbasis unterschiedliche Optionen eingefuehrt. Wenn du nicht genau weisst, welchen Streifen du hast, starte mit den empfohlenen Einstellungen. Du kannst auch mit den schlechtesten Werten rechnen, um die Robustheit deines Setups zu pruefen.",
     "unknownOption": "Unbekannte Option. Aktualisiere diese Komponente aus der aktuellen Vorlage.",
     "fields": {
       "supplyResistance": "Positiver Pfad / V+ Widerstand",
@@ -790,6 +793,29 @@
         "leds": "Bei LED-Streifen werden Helligkeit, Farbmodus und Spannungsverlauf entlang des Streifens ausgewertet.",
         "protection": "Sie meldet auffaellige Stellen wie zu hohe Stroeme, zu niedrige Spannung oder ueberlastete Sicherungen.",
         "limits": "Sie simuliert eine Gleichstrom-Momentaufnahme, keine Datenprotokolle, Signalformen, Einschaltspitzen oder Waermeentwicklung."
+      },
+      "infoModalCaution": {
+        "label": "Achtung!",
+        "text": "Hier werden typische Komponenten simuliert. Insbesondere bei Netzteilen und LED-Streifen gibt es eine Vielzahl an Varianten, die sich in ihrem Verhalten deutlich unterscheiden. Ein realer Aufbau hat also immer mehr oder weniger andere Werte als die hier simulierten. Diese Simulation gibt dir aber einen guten Anhaltspunkt fuer deine Auslegung."
+      },
+      "infoModalModelDetails": {
+        "title": "Wie die Modelle vereinfacht werden",
+        "leds": {
+          "title": "LED-Streifen:",
+          "description": "Digitale LED-Streifen werden in kleine Abschnitte zerlegt. Fuer jeden Abschnitt schaetzt die Simulation den Strom aus Helligkeit, Farbmodus und der lokalen Spannung. Die Kupferbahnen im Streifen werden als Widerstaende modelliert, dadurch faellt die Spannung entlang des Streifens ab."
+        },
+        "powerSources": {
+          "title": "Spannungsquellen:",
+          "description": "Netzteile werden als geregelte Gleichspannungsquellen mit Strombegrenzung betrachtet. Bis zum Grenzstrom halten sie ihre Ausgangsspannung naeherungsweise konstant. Bei Ueberlast wird eine Spannungsabsenkung modelliert, statt ein reales Schutzverhalten jedes Netzteils exakt nachzubilden."
+        },
+        "dcdc": {
+          "title": "DC/DC-Wandler:",
+          "description": "DC/DC-Wandler werden als Bauteile betrachtet, die aus einer Eingangsspannung eine geregelte Ausgangsspannung erzeugen. Dabei werden Ausgangsstromgrenzen und begrenzte Eingangsleistung beruecksichtigt. Wirkungsgrad, Temperaturverhalten und schnelles Regelverhalten sind vereinfacht."
+        },
+        "wires": {
+          "title": "Leitungen:",
+          "description": "Leitungen werden als ohmsche Widerstaende berechnet. Je laenger die Leitung und je kleiner der Querschnitt, desto groesser ist der Widerstand. Aus Strom und Widerstand entsteht ein Spannungsabfall, der im Diagramm sichtbar gemacht wird."
+        }
       },
       "infoModalNote": "Nutze die Simulation als Plausibilitaetscheck fuer dein Design. Sicherheitskritische Aufbauten und fertige Installationen solltest du trotzdem messen und fachgerecht pruefen.",
       "inDevelopmentTitle": "Simulationen sind noch in Entwicklung",

@@ -59,6 +59,9 @@
   "ledSimulationOptions": {
     "title": "LED simulation",
     "recommended": "recommended",
+    "whyButton": "Why?",
+    "whyTitle": "Why are there options?",
+    "whyExplanation": "There are many LED strips on the market. Some share the same product names and may even come from the same manufacturer, but still differ significantly in their electrical properties. For the model, we measured many strips and introduced different options based on that data. If you are not sure which strip you have, start with the recommended settings. You can also calculate with the worst values to check how robust your setup is.",
     "unknownOption": "Unknown option. Update this component from the current template.",
     "fields": {
       "supplyResistance": "Positive path / V+ resistance",
@@ -790,6 +793,29 @@
         "leds": "For LED strips, brightness, color mode and voltage along the strip are evaluated.",
         "protection": "It reports suspicious points such as high current, low voltage or overloaded fuses.",
         "limits": "It simulates a DC snapshot, not data protocols, signal waveforms, inrush current or heat buildup."
+      },
+      "infoModalCaution": {
+        "label": "Important!",
+        "text": "Typical components are simulated here. Especially for power supplies and LED strips, there are many variants whose behavior can differ significantly. A real build will therefore always have values that are more or less different from the simulated ones. Even so, this simulation gives you a good reference point for your design."
+      },
+      "infoModalModelDetails": {
+        "title": "How the models are simplified",
+        "leds": {
+          "title": "LED strips:",
+          "description": "Digital LED strips are split into small sections. For each section, the simulation estimates current from brightness, color mode and local voltage. The copper traces in the strip are modeled as resistors, which makes the voltage drop along the strip visible."
+        },
+        "powerSources": {
+          "title": "Voltage sources:",
+          "description": "Power supplies are treated as regulated DC voltage sources with current limits. Up to the current limit they approximately hold their output voltage. During overload, a voltage drop is modeled instead of reproducing the exact protection behavior of every real power supply."
+        },
+        "dcdc": {
+          "title": "DC/DC converters:",
+          "description": "DC/DC converters are treated as components that create a regulated output voltage from an input voltage. Output current limits and limited input power are taken into account. Efficiency, temperature effects and fast control behavior are simplified."
+        },
+        "wires": {
+          "title": "Wires:",
+          "description": "Wires are calculated as ohmic resistors. The longer the wire and the smaller the cross-section, the higher the resistance. Current through that resistance creates a voltage drop, which is shown in the diagram."
+        }
       },
       "infoModalNote": "Use the simulation as a plausibility check for your design. Safety-critical builds and finished installations should still be measured and checked properly.",
       "inDevelopmentTitle": "Simulations are still in development",

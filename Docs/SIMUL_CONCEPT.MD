@@ -410,6 +410,8 @@ Die Auswertung skaliert danach mit der Helligkeit `0..1`. Fuer Sicherungen werde
 
 Digitale LED-Streifen verwenden fuer `supplyResistanceOhm`, `gndResistanceOhm` und `currentCurve` keine freien Nutzereingaben. Die Komponentendefinition legt in `ledSimulationOptions` fest, welche Varianten fuer die jeweilige LED-Komponente erlaubt sind und welche Variante empfohlen ist. Die konkrete Node-Instanz speichert die Auswahl in `ledSimulationOptionValues`.
 
+Die Node-Toolbar zeigt fuer diese Optionen einen Hilfe-Hinweis an. Er erklaert, dass scheinbar gleiche LED-Streifen je nach Charge, Hersteller oder Ausfuehrung deutlich unterschiedliche elektrische Eigenschaften haben koennen, und empfiehlt bei unbekanntem Streifen zuerst die empfohlenen Einstellungen bzw. fuer Robustheitspruefungen die schlechtesten passenden Werte.
+
 Die zentralen Varianten liegen in `src/simulation/ledStripSimulationOptions.ts`:
 
 - Widerstandsvarianten beschreiben den positiven oder negativen Kupferpfad pro Meter, z.B. typischer, guter oder schlechter 5-mm-Streifen.
@@ -420,6 +422,8 @@ Die Current-Curve-Varianten decken mehrere digitale LED-Streifenfamilien ab, z.B
 `simdata` verweist bei umgestellten digitalen LED-Komponenten ueber `{ledSimulationOption: "supplyResistance"}`, `{ledSimulationOption: "gndResistance"}` und `{ledSimulationOption: "currentCurve"}` auf diese Auswahl. Der Modellaufbau loest diese Referenzen in primitive Simulationsparameter auf. Der Solver erhaelt weiterhin numerische Widerstaende und eine Kennlinien-ID; die elektrische Modellierung aendert sich dadurch nicht.
 
 Fuer alte gespeicherte LED-Komponenten gibt es keine stille Abwaertskompatibilitaet. Wenn eine digitale LED-Komponente noch direkte LED-Widerstandswerte oder alte `{ledCurve: ...}`-Parameter verwendet, erzeugt die Simulation ein Fehler-Issue mit dem Hinweis, dass die Komponentendaten aus der aktuellen Vorlage aktualisiert werden muessen. Erst ein explizites Komponentenupdate setzt fehlende oder nicht mehr erlaubte LED-Optionswerte auf die empfohlenen Defaults.
+
+Das Info-Modal der Simulation enthaelt zusaetzlich einen hervorgehobenen Warnhinweis: Die Simulation verwendet typische Komponentenmodelle. Besonders Netzteile und LED-Streifen koennen real je nach Variante deutlich anders reagieren; die Ergebnisse sind daher ein guter Auslegungs-Anhaltspunkt, aber keine Messwertgarantie. Ein ausklappbarer Abschnitt erklaert die vereinfachten Modelle fuer LED-Streifen, Spannungsquellen, DC/DC-Wandler und Leitungen in einsteigerfreundlicher Sprache.
 
 Beispiel fuer `digitalLed`-Parameter:
 

@@ -59,6 +59,9 @@
   "ledSimulationOptions": {
     "title": "LED simulation",
     "recommended": "recommended",
+    "whyButton": "为什么？",
+    "whyTitle": "为什么有这些选项？",
+    "whyExplanation": "市面上有非常多种 LED 灯带。有些灯带使用相同的型号名称，甚至可能来自同一家制造商，但它们的电气特性仍然可能明显不同。为了建立模型，我们测量了许多灯带，并基于这些数据引入了不同的选项。如果你不确定自己使用的是哪一种灯带，请先使用推荐设置。你也可以用最差值进行计算，以检查你的方案是否足够稳健。",
     "unknownOption": "Unknown option. Update this component from the current template.",
     "fields": {
       "supplyResistance": "Positive path / V+ resistance",
@@ -767,6 +770,29 @@
         "leds": "对于 LED 灯带，会评估亮度、颜色模式以及灯带上的电压变化。",
         "protection": "它会提示电流过高、电压过低或保险丝过载等可疑位置。",
         "limits": "它模拟的是直流静态状态，不模拟数据协议、信号波形、上电浪涌或发热。"
+      },
+      "infoModalCaution": {
+        "label": "注意！",
+        "text": "这里模拟的是典型组件。尤其是电源和 LED 灯带，市面上有许多不同版本，它们的行为可能明显不同。因此，真实搭建中的数值总会或多或少不同于这里的仿真结果。不过，这个仿真仍然可以为你的设计提供很好的参考。"
+      },
+      "infoModalModelDetails": {
+        "title": "模型如何被简化",
+        "leds": {
+          "title": "LED 灯带：",
+          "description": "数字 LED 灯带会被分成较小的区段。仿真会根据亮度、颜色模式和局部电压估算每个区段的电流。灯带中的铜箔走线会被建模为电阻，因此可以看到沿灯带产生的电压下降。"
+        },
+        "powerSources": {
+          "title": "电压源：",
+          "description": "电源会被看作带电流限制的稳压直流电压源。在电流限制以内，它们近似保持输出电压恒定。过载时会建模为输出电压下降，而不是精确复现每一种真实电源的保护行为。"
+        },
+        "dcdc": {
+          "title": "DC/DC 转换器：",
+          "description": "DC/DC 转换器会被看作把输入电压转换为稳定输出电压的组件。仿真会考虑输出电流限制和有限的输入功率。效率、温度影响以及快速调节过程会被简化。"
+        },
+        "wires": {
+          "title": "导线：",
+          "description": "导线会按欧姆电阻计算。导线越长、截面积越小，电阻就越大。电流流过这个电阻时会产生压降，并显示在图纸中。"
+        }
       },
       "infoModalNote": "请把仿真作为设计合理性的检查。涉及安全或最终安装的设备仍然需要实际测量并按规范检查。",
       "displayMode": {

@@ -526,6 +526,34 @@ export const SimulationPage = ({ isOpen }: SimulationPageProps) => {
               </List.Item>
             )}
           />
+          <Typography.Paragraph>
+            <Typography.Text type="danger" strong>
+              {t("sidebar.simulation.infoModalCaution.label")}
+            </Typography.Text>{" "}
+            {t("sidebar.simulation.infoModalCaution.text")}
+          </Typography.Paragraph>
+          <Collapse
+            size="small"
+            items={[{
+              key: "simulation-models",
+              label: t("sidebar.simulation.infoModalModelDetails.title"),
+              children: (
+                <Flex gap="small" vertical>
+                  {["leds", "powerSources", "dcdc", "wires"].map((modelKey) => (
+                    <Typography.Paragraph
+                      key={modelKey}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Typography.Text strong>
+                        {t(`sidebar.simulation.infoModalModelDetails.${modelKey}.title`)}
+                      </Typography.Text>{" "}
+                      {t(`sidebar.simulation.infoModalModelDetails.${modelKey}.description`)}
+                    </Typography.Paragraph>
+                  ))}
+                </Flex>
+              ),
+            }]}
+          />
           <Typography.Paragraph type="secondary">
             {t("sidebar.simulation.infoModalNote")}
           </Typography.Paragraph>

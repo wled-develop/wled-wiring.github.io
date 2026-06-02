@@ -1006,20 +1006,7 @@ Moegliche Logik:
 
 #### `clockedLedClockMissing`
 
-Fehler, wenn ein LED-Typ mit Clock-Leitung eine Datenverbindung hat, aber die Clock-Leitung fehlt.
-
-Beispiel: APA102-artige Streifen brauchen neben `dig_in` auch `dig_clock_in`. Ein reiner Datenanschluss reicht nicht.
-
-Bei manchen Komponenten ist der Clock-Eingang bereits ueber `mustBeConnected` abgedeckt. Diese Regel waere trotzdem sinnvoll, weil sie Data/Clock als zusammengehoerige Signalgruppe bewertet und eine klarere Meldung liefern kann als ein einzelner Pflichtpin-Fehler.
-
-Moegliche Logik:
-
-- Pro Komponente pruefen, ob `dig_clock_in` vorhanden ist.
-- Wenn ein `dig_in` oder `dig_out` des Bauteils verdrahtet ist, muss der korrespondierende Clock-Pin ebenfalls in einem passenden digitalen Clock-Netz liegen.
-- Optional auch `dig_clock_out` fuer weitergereichte Segmente pruefen.
-- Fuer hintereinandergeschaltete Clock-LED-Streifen zusaetzlich die Quelle paarweise pruefen: Wenn `dig_in`/`DATA_start` eines LED-Streifens von `dig_out`/`DATA_end` eines anderen LED-Streifens gespeist wird, muss `dig_clock_in`/`Clock_start` vom `dig_clock_out`/`Clock_end` desselben vorgelagerten LED-Streifens gespeist werden.
-- Ein Clock-Signal eines anderen Streifens oder ein beliebiges Clock-Netz reicht dabei nicht; Data und Clock muessen vom selben vorgelagerten Segment kommen.
-- Wenn `dig_in` nicht von einem anderen LED-Streifen kommt, bleibt die bestehende generische Clock-Regel massgeblich: ein genutzter Clock-LED-Streifen braucht ein passendes Clock-Signal, typischerweise vom Controller.
+Siehe CLOCKED_LED_CLOCK_CHECK_CONCEPT.MD
 
 #### `signalOutputWithoutConsumer`
 

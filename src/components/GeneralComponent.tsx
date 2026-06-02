@@ -477,6 +477,40 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                 maxWidth: 360,
             }}
         >
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginBottom: 8,
+                }}
+            >
+                <Popover
+                    content={
+                        <div
+                            style={{
+                                maxWidth: 320,
+                                lineHeight: 1.45,
+                            }}
+                        >
+                            {t('ledSimulationOptions.whyExplanation')}
+                        </div>
+                    }
+                    title={t('ledSimulationOptions.whyTitle')}
+                    trigger="click"
+                    placement="rightTop"
+                >
+                    <AntButton
+                        size="small"
+                        type="link"
+                        style={{
+                            paddingInline: 0,
+                            height: "auto",
+                        }}
+                    >
+                        {t('ledSimulationOptions.whyButton')}
+                    </AntButton>
+                </Popover>
+            </div>
             {(["supplyResistance", "gndResistance", "currentCurve"] as LedStripSimulationOptionKey[]).map((key) => {
                 const selection = compData.ledSimulationOptions?.[key];
                 if(!selection) return null;
