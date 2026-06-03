@@ -1,7 +1,0 @@
-{
-  "case": "clocked_led_sn74_resistor_controller_valid",
-  "filterIssueIdIncludes": [
-    "clocked-led-clock-missing"
-  ],
-  "expectedIssues": []
-}

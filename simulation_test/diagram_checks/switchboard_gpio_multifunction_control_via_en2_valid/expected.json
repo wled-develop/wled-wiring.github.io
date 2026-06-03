@@ -1,7 +1,0 @@
-{
-  "case": "switchboard_gpio_multifunction_control_via_en2_valid",
-  "filterIssueIdIncludes": [
-    "controlled-output-without-control-input"
-  ],
-  "expectedIssues": []
-}

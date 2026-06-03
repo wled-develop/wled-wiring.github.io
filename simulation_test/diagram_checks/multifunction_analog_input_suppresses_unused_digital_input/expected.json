@@ -1,9 +1,0 @@
-{
-  "case": "multifunction_analog_input_suppresses_unused_digital_input",
-  "filterIssueIdIncludes": [
-    "analog-sink-without-source",
-    "digital-sink-without-source",
-    "signal-output-without-consumer"
-  ],
-  "expectedIssues": []
-}

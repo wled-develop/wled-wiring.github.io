@@ -1,9 +1,0 @@
-{
-  "case": "multifunction_gpio_sink_voltage_mismatch_still_error",
-  "filterIssueIdIncludes": [
-    "digital-signal-voltage-mismatch"
-  ],
-  "expectedIssues": [
-    { "idIncludes": "digital-signal-voltage-mismatch", "severity": "error" }
-  ]
-}

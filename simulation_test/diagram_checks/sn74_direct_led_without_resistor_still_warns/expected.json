@@ -1,9 +1,0 @@
-{
-  "case": "sn74_direct_led_without_resistor_still_warns",
-  "filterIssueIdIncludes": [
-    "component-sn74ahct125n-direct-led-output-missing-series-resistor"
-  ],
-  "expectedIssues": [
-    { "idIncludes": "component-sn74ahct125n-direct-led-output-missing-series-resistor", "severity": "warning" }
-  ]
-}

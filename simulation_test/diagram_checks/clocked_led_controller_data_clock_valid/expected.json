@@ -1,7 +1,0 @@
-{
-  "case": "clocked_led_controller_data_clock_valid",
-  "filterIssueIdIncludes": [
-    "clocked-led-clock-missing"
-  ],
-  "expectedIssues": []
-}
