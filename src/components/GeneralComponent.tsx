@@ -285,6 +285,33 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         updateNodeInternals(id);
     };
 
+    const resizeComponentLength = (
+        newnodeLength: number,
+        newrepeatedHandleArray: HandleDataType[] | undefined,
+    ) => {
+        const deltaLength=newnodeLength-nodeLength;
+        const deltaPx=deltaLength*nodeBasicSizeX;
+        const positionDelta = rotation==180
+            ? {x: -deltaPx, y: 0}
+            : rotation==270
+                ? {x: 0, y: -deltaPx}
+                : {x: 0, y: 0};
+
+        reactFlowInstance.updateNode(id, (node) => ({
+            ...node,
+            position: {
+                x: node.position.x+positionDelta.x,
+                y: node.position.y+positionDelta.y,
+            },
+            data: {
+                ...node.data,
+                nodeLength: newnodeLength,
+                repeatedHandleArray: newrepeatedHandleArray,
+            },
+        }));
+        updateNodeInternals(id);
+    };
+
     const showPinTooltip = (event: MouseEvent<HTMLDivElement>, text: string) => {
         const rect = event.currentTarget.getBoundingClientRect();
         setPinTooltipLayout(null);
@@ -1049,8 +1076,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                                 newrepeatedHandleArray.push(newHandle);
                             }
                         });
-                        reactFlowInstance.updateNodeData(id, {nodeLength: newnodeLength, repeatedHandleArray: newrepeatedHandleArray});
-                        updateNodeInternals(id);
+                        resizeComponentLength(newnodeLength, newrepeatedHandleArray);
                     }}
                 ><ArrowsAltOutlined rotate={45+rotation}/></button>
             </Tooltip>
@@ -1087,8 +1113,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                                 newrepeatedHandleArray.splice(index,1);
                             }
                         }
-                        reactFlowInstance.updateNodeData(id, {nodeLength: newnodeLength, repeatedHandleArray: newrepeatedHandleArray});
-                        updateNodeInternals(id);
+                        resizeComponentLength(newnodeLength, newrepeatedHandleArray);
                     }}
                 ><ShrinkOutlined rotate={45+rotation}/></button>
             </Tooltip>
