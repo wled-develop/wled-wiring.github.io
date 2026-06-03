@@ -183,6 +183,10 @@ html, body {
   z-index: 200 !important;
 }
 
+.react-flow__node:has(> .node-type_resize-active) {
+  z-index: 300 !important;
+}
+
 .node-type_solderjoint {
   border-radius: 50%;
 }

@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent} from 'react';
 import {createPortal} from 'react-dom';
 
 import {    RotateLeftOutlined, RotateRightOutlined,
@@ -55,6 +55,31 @@ type PinTooltipLayout = {
     placement: 'top' | 'bottom';
 };
 
+type ResizeDragState = {
+    startFlowX: number;
+    startFlowY: number;
+    startNodeLength: number;
+    rotation: number;
+    nodeBasicSizeX: number;
+    lastAppliedLength: number;
+    pointerId: number;
+    lastClientX: number;
+    lastClientY: number;
+    autopanDelta: {x: number; y: number};
+    revealPanDelta: {x: number; y: number};
+    viewport: {x: number; y: number; zoom: number};
+    catchUpDirection: -1 | 1 | null;
+};
+
+const resizeHandleOffsetPx = 18;
+
+const resizeAxisUnitForRotation = (componentRotation: number) => {
+    if(componentRotation==90) return {x: 0, y: 1};
+    if(componentRotation==180) return {x: -1, y: 0};
+    if(componentRotation==270) return {x: 0, y: -1};
+    return {x: 1, y: 0};
+};
+
 const repeatedRelatedHandleIds = (
     relatedToHandle: string[] | undefined,
     repeatedTemplates: HandleDataType[],
@@ -73,6 +98,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
     const [openColorPicker, setOpenColorPicker] = useState(false);
     const [openComponentUpdatePopover, setOpenComponentUpdatePopover] = useState(false);
     const [openLedSimulationOptionsPopover, setOpenLedSimulationOptionsPopover] = useState(false);
+    const [resizeDragging, setResizeDragging] = useState(false);
     const [pinTooltip, setPinTooltip] = useState<PinTooltipState | null>(null);
     const [pinTooltipLayout, setPinTooltipLayout] = useState<PinTooltipLayout | null>(null);
     const [infoTextDraft, setInfoTextDraft] = useState(() => data.InfoText ?? data.infoText ?? "");
@@ -86,6 +112,8 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
 
     const reactFlowInstance = useReactFlow();
     const { takeSnapshot } = useUndoRedo();
+    const resizeDragRef = useRef<ResizeDragState | null>(null);
+    const resizeAutopanFrameRef = useRef<number | null>(null);
     //const { x, y, zoom } = useViewport();
     //const nodeRect = reactFlowInstance.getNodesBounds([id]);
 
@@ -285,17 +313,66 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
         updateNodeInternals(id);
     };
 
-    const resizeComponentLength = (
-        newnodeLength: number,
-        newrepeatedHandleArray: HandleDataType[] | undefined,
-    ) => {
-        const deltaLength=newnodeLength-nodeLength;
-        const deltaPx=deltaLength*nodeBasicSizeX;
-        const positionDelta = rotation==180
-            ? {x: -deltaPx, y: 0}
-            : rotation==270
-                ? {x: 0, y: -deltaPx}
-                : {x: 0, y: 0};
+    const getResizePositionDelta = useCallback((previousLength: number, nextLength: number, componentRotation: number) => {
+        const deltaPx=(nextLength-previousLength)*nodeBasicSizeX;
+        if(componentRotation==180) return {x: -deltaPx, y: 0};
+        if(componentRotation==270) return {x: 0, y: -deltaPx};
+        return {x: 0, y: 0};
+    }, [nodeBasicSizeX]);
+
+    const resizeComponentToLength = useCallback((requestedNodeLength: number, options?: {
+        deleteRemovedHandleEdges?: boolean;
+    }) => {
+        const nextNodeLength=Math.max(1, Math.round(requestedNodeLength));
+        const currentNode=reactFlowInstance.getNode(id);
+        if(!currentNode) return false;
+
+        const currentData=currentNode.data as ComponentDataType;
+        const previousNodeLength=currentData.nodeLength || 1;
+        if(nextNodeLength==previousNodeLength) return false;
+
+        let nextRepeatedHandleArray=structuredClone(currentData.repeatedHandleArray) || [];
+        const repeatedHandleTemplates=currentData.handles.filter((handleData)=>(handleData.repeated=="yes"));
+
+        if(nextNodeLength>previousNodeLength) {
+            for(let repeatIndex=previousNodeLength; repeatIndex<nextNodeLength; repeatIndex++) {
+                currentData.handles.forEach((handleData)=> {
+                    if(handleData.repeated!="yes") return;
+                    if(nextRepeatedHandleArray.some((repeatedHandle)=>(repeatedHandle.repeatIndex==repeatIndex && repeatedHandle.hid.startsWith(`${handleData.hid}_`)))) return;
+
+                    const newHandle = structuredClone(handleData);
+                    newHandle.repeated="no";
+                    newHandle.xalign="start";
+                    newHandle.repeatIndex = repeatIndex;
+                    newHandle.relatedToHandle=repeatedRelatedHandleIds(
+                        newHandle.relatedToHandle,
+                        repeatedHandleTemplates,
+                        repeatIndex,
+                    );
+                    newHandle.hid=`${newHandle.hid}_${repeatIndex}`;
+                    newHandle.x=newHandle.x+repeatIndex*nodeBasicSizeX;
+                    nextRepeatedHandleArray.push(newHandle);
+                });
+            }
+        } else {
+            const removedHandles=nextRepeatedHandleArray.filter((handleData)=>(handleData.repeatIndex as number)>=nextNodeLength);
+
+            if(options?.deleteRemovedHandleEdges !== false) {
+                const removedHandleIds=new Set(removedHandles.map((handleData)=>handleData.hid));
+                const edgesToDelete = reactFlowInstance.getEdges().filter((edge)=>(
+                    (edge.source==id && edge.sourceHandle!=undefined && removedHandleIds.has(edge.sourceHandle)) ||
+                    (edge.target==id && edge.targetHandle!=undefined && removedHandleIds.has(edge.targetHandle))
+                ));
+
+                edgesToDelete.forEach((edge)=>{
+                    reactFlowInstance.deleteElements({ edges: [{id: edge.id}] } );
+                });
+            }
+
+            nextRepeatedHandleArray=nextRepeatedHandleArray.filter((handleData)=>(handleData.repeatIndex as number)<nextNodeLength);
+        }
+
+        const positionDelta=getResizePositionDelta(previousNodeLength, nextNodeLength, currentData.rotatable?currentData.rotation:0);
 
         reactFlowInstance.updateNode(id, (node) => ({
             ...node,
@@ -305,12 +382,13 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
             },
             data: {
                 ...node.data,
-                nodeLength: newnodeLength,
-                repeatedHandleArray: newrepeatedHandleArray,
+                nodeLength: nextNodeLength,
+                repeatedHandleArray: nextRepeatedHandleArray.length>0 ? nextRepeatedHandleArray : undefined,
             },
         }));
         updateNodeInternals(id);
-    };
+        return true;
+    }, [getResizePositionDelta, id, nodeBasicSizeX, reactFlowInstance, updateNodeInternals]);
 
     const showPinTooltip = (event: MouseEvent<HTMLDivElement>, text: string) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -459,6 +537,209 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
 
     // Zoom
     const zoomValue = reactFlowInstance.getZoom();
+
+    const dragResizeActive = componentEditActive && resizableX;
+    const resizeHandleAnchor = useMemo(() => {
+        const stripLengthPx=nodeLength*nodeBasicSizeX;
+        if(rotation==90) return {left: nodeBasicSizeY/2, top: stripLengthPx+resizeHandleOffsetPx};
+        if(rotation==180) return {left: -resizeHandleOffsetPx, top: nodeBasicSizeY/2};
+        if(rotation==270) return {left: nodeBasicSizeY/2, top: -resizeHandleOffsetPx};
+        return {left: stripLengthPx+resizeHandleOffsetPx, top: nodeBasicSizeY/2};
+    }, [nodeBasicSizeX, nodeBasicSizeY, nodeLength, rotation]);
+    const resizeHandleCursor = (rotation==90 || rotation==270) ? "ns-resize" : "ew-resize";
+
+    const stopResizeAutopan = useCallback(() => {
+        if(resizeAutopanFrameRef.current!=null) {
+            window.cancelAnimationFrame(resizeAutopanFrameRef.current);
+            resizeAutopanFrameRef.current=null;
+        }
+        if(resizeDragRef.current) {
+            resizeDragRef.current.autopanDelta={x: 0, y: 0};
+            resizeDragRef.current.revealPanDelta={x: 0, y: 0};
+        }
+    }, []);
+
+    const screenToResizeFlowPosition = useCallback((
+        clientX: number,
+        clientY: number,
+        viewport: {x: number; y: number; zoom: number},
+    ) => {
+        const wrapper=document.querySelector(".react-flow") as HTMLElement | null;
+        const rect=wrapper?.getBoundingClientRect();
+        if(!rect || viewport.zoom<=0) return null;
+
+        return {
+            x: (clientX-rect.left-viewport.x)/viewport.zoom,
+            y: (clientY-rect.top-viewport.y)/viewport.zoom,
+        };
+    }, []);
+
+    const updateResizeLengthFromPointer = useCallback((clientX: number, clientY: number) => {
+        const dragState=resizeDragRef.current;
+        if(!dragState) return;
+
+        const currentFlow=screenToResizeFlowPosition(clientX, clientY, dragState.viewport);
+        if(!currentFlow) return;
+
+        const flowDeltaX=currentFlow.x-dragState.startFlowX;
+        const flowDeltaY=currentFlow.y-dragState.startFlowY;
+        const projectedDeltaPx = dragState.rotation==90
+            ? flowDeltaY
+            : dragState.rotation==180
+                ? -flowDeltaX
+                : dragState.rotation==270
+                    ? -flowDeltaY
+                    : flowDeltaX;
+
+        if(dragState.catchUpDirection!=null) {
+            const caughtUp = dragState.catchUpDirection>0
+                ? projectedDeltaPx>=0
+                : projectedDeltaPx<=0;
+            const reversedFarEnough = dragState.catchUpDirection>0
+                ? projectedDeltaPx<=-dragState.nodeBasicSizeX
+                : projectedDeltaPx>=dragState.nodeBasicSizeX;
+            if(!caughtUp && !reversedFarEnough) return;
+            dragState.catchUpDirection=null;
+        }
+
+        const resizeStepThresholdPx=Math.min(dragState.nodeBasicSizeX*0.5, 48);
+        const stepDelta = projectedDeltaPx>=resizeStepThresholdPx
+            ? 1
+            : projectedDeltaPx<=-resizeStepThresholdPx
+                ? -1
+                : 0;
+        if(stepDelta==0) return;
+
+        const nextNodeLength=Math.max(1, dragState.startNodeLength+stepDelta);
+
+        if(nextNodeLength==dragState.lastAppliedLength) return;
+        if(resizeComponentToLength(nextNodeLength)) {
+            const axisUnit=resizeAxisUnitForRotation(dragState.rotation);
+            dragState.lastAppliedLength=nextNodeLength;
+            dragState.startNodeLength=nextNodeLength;
+            dragState.startFlowX+=axisUnit.x*dragState.nodeBasicSizeX*stepDelta;
+            dragState.startFlowY+=axisUnit.y*dragState.nodeBasicSizeX*stepDelta;
+            dragState.catchUpDirection=stepDelta;
+
+            if(stepDelta>0 && (dragState.autopanDelta.x!=0 || dragState.autopanDelta.y!=0)) {
+                const revealPanPx=Math.min(dragState.nodeBasicSizeX*dragState.viewport.zoom, 96);
+                dragState.revealPanDelta={
+                    x: dragState.revealPanDelta.x-axisUnit.x*revealPanPx,
+                    y: dragState.revealPanDelta.y-axisUnit.y*revealPanPx,
+                };
+            }
+        }
+    }, [resizeComponentToLength, screenToResizeFlowPosition]);
+
+    const runResizeAutopan = useCallback(() => {
+        const dragState=resizeDragRef.current;
+        if(!dragState) {
+            resizeAutopanFrameRef.current=null;
+            return;
+        }
+
+        const panDelta={
+            x: dragState.autopanDelta.x+dragState.revealPanDelta.x,
+            y: dragState.autopanDelta.y+dragState.revealPanDelta.y,
+        };
+        dragState.revealPanDelta={x: 0, y: 0};
+
+        if(panDelta.x!=0 || panDelta.y!=0) {
+            const nextViewport={
+                x: dragState.viewport.x+panDelta.x,
+                y: dragState.viewport.y+panDelta.y,
+                zoom: dragState.viewport.zoom,
+            };
+            dragState.viewport=nextViewport;
+            reactFlowInstance.setViewport(nextViewport);
+            updateResizeLengthFromPointer(dragState.lastClientX, dragState.lastClientY);
+            resizeAutopanFrameRef.current=window.requestAnimationFrame(runResizeAutopan);
+            return;
+        }
+
+        resizeAutopanFrameRef.current=null;
+    }, [reactFlowInstance, updateResizeLengthFromPointer]);
+
+    const updateResizeAutopan = useCallback((clientX: number, clientY: number) => {
+        const dragState=resizeDragRef.current;
+        if(!dragState) return;
+
+        const wrapper=document.querySelector(".react-flow") as HTMLElement | null;
+        const rect=wrapper?.getBoundingClientRect();
+        if(!rect) {
+            stopResizeAutopan();
+            return;
+        }
+
+        const edgeSize=48;
+        const maxSpeed=16;
+        const distanceToLeft=clientX-rect.left;
+        const distanceToRight=rect.right-clientX;
+        const distanceToTop=clientY-rect.top;
+        const distanceToBottom=rect.bottom-clientY;
+        const panDelta={x: 0, y: 0};
+
+        if(distanceToLeft<edgeSize) panDelta.x=maxSpeed*(1-Math.max(0, distanceToLeft)/edgeSize);
+        if(distanceToRight<edgeSize) panDelta.x=-maxSpeed*(1-Math.max(0, distanceToRight)/edgeSize);
+        if(distanceToTop<edgeSize) panDelta.y=maxSpeed*(1-Math.max(0, distanceToTop)/edgeSize);
+        if(distanceToBottom<edgeSize) panDelta.y=-maxSpeed*(1-Math.max(0, distanceToBottom)/edgeSize);
+
+        dragState.autopanDelta=panDelta;
+
+        if((panDelta.x!=0 || panDelta.y!=0) && resizeAutopanFrameRef.current==null) {
+            resizeAutopanFrameRef.current=window.requestAnimationFrame(runResizeAutopan);
+        } else if(panDelta.x==0 && panDelta.y==0) {
+            stopResizeAutopan();
+        }
+    }, [runResizeAutopan, stopResizeAutopan]);
+
+    const finishResizeDrag = useCallback((event?: PointerEvent<HTMLDivElement>) => {
+        if(event && event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        resizeDragRef.current=null;
+        setResizeDragging(false);
+        stopResizeAutopan();
+    }, [stopResizeAutopan]);
+
+    const startResizeDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
+        event.stopPropagation();
+        event.preventDefault();
+        if(nodeBasicSizeX<=0) return;
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        takeSnapshot('resize component');
+        setResizeDragging(true);
+        const viewport=reactFlowInstance.getViewport();
+        const startFlow=screenToResizeFlowPosition(event.clientX, event.clientY, viewport);
+        if(!startFlow) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            setResizeDragging(false);
+            return;
+        }
+        resizeDragRef.current={
+            startFlowX: startFlow.x,
+            startFlowY: startFlow.y,
+            startNodeLength: nodeLength,
+            rotation,
+            nodeBasicSizeX,
+            lastAppliedLength: nodeLength,
+            pointerId: event.pointerId,
+            lastClientX: event.clientX,
+            lastClientY: event.clientY,
+            autopanDelta: {x: 0, y: 0},
+            revealPanDelta: {x: 0, y: 0},
+            viewport,
+            catchUpDirection: null,
+        };
+    }, [nodeBasicSizeX, nodeLength, reactFlowInstance, rotation, screenToResizeFlowPosition, takeSnapshot]);
+
+    useEffect(() => () => {
+        if(resizeAutopanFrameRef.current!=null) {
+            window.cancelAnimationFrame(resizeAutopanFrameRef.current);
+            resizeAutopanFrameRef.current=null;
+        }
+    }, []);
     const connectionOptions=combinedHandlesArrayVisible.map( (handle) => ({
         value: handle.hid,
         label: handle.name + (handle.repeated?(" ("+handle.repeatIndex+")"):"")
@@ -1053,30 +1334,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                 <button
                     onClick={()=>{
                         takeSnapshot('resize component');
-                        const newnodeLength=nodeLength+1;
-                        let newrepeatedHandleArray=structuredClone(compData.repeatedHandleArray);
-                        const repeatedHandleTemplates=compData.handles.filter((handleData)=>(handleData.repeated=="yes"));
-                        compData.handles.map((handleData)=> {
-                            if(handleData.repeated=="yes") {
-                                const newHandle = structuredClone(handleData);
-                                newHandle.repeated="no";
-                                newHandle.xalign="start";
-                                newHandle.repeatIndex = (newnodeLength || 2)-1;
-                                newHandle.relatedToHandle=repeatedRelatedHandleIds(
-                                    newHandle.relatedToHandle,
-                                    repeatedHandleTemplates,
-                                    newHandle.repeatIndex,
-                                );
-                                newHandle.hid=newHandle.hid+"_"+String(newHandle.repeatIndex);
-                                newHandle.x=newHandle.x+((newnodeLength || 2)-1)*nodeBasicSizeX;
-                                if (newrepeatedHandleArray == undefined) {
-                                    newrepeatedHandleArray = [];
-                                }
-                                //console.log(newHandle);
-                                newrepeatedHandleArray.push(newHandle);
-                            }
-                        });
-                        resizeComponentLength(newnodeLength, newrepeatedHandleArray);
+                        resizeComponentToLength(nodeLength+1);
                     }}
                 ><ArrowsAltOutlined rotate={45+rotation}/></button>
             </Tooltip>
@@ -1089,31 +1347,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
                 <button
                     onClick={()=>{
                         takeSnapshot('resize component');
-                        const newrepeatedHandleArray=structuredClone(compData.repeatedHandleArray);
-                        const newnodeLength=(nodeLength==1)?1:nodeLength-1;
-                        //console.log("repeatedHandleArray=", newrepeatedHandleArray);
-                        if (newrepeatedHandleArray != undefined) {
-                            while (newrepeatedHandleArray.findIndex(
-                                e => (e.repeatIndex as number >=newnodeLength)) >= 0 
-                            ) {
-                                const index = newrepeatedHandleArray.findIndex(e => (e.repeatIndex as number >=newnodeLength));
-                                const thisHandleID=newrepeatedHandleArray[index].hid;
-                                
-                                //find and delete edges connected to this handle
-                                const edges = reactFlowInstance.getEdges();
-                                const edgesToDelete= edges.filter((edge)=>(
-                                    (edge.source==id && edge.sourceHandle==thisHandleID) ||
-                                    (edge.target==id && edge.targetHandle==thisHandleID)
-                                ));
-
-                                edgesToDelete.map((edge)=>{
-                                    reactFlowInstance.deleteElements({ edges: [{id: edge.id}] } );
-                                });
-                                // remove handle
-                                newrepeatedHandleArray.splice(index,1);
-                            }
-                        }
-                        resizeComponentLength(newnodeLength, newrepeatedHandleArray);
+                        resizeComponentToLength(nodeLength-1);
                     }}
                 ><ShrinkOutlined rotate={45+rotation}/></button>
             </Tooltip>
@@ -1337,7 +1571,7 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
             />
         }
         <div
-        className={(compData.technicalID=="SolderJoint"?"node-type_solderjoint":"")+(compData.putToBackground?" node-type_background":"")}
+        className={(compData.technicalID=="SolderJoint"?"node-type_solderjoint":"")+(compData.putToBackground?" node-type_background":"")+(dragResizeActive?" node-type_resize-active":"")}
         style={{
             border: (selected && !compData.applyNodeResizer)?`${borderWidth}px solid #333333`:(compData.changableColor?`${borderWidth}px solid ${compData.color}`:`${borderWidth}px solid transparent`),
             boxSizing: compData.applyNodeResizer?"border-box":"content-box",
@@ -1371,6 +1605,67 @@ export function GeneralComponent({id, data, selected, dragging, width, height}:N
             ></img>
             ))
         }
+            { dragResizeActive &&
+                <Tooltip
+                    title={t('tooltip.resizeLength')}
+                    open={resizeDragging ? false : undefined}
+                    placement="bottom"
+                >
+                    <div
+                        className="nopan nodrag"
+                        role="slider"
+                        aria-valuemin={1}
+                        aria-valuenow={nodeLength}
+                        aria-label={t('tooltip.resizeLength')}
+                        onPointerDown={startResizeDrag}
+                        onPointerMove={(event) => {
+                            const dragState=resizeDragRef.current;
+                            if(!dragState || dragState.pointerId!=event.pointerId) return;
+                            event.stopPropagation();
+                            event.preventDefault();
+                            dragState.lastClientX=event.clientX;
+                            dragState.lastClientY=event.clientY;
+                            updateResizeLengthFromPointer(event.clientX, event.clientY);
+                            updateResizeAutopan(event.clientX, event.clientY);
+                        }}
+                        onPointerUp={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            finishResizeDrag(event);
+                        }}
+                        onPointerCancel={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            finishResizeDrag(event);
+                        }}
+                        style={{
+                            position: "absolute",
+                            left: resizeHandleAnchor.left,
+                            top: resizeHandleAnchor.top,
+                            width: 16,
+                            height: 16,
+                            borderRadius: 3,
+                            border: "2px solid #1677ff",
+                            background: "#ffffff",
+                            boxShadow: "0 0 0 2px rgba(22, 119, 255, 0.18), 0 2px 6px rgba(0, 0, 0, 0.22)",
+                            color: "#1677ff",
+                            cursor: resizeHandleCursor,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                            transformOrigin: "center",
+                            zIndex: 20,
+                            userSelect: "none",
+                        }}
+                    >
+                        &#9654;
+                    </div>
+                </Tooltip>
+            }
             
             {
                 compData.selectFields?.filter((sf)=>sf.customImage==true).map((sf)=>{

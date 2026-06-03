@@ -260,3 +260,119 @@ Beim Verkuerzen muessen repeated Handles mit `repeatIndex >= nextNodeLength` ent
 - Keine heuristische freie Skalierung.
 - Keine nicht-ganzzahligen Laengenfaktoren.
 - Keine Aenderung der fachlichen physikalischen Laengenwerte in `physLengths`; der Resizer aendert nur die grafische Anzahl der Streifenmodule.
+
+## Implementierungsstand
+
+- `GeneralComponent.tsx` nutzt eine gemeinsame `resizeComponentToLength(...)`-Funktion fuer Toolbar-Buttons und Drag-Resizer.
+- Der Drag-Resizer wird nur bei `componentEditActive && resizableX` gerendert und verwendet `nopan nodrag`.
+- Die Griffposition, Cursor-Richtung und Projektion sind fuer die Rotationen `0`, `90`, `180` und `270` umgesetzt.
+- Pointer-Bewegungen werden zoom-korrigiert auf `nodeBasicSizeX`-Schritte gerundet; `N >= 1` bleibt erzwungen.
+- Beim Verkuerzen werden Edges an entfernten repeated Handles geloescht, bevor die Handles entfernt werden.
+- Positionskorrekturen bei `180` und `270` Grad halten den logischen Anfang wie bei den Toolbar-Buttons fixiert.
+- Autopan laeuft per `requestAnimationFrame` in der ReactFlow-Randzone und wird bei Drag-Ende oder Unmount beendet.
+
+## Beobachtete Verbesserungsbedarfe und moegliche Fixes
+
+### 1. Griff liegt zu nah an Handles und Wires
+
+Aktuell liegt der Griff exakt auf dem logischen Endanker:
+
+- `0`: `left = stripLengthPx`
+- `90`: `top = stripLengthPx`
+- `180`: `left = 0`
+- `270`: `top = 0`
+
+Damit kann er mit End-Handles, Pin-Hitboxen oder direkt angeschlossenen Wires kollidieren. Der Griff sollte deshalb nicht am Endanker selbst, sondern mit einem kleinen Abstand in Richtung der positiven Laengenaenderung liegen. Ein fester Offset in Flow-Pixeln reicht wahrscheinlich aus, z.B. `resizeHandleOffsetPx = 14` bis `20`.
+
+Moegliche Anker mit Offset:
+
+| Rotation | Griffanker mit Abstand |
+| --- | --- |
+| `0` | `left = stripLengthPx + offset`, `top = nodeBasicSizeY / 2` |
+| `90` | `left = nodeBasicSizeY / 2`, `top = stripLengthPx + offset` |
+| `180` | `left = -offset`, `top = nodeBasicSizeY / 2` |
+| `270` | `left = nodeBasicSizeY / 2`, `top = -offset` |
+
+Z-Richtung: Der Griff hat aktuell nur ein `zIndex` innerhalb der Node. Da `.react-flow__node` global mit `z-index: -1 !important` gesetzt ist und Wires als Edges eigene `zIndex`-Werte bekommen, kann ein inneres Griff-`zIndex` nicht sicher ueber Edges liegen. Eine leichte Anpassung waere, selektierte Nodes bzw. Nodes mit aktivem Drag-Resizer per CSS hoeher zu stapeln, z.B. ueber eine eigene Klasse am Node-Inhalt und einen spezifischen Parent-Selector:
+
+```css
+.react-flow__node:has(> .node-type_resize-active) {
+  z-index: 300 !important;
+}
+```
+
+Das waere eine lokale Z-Richtung-Anpassung fuer aktive Bearbeitung, ohne das gesamte Z-Konzept fuer Nodes und Edges neu zu ordnen. Vor der Umsetzung muss geprueft werden, ob dadurch SolderJoint-Nodes (`z-index: 200`) oder Background-Nodes unerwuenscht ueberdeckt werden.
+
+### 2. Resize reagiert bei grossen `nodeBasicSizeX` zu traege
+
+Aktuell wird die Ziellaenge so berechnet:
+
+```ts
+const stepDelta = Math.round(projectedDeltaPx / nodeBasicSizeX);
+const nextNodeLength = Math.max(1, startNodeLength + stepDelta);
+```
+
+Das bedeutet: Bei grossen `nodeBasicSizeX` muss der Pointer etwa eine halbe Modulbreite bewegen, bevor der erste Schritt sichtbar wird. Praktischer waere eine niedrigere Schaltschwelle, z.B. `resizeStepThresholdPx = Math.min(nodeBasicSizeX * 0.5, 24)` oder ein relativer Faktor wie `0.25 * nodeBasicSizeX`.
+
+Wichtig ist dabei Hysterese, damit der Griff nach dem ersten Sprung nicht sofort zurueckspringt, waehrend die Maus noch ungefaehr an der alten Stelle steht. Moegliche Modelle:
+
+- Drag-Basis nach jedem angewendeten Schritt neu setzen: Nach erfolgreichem Resize werden `startClientX/startClientY` auf die aktuelle Pointerposition und `startNodeLength` auf die neue Laenge gesetzt. Dadurch ist jeder weitere Schritt relativ zur letzten Umschaltposition.
+- Akkumulator-Modell: `accumulatedProjectedDeltaPx` speichert Restbewegung. Bei Ueberschreiten der Schwelle wird genau ein Schritt angewendet und die verbrauchte Bewegung aus dem Akkumulator entfernt.
+- Hysterese-Schwellwerte: Fuer den ersten Schritt z.B. `0.25 * nodeBasicSizeX`, fuer Ruecksprung erst `0.5 * nodeBasicSizeX` in Gegenrichtung. Das verhindert Flattern, ist aber komplexer.
+
+Empfehlung: Die Drag-Basis nach jedem angewendeten Schritt neu setzen. Das ist am einfachsten, passt zum sichtbaren "Griff springt an neue Stelle"-Verhalten und vermeidet sofortiges Zurueckschalten.
+
+Umsetzungsstatus: angepasst. Nach einem angewendeten Schritt wird die Drag-Basis nicht auf die aktuelle Pointerposition gesetzt, sondern um genau einen logischen Laengenschritt entlang der rotierten Streifenachse verschoben. Zusaetzlich wird eine Catch-up-Hysterese gesetzt: Nach einem Verlaengern muss der Pointer erst die neue Griffposition erreichen, bevor ein weiterer Schritt erlaubt ist; nach einem Verkuerzen gilt dasselbe in Gegenrichtung. Bewegt der Nutzer den Pointer aber deutlich in die Gegenrichtung, aktuell mindestens um `nodeBasicSizeX`, wird die Catch-up-Sperre aufgehoben und der Gegenschritt zugelassen. Das verhindert schnelles unbeabsichtigtes Weiter-Verlaengern, Weiter-Verkuerzen oder Hin-und-her-Springen bei kleinen Folgebewegungen, blockiert aber keine bewusste Richtungsumkehr.
+
+### 3. Tooltip bleibt waehrend Resize an alter Position
+
+Der Griff ist aktuell in einen AntD `Tooltip` gewrappt. Beim Drag verschiebt sich der Griff durch Re-Render an eine neue Node-Position, aber das Tooltip-Overlay bleibt an der alten berechneten Screen-Position, solange AntD keine neue Platzierung erzwingt.
+
+Moegliche Fixes:
+
+- Tooltip waehrend aktivem Drag ausblenden, z.B. `open={resizeDragRef.current ? false : undefined}` oder ueber einen React-State `isResizeDragging`.
+- Tooltip bei `pointerdown` deaktivieren und erst nach `pointerup`/`pointercancel` wieder aktivieren.
+- Alternativ Tooltip komplett fuer den Griff weglassen und nur `aria-label`/`title` verwenden.
+
+Empfehlung: Tooltip waehrend des Drags ausblenden. Das verhindert ein schwebendes, falsches Overlay und ist fuer einen Drag-Griff ergonomisch ausreichend.
+
+### 4. Autopan und Drag-Distanz laufen auseinander
+
+Aktuell basiert die Laengenberechnung nur auf Screen-Pointerdelta seit Drag-Start:
+
+```ts
+const flowDeltaX = (clientX - startClientX) / zoom;
+const flowDeltaY = (clientY - startClientY) / zoom;
+```
+
+Beim Autopan wird aber zusaetzlich der Viewport verschoben. Der Pointer bleibt nahe am Bildschirmrand, waehrend der Canvas unter ihm wegbewegt wird. Dadurch entspricht das reine Screen-Delta nicht mehr der effektiven Bewegung relativ zur Flow-Koordinate. Ergebnis: Pointer, Griff und Laengenaenderung laufen sichtbar auseinander; je nach Richtung kann Verlaengern schwer oder unmoeglich werden.
+
+Moegliche Fixes:
+
+- Pointerposition in Flow-Koordinaten messen: Am Drag-Start `screenToFlowPosition({x: clientX, y: clientY})` speichern und bei jedem Move erneut die aktuelle Flow-Position berechnen. Da die Viewport-Transformation darin enthalten ist, fliesst Autopan automatisch in die Delta-Berechnung ein.
+- Alternativ die Autopan-Verschiebung in Flow-Pixeln akkumulieren und zum Pointerdelta addieren. Das ist fehleranfaelliger, weil Vorzeichen und Zoom konsistent gehalten werden muessen.
+- Wenn die Drag-Basis nach jedem Resize-Schritt neu gesetzt wird, sollte auch die Flow-Basis neu gesetzt werden. Das passt zu Fix 2.
+
+Empfehlung: Fuer Drag-Resize die Projektion nicht aus Screen-Deltas, sondern aus Flow-Deltas berechnen:
+
+```ts
+const startFlow = screenToFlowPosition({x: startClientX, y: startClientY});
+const currentFlow = screenToFlowPosition({x: clientX, y: clientY});
+const flowDeltaX = currentFlow.x - startFlow.x;
+const flowDeltaY = currentFlow.y - startFlow.y;
+```
+
+Danach bleibt die Rotationsprojektion unveraendert:
+
+| Rotation | Projektion |
+| --- | --- |
+| `0` | `flowDeltaX` |
+| `90` | `flowDeltaY` |
+| `180` | `-flowDeltaX` |
+| `270` | `-flowDeltaY` |
+
+Damit bleibt Snapping auch bei Zoom und Autopan konsistent, weil ReactFlow die aktuelle Viewport-Transformation liefert.
+
+Umsetzungsstatus: erledigt. Der Drag-State speichert jetzt den aktiven Viewport fuer den Resize-Vorgang. Autopan schreibt diesen Viewport synchron im Drag-State fort und verwendet ihn direkt fuer die Flow-Koordinatenberechnung. Dadurch haengt die Laengenberechnung nicht davon ab, ob `setViewport(...)` bereits im ReactFlow-Store sichtbar ist. Bei jedem angewendeten Resize-Schritt wird die Flow-Basis um einen logischen Laengenschritt entlang der rotierten Streifenachse verschoben, sodass Autopan, Griffposition und Drag-Distanz zusammenlaufen.
+
+Zusaetzlicher Umsetzungsstand: Beim Verlaengern waehrend aktivem Autopan wird ein einmaliger Reveal-Pan in Richtung des neuen Streifenendes addiert. Dadurch bleibt der neu entstandene Drag-Resizer besser sichtbar und erreichbar, statt knapp ausserhalb des sichtbaren Bereichs zu bleiben. Der Zusatzpan ist auf einen moderaten Screen-Pixel-Wert begrenzt und wird nicht beim normalen Ziehen ohne Rand-Autopan angewendet.

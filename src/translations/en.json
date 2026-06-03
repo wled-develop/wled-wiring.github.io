@@ -43,6 +43,7 @@
     "copy": "Copy",
     "enlarge": "Enlarge",
     "shorten": "Shorten",
+    "resizeLength": "Resize length",
     "switchFilled": "Filled / border only",
     "increaseTextSize": "Increase text size",
     "decreaseTextSize": "Decrease text size",

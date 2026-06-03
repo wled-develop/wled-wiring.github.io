@@ -43,6 +43,7 @@
     "copy": "复制",
     "enlarge": "延长",
     "shorten": "缩短",
+    "resizeLength": "调整长度",
     "switchFilled": "填充 / 仅边框",
     "increaseTextSize": "增大文本大小",
     "decreaseTextSize": "减小文本大小",
